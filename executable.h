@@ -60,7 +60,7 @@ public:
     struct ObjectSection
     {
         std::string name;
-        uint64_t start;
+        uint64_t offset;
         uint64_t size;
     };
 

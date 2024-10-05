@@ -345,13 +345,11 @@ void unassemblize::Executable::load_objects(nlohmann::json &js)
         auto &sections = js.back().at("sections");
 
         for (auto sec = sections.begin(); sec != sections.end(); ++sec) {
-            std::string name;
-            uint64_t start;
-            uint64_t size;
-            sec->at("name").get_to(name);
-            sec->at("start").get_to(start);
-            sec->at("size").get_to(size);
-            obj.sections.push_back({name, start, size});
+            obj.sections.emplace_back();
+            ObjectSection &section = obj.sections.back();
+            sec->at("name").get_to(section.name);
+            sec->at("offset").get_to(section.offset);
+            sec->at("size").get_to(section.size);
         }
     }
 }
@@ -372,7 +370,7 @@ void unassemblize::Executable::dump_objects(nlohmann::json &js)
                 continue;
             }
 
-            obj.sections.push_back({it->name(), 0, it->size()});
+            obj.sections.push_back({it->name(), it->offset(), it->size()});
         }
     }
 
@@ -381,7 +379,7 @@ void unassemblize::Executable::dump_objects(nlohmann::json &js)
         auto &sections = js.back().at("sections");
 
         for (auto it2 = it->sections.begin(); it2 != it->sections.end(); ++it2) {
-            sections.push_back({{"name", it2->name}, {"start", it2->start}, {"size", it2->size}});
+            sections.push_back({{"name", it2->name}, {"offset", it2->offset}, {"size", it2->size}});
         }
     }
 }
