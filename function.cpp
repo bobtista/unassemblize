@@ -240,10 +240,10 @@ static ZyanStatus UnasmFormatterPrintDISP(
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
 
-            if (symbol.value == address) {
+            if (symbol.address == address) {
                 return ZyanStringAppendFormat(string, "+%s", symbol.name.c_str());
             } else {
-                uint64_t diff = address - symbol.value; // value should always be lower than requested address.
+                uint64_t diff = address - symbol.address; // value should always be lower than requested address.
                 return ZyanStringAppendFormat(string, "+%s+0x%" PRIx64, symbol.name.c_str(), diff);
             }
         }
@@ -262,10 +262,10 @@ static ZyanStatus UnasmFormatterPrintDISP(
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
 
-            if (symbol.value == address) {
+            if (symbol.address == address) {
                 return ZyanStringAppendFormat(string, "+%s", symbol.name.c_str());
             } else {
-                uint64_t diff = address - symbol.value; // value should always be lower than requested address.
+                uint64_t diff = address - symbol.address; // value should always be lower than requested address.
                 return ZyanStringAppendFormat(string, "+%s+0x%" PRIx64, symbol.name.c_str(), diff);
             }
         }

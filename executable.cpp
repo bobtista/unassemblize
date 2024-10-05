@@ -140,7 +140,7 @@ const unassemblize::Executable::Symbol &unassemblize::Executable::get_nearest_sy
     auto it = m_symbolMap.lower_bound(addr);
 
     if (it != m_symbolMap.end()) {
-        if (it->second.value == addr) {
+        if (it->second.address == addr) {
             return it->second;
         } else {
             return std::prev(it)->second;
@@ -278,7 +278,7 @@ void unassemblize::Executable::dump_symbols(nlohmann::json &js)
     }
 
     for (auto it = m_symbolMap.begin(); it != m_symbolMap.end(); ++it) {
-        js.push_back({{"name", it->second.name}, {"address", it->second.value}, {"size", it->second.size}});
+        js.push_back({{"name", it->second.name}, {"address", it->second.address}, {"size", it->second.size}});
     }
 }
 

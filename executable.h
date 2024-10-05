@@ -51,9 +51,9 @@ public:
 
     struct Symbol
     {
-        Symbol(std::string &_name, uint64_t _value, uint64_t _size) : name(_name), value(_value), size(_size) {}
+        Symbol(std::string &_name, uint64_t _address, uint64_t _size) : name(_name), address(_address), size(_size) {}
         std::string &name;
-        uint64_t value;
+        uint64_t address;
         uint64_t size;
     };
 
