@@ -46,7 +46,7 @@ unassemblize::Executable::Executable(const char *file_name, OutputFormats format
             section.data = it->content().data();
 
             // Check on first section incase binary is huge and later sections start higher than imagebase.
-            if (!checked_image_base && it->virtual_address() <= m_binary->imagebase()) {
+            if (!checked_image_base && it->virtual_address() < m_binary->imagebase()) {
                 m_addBase = true;
             }
 
@@ -65,7 +65,7 @@ unassemblize::Executable::Executable(const char *file_name, OutputFormats format
 
             // Naive split on whether section contains data or code... have entrypoint? Code, else data.
             // Needs to be refined by providing a config file with section types specified.
-            if (section.address <= m_binary->entrypoint() && section.address + section.size >= m_binary->entrypoint()) {
+            if (section.address < m_binary->entrypoint() && section.address + section.size >= m_binary->entrypoint()) {
                 section.type = SECTION_CODE;
             } else {
                 section.type = SECTION_DATA;

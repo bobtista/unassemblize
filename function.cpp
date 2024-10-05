@@ -70,7 +70,7 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         auto it = func->labels().find(address);
         return ZyanStringAppendFormat(string, "%s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address <= func->section_end()) {
+    } else if (address >= func->section_address() && address < func->section_end()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -86,7 +86,7 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address <= func->executable().end_address()) {
+    } else if (address >= func->executable().base_address() && address < func->executable().end_address()) {
         // Data is in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -124,7 +124,7 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         auto it = func->labels().find(address);
         return ZyanStringAppendFormat(string, "%s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address <= func->section_end()) {
+    } else if (address >= func->section_address() && address < func->section_end()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -140,7 +140,7 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address <= func->executable().end_address()) {
+    } else if (address >= func->executable().base_address() && address < func->executable().end_address()) {
         // Data if in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -177,7 +177,7 @@ static ZyanStatus UnasmFormatterPrintIMM(
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         auto it = func->labels().find(address);
         return ZyanStringAppendFormat(string, "offset %s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address <= func->section_end()) {
+    } else if (address >= func->section_address() && address < func->section_end()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -193,7 +193,7 @@ static ZyanStatus UnasmFormatterPrintIMM(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "offset sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address <= (func->executable().end_address())) {
+    } else if (address >= func->executable().base_address() && address < (func->executable().end_address())) {
         // Data if in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -230,7 +230,7 @@ static ZyanStatus UnasmFormatterPrintDISP(
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         auto it = func->labels().find(address);
         return ZyanStringAppendFormat(string, "+%s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address <= func->section_end()) {
+    } else if (address >= func->section_address() && address < func->section_end()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -252,7 +252,7 @@ static ZyanStatus UnasmFormatterPrintDISP(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "+sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address <= (func->executable().end_address())) {
+    } else if (address >= func->executable().base_address() && address < (func->executable().end_address())) {
         // Data if in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -295,7 +295,7 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         auto it = func->labels().find(address);
         return ZyanStringAppendFormat(string, "%s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address <= func->section_end()) {
+    } else if (address >= func->section_address() && address < func->section_end()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -311,7 +311,7 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address <= func->executable().end_address()) {
+    } else if (address >= func->executable().base_address() && address < func->executable().end_address()) {
         // Data if in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -353,7 +353,7 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         auto it = func->labels().find(address);
         return ZyanStringAppendFormat(string, "[%s]", symbol.name.c_str());
-    } else if (address >= func->section_address() && address <= func->section_end()) {
+    } else if (address >= func->section_address() && address < func->section_end()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -369,7 +369,7 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "[sub_%" PRIx64 "]", address);
-    } else if (address >= func->executable().base_address() && address <= func->executable().end_address()) {
+    } else if (address >= func->executable().base_address() && address < func->executable().end_address()) {
         // Data if in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
@@ -516,7 +516,7 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
         if (instruction.info.raw.imm->is_relative) {
             ZydisCalcAbsoluteAddress(&instruction.info, instruction.operands, runtime_address, &address);
 
-            if (address >= m_startAddress && address <= m_endAddress && m_labels.find(address) == m_labels.end()) {
+            if (address >= m_startAddress && address < m_endAddress && m_labels.find(address) == m_labels.end()) {
                 std::stringstream stream;
                 stream << std::hex << address;
                 m_labels[address] = std::string("loc_") + stream.str();
@@ -533,10 +533,10 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
             bool in_jump_table = false;
 
             // Naive jump table detection attempt uint32_t representation happens to be in function address space.
-            while (next_int >= m_startAddress && next_int <= m_endAddress) {
+            while (next_int >= m_startAddress && next_int < m_endAddress) {
                 // If this is first entry of jump table, create label to jump to.
                 if (!in_jump_table) {
-                    if (runtime_address >= m_startAddress && runtime_address <= m_endAddress
+                    if (runtime_address >= m_startAddress && runtime_address < m_endAddress
                         && m_labels.find(runtime_address) == m_labels.end()) {
                         std::stringstream stream;
                         stream << std::hex << runtime_address;
@@ -604,7 +604,7 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
             bool in_jump_table = false;
 
             // Naive jump table detection attempt uint32_t representation happens to be in function address space.
-            while (next_int >= m_startAddress && next_int <= m_endAddress) {
+            while (next_int >= m_startAddress && next_int < m_endAddress) {
                 // If this is first entry of jump table, create label to jump to.
 
                 if (!in_jump_table) {
