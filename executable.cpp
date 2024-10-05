@@ -97,6 +97,17 @@ unassemblize::Executable::Executable(const char *file_name, OutputFormats format
     }
 }
 
+const unassemblize::Executable::SectionInfo *unassemblize::Executable::find_section(uint64_t addr) const
+{
+    for (const SectionMap::value_type &pair : m_sections) {
+        const SectionInfo &info = pair.second;
+        if (addr >= info.address && addr < info.address + info.size) {
+            return &info;
+        }
+    }
+    return nullptr;
+}
+
 const uint8_t *unassemblize::Executable::section_data(const char *name) const
 {
     auto it = m_sections.find(name);

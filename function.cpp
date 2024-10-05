@@ -1,4 +1,5 @@
 #include "function.h"
+#include <LIEF/LIEF.hpp>
 #include <Zycore/Format.h>
 #include <Zydis/Zydis.h>
 #include <inttypes.h>
@@ -491,26 +492,33 @@ static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 
 
 void unassemblize::Function::disassemble(AsmFormat fmt)
 {
-    if (m_executable.section_size(m_section.c_str()) == 0) {
+    const LIEF::Binary *binary = m_executable.get_binary();
+    assert(binary != nullptr);
+    const uint64_t image_base = binary->imagebase();
+    const unassemblize::Executable::SectionInfo *section_info = m_executable.find_section(image_base + m_startAddress);
+
+    if (section_info == nullptr) {
+        return;
+    }
+    if (section_info->size == 0) {
         return;
     }
 
-    static bool in_jump_table;
-
-    ZyanUSize offset = m_startAddress - m_executable.section_address(m_section.c_str());
     uint64_t runtime_address = m_startAddress;
-    ZyanUSize end_offset = m_endAddress - m_executable.section_address(m_section.c_str());
+    const uint64_t address_offset = section_info->address - image_base;
+    ZyanUSize offset = m_startAddress - address_offset;
+    const ZyanUSize end_offset = m_endAddress - address_offset;
+    const uint8_t *section_data = section_info->data;
+
     ZydisDisassembledInstruction instruction;
 
+    static bool in_jump_table;
     in_jump_table = false;
 
     // Loop through function once to identify all jumps to local labels and create them.
-    while (ZYAN_SUCCESS(UnasmDisassembleNoFormat(ZYDIS_MACHINE_MODE_LEGACY_32,
-               runtime_address,
-               m_executable.section_data(m_section.c_str()) + offset,
-               96,
-               &instruction))
-        && offset <= end_offset) {
+    while (ZYAN_SUCCESS(UnasmDisassembleNoFormat(
+               ZYDIS_MACHINE_MODE_LEGACY_32, runtime_address, section_data + offset, 96, &instruction))
+        && offset < end_offset) {
         uint64_t address;
 
         if (instruction.info.raw.imm->is_relative) {
@@ -529,7 +537,7 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
 
         // If instruction is a nop or jmp, could be at an inline jump table.
         if (instruction.info.mnemonic == ZYDIS_MNEMONIC_NOP || instruction.info.mnemonic == ZYDIS_MNEMONIC_JMP) {
-            uint64_t next_int = get_le32(m_executable.section_data(m_section.c_str()) + offset);
+            uint64_t next_int = get_le32(section_data + offset);
             bool in_jump_table = false;
 
             // Naive jump table detection attempt uint32_t representation happens to be in function address space.
@@ -556,12 +564,12 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
 
                 offset += sizeof(uint32_t);
                 runtime_address += sizeof(uint32_t);
-                next_int = get_le32(m_executable.section_data(m_section.c_str()) + offset);
+                next_int = get_le32(section_data + offset);
             }
         }
     }
 
-    offset = m_startAddress - m_executable.section_address(m_section.c_str());
+    offset = m_startAddress - address_offset;
     runtime_address = m_startAddress;
     in_jump_table = false;
     ZydisFormatterStyle style;
@@ -579,14 +587,9 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
             break;
     }
 
-    while (ZYAN_SUCCESS(UnasmDisassembleCustom(ZYDIS_MACHINE_MODE_LEGACY_32,
-               runtime_address,
-               m_executable.section_data(m_section.c_str()) + offset,
-               96,
-               &instruction,
-               this,
-               style))
-        && offset <= end_offset) {
+    while (ZYAN_SUCCESS(UnasmDisassembleCustom(
+               ZYDIS_MACHINE_MODE_LEGACY_32, runtime_address, section_data + offset, 96, &instruction, this, style))
+        && offset < end_offset) {
         if (m_labels.find(runtime_address) != m_labels.end()) {
             m_dissassembly += m_labels[runtime_address];
             m_dissassembly += ":\n";
@@ -600,7 +603,7 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
 
         // If instruction is a nop or jmp, could be at an inline jump table.
         if (instruction.info.mnemonic == ZYDIS_MNEMONIC_NOP || instruction.info.mnemonic == ZYDIS_MNEMONIC_JMP) {
-            uint64_t next_int = get_le32(m_executable.section_data(m_section.c_str()) + offset);
+            uint64_t next_int = get_le32(section_data + offset);
             bool in_jump_table = false;
 
             // Naive jump table detection attempt uint32_t representation happens to be in function address space.
@@ -632,7 +635,7 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
 
                 offset += sizeof(uint32_t);
                 runtime_address += sizeof(uint32_t);
-                next_int = get_le32(m_executable.section_data(m_section.c_str()) + offset);
+                next_int = get_le32(section_data + offset);
             }
         }
     }

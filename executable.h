@@ -70,9 +70,12 @@ public:
         std::list<ObjectSection> sections;
     };
 
+    using SectionMap = std::map<std::string, SectionInfo>;
 public:
     Executable(const char *file_name, OutputFormats format = OUTPUT_IGAS, bool verbose = false);
     const std::map<std::string, SectionInfo> &sections() const { return m_sections; }
+    const LIEF::Binary *get_binary() const { return m_binary.get(); }
+    const SectionInfo *find_section(uint64_t addr) const;
     const uint8_t *section_data(const char *name) const;
     uint64_t section_address(const char *name) const;
     uint64_t section_size(const char *name) const;

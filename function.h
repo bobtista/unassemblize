@@ -54,7 +54,7 @@ private:
     std::map<uint64_t, std::string> m_labels; // Map of labels this function uses internally.
     std::vector<std::string> m_deps; // Symbols this function depends on.
     std::string m_dissassembly; // Dissassembly buffer for this function.
-    const std::string m_section;
+    const std::string m_section; // #TODO: Unused, remove?
     const uint64_t m_startAddress; // Runtime start address of the function.
     const uint64_t m_endAddress; // Runtime end address of the function.
     Executable &m_executable;
