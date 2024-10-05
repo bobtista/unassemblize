@@ -73,7 +73,7 @@ public:
     using SectionMap = std::map<std::string, SectionInfo>;
 public:
     Executable(const char *file_name, OutputFormats format = OUTPUT_IGAS, bool verbose = false);
-    const std::map<std::string, SectionInfo> &sections() const { return m_sections; }
+    const SectionMap &get_section_map() const { return m_sectionMap; }
     const LIEF::Binary *get_binary() const { return m_binary.get(); }
     const SectionInfo *find_section(uint64_t addr) const;
     const uint8_t *section_data(const char *name) const;
@@ -113,7 +113,7 @@ private:
 
 private:
     std::unique_ptr<LIEF::Binary> m_binary;
-    std::map<std::string, SectionInfo> m_sections;
+    SectionMap m_sectionMap;
     std::map<uint64_t, Symbol> m_symbolMap;
     std::list<std::string> m_loadedSymbols;
     std::list<Object> m_targetObjects;

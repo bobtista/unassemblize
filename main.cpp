@@ -54,7 +54,8 @@ void print_help()
 
 void print_sections(unassemblize::Executable &exe)
 {
-    for (auto it = exe.sections().begin(); it != exe.sections().end(); ++it) {
+    const unassemblize::Executable::SectionMap &map = exe.get_section_map();
+    for (auto it = map.begin(); it != map.end(); ++it) {
         printf(
             "Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n", it->first.c_str(), it->second.address, it->second.size);
     }

@@ -42,7 +42,7 @@ unassemblize::Executable::Executable(const char *file_name, OutputFormats format
 
     for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
         if (!it->name().empty() && it->size() != 0) {
-            SectionInfo &section = m_sections[it->name()];
+            SectionInfo &section = m_sectionMap[it->name()];
             section.data = it->content().data();
 
             // Check on first section incase binary is huge and later sections start higher than imagebase.
@@ -99,7 +99,7 @@ unassemblize::Executable::Executable(const char *file_name, OutputFormats format
 
 const unassemblize::Executable::SectionInfo *unassemblize::Executable::find_section(uint64_t addr) const
 {
-    for (const SectionMap::value_type &pair : m_sections) {
+    for (const SectionMap::value_type &pair : m_sectionMap) {
         const SectionInfo &info = pair.second;
         if (addr >= info.address && addr < info.address + info.size) {
             return &info;
@@ -110,20 +110,20 @@ const unassemblize::Executable::SectionInfo *unassemblize::Executable::find_sect
 
 const uint8_t *unassemblize::Executable::section_data(const char *name) const
 {
-    auto it = m_sections.find(name);
-    return it != m_sections.end() ? it->second.data : nullptr;
+    auto it = m_sectionMap.find(name);
+    return it != m_sectionMap.end() ? it->second.data : nullptr;
 }
 
 uint64_t unassemblize::Executable::section_address(const char *name) const
 {
-    auto it = m_sections.find(name);
-    return it != m_sections.end() ? it->second.address : UINT64_MAX;
+    auto it = m_sectionMap.find(name);
+    return it != m_sectionMap.end() ? it->second.address : UINT64_MAX;
 }
 
 uint64_t unassemblize::Executable::section_size(const char *name) const
 {
-    auto it = m_sections.find(name);
-    return it != m_sections.end() ? it->second.size : 0;
+    auto it = m_sectionMap.find(name);
+    return it != m_sectionMap.end() ? it->second.size : 0;
 }
 
 uint64_t unassemblize::Executable::base_address() const
@@ -305,9 +305,9 @@ void unassemblize::Executable::load_sections(nlohmann::json &js)
 
         // Don't try and load an empty symbol.
         if (!name.empty()) {
-            auto section = m_sections.find(name);
+            auto section = m_sectionMap.find(name);
 
-            if (section == m_sections.end() && m_verbose) {
+            if (section == m_sectionMap.end() && m_verbose) {
                 printf("Tried to load section info for section not present in this binary!\n");
                 printf("Section '%s' info was ignored.\n", name.c_str());
             }
@@ -332,7 +332,7 @@ void unassemblize::Executable::dump_sections(nlohmann::json &js)
         printf("Saving section info...\n");
     }
 
-    for (auto it = m_sections.begin(); it != m_sections.end(); ++it) {
+    for (auto it = m_sectionMap.begin(); it != m_sectionMap.end(); ++it) {
         js.push_back({{"name", it->first}, {"type", it->second.type == SECTION_CODE ? "code" : "data"}});
     }
 }
