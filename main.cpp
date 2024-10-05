@@ -62,14 +62,17 @@ void print_sections(unassemblize::Executable &exe)
 }
 
 void dump_function_to_file(
-    const char *file_name, unassemblize::Executable &exe, const char *section_name, uint64_t start, uint64_t end)
+    const std::string &file_name, unassemblize::Executable &exe, const char *section_name, uint64_t start, uint64_t end)
 {
-    assert(file_name != nullptr);
-    FILE *fp = fopen(file_name, "w+");
-    if (fp != nullptr) {
-        fprintf(fp, ".intel_syntax noprefix\n\n");
-        exe.dissassemble_function(fp, section_name, start, end);
-        fclose(fp);
+    if (!file_name.empty()) {
+        FILE *fp = fopen(file_name.c_str(), "w+");
+        if (fp != nullptr) {
+            fprintf(fp, ".intel_syntax noprefix\n\n");
+            exe.dissassemble_function(fp, section_name, start, end);
+            fclose(fp);
+        }
+    } else {
+        exe.dissassemble_function(nullptr, section_name, start, end);
     }
 }
 
@@ -86,8 +89,9 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    const char *section_name = ".text";
-    const char *output = "program.S";
+    const char *const auto_output = "auto"; // When output is set to "auto", then output name is chosen for input file name.
+    const char *output = auto_output; // "program.S"
+    const char *section_name = ".text"; // unused
     const char *config_file = "config.json";
     const char *format_string = nullptr;
     uint64_t start_addr = 0;
@@ -207,12 +211,24 @@ int main(int argc, char **argv)
 #if defined(WIN32)
             remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");
 #endif
-            std::string function_file_name = std::string(exe_file_name) + "." + sanitized_symbol_name + ".S";
-            dump_function_to_file(
-                function_file_name.c_str(), exe, section_name, symbol.address, symbol.address + symbol.size);
+            std::string file_name;
+            if (0 == strcmp(output, "")) {
+                // empty
+            } else if (0 == strcmp(output, auto_output)) {
+                file_name = std::string(exe_file_name) + "." + sanitized_symbol_name + ".S";
+            } else {
+                file_name = std::string(output) + "." + sanitized_symbol_name + ".S";
+            }
+            dump_function_to_file(file_name, exe, section_name, symbol.address, symbol.address + symbol.size);
         }
     } else {
-        dump_function_to_file(output, exe, section_name, start_addr, end_addr);
+        std::string file_name;
+        if (0 == strcmp(output, auto_output)) {
+            file_name = std::string(exe_file_name) + ".S";
+        } else {
+            file_name = output;
+        }
+        dump_function_to_file(file_name, exe, section_name, start_addr, end_addr);
     }
 
     return 0;

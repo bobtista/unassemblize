@@ -90,13 +90,13 @@ public:
     void load_config(const char *file_name);
     void save_config(const char *file_name);
     /**
-     * Dissassembles a range of bytes and outputs the format as though it were a single function.
+     * Disassembles a range of bytes and outputs the format as though it were a single function.
      * Addresses should be the absolute addresses when the binary is loaded at its preferred base address.
      */
-    void dissassemble_function(FILE *output, const char *section_name, uint64_t start, uint64_t end);
+    void dissassemble_function(FILE *fp, const char *section_name, uint64_t start, uint64_t end);
 
 private:
-    void dissassemble_gas_func(FILE *output, const char *section_name, uint64_t start, uint64_t end);
+    void dissassemble_gas_func(FILE *fp, const char *section_name, uint64_t start, uint64_t end);
 
     void load_symbols(nlohmann::json &js);
     /**
