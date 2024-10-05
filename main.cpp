@@ -165,6 +165,11 @@ int main(int argc, char **argv)
 
     const char *exe_file_name = argv[optind];
 
+    if (exe_file_name == nullptr || exe_file_name[0] == '\0') {
+        printf("Missing input file command line argument. Exiting...\n");
+        return 1;
+    }
+
     if (verbose) {
         printf("Parsing executable file '%s'...\n", exe_file_name);
     }
