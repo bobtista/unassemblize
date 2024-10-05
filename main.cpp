@@ -61,6 +61,24 @@ void print_sections(unassemblize::Executable &exe)
     }
 }
 
+void dump_function_to_file(
+    const char *file_name, unassemblize::Executable &exe, const char *section_name, uint64_t start, uint64_t end)
+{
+    assert(file_name != nullptr);
+    FILE *fp = fopen(file_name, "w+");
+    if (fp != nullptr) {
+        fprintf(fp, ".intel_syntax noprefix\n\n");
+        exe.dissassemble_function(fp, section_name, start, end);
+        fclose(fp);
+    }
+}
+
+void remove_characters(std::string &s, const std::string &chars)
+{
+    s.erase(
+        std::remove_if(s.begin(), s.end(), [&chars](const char &c) { return chars.find(c) != std::string::npos; }), s.end());
+}
+
 int main(int argc, char **argv)
 {
     if (argc <= 1) {
@@ -145,8 +163,10 @@ int main(int argc, char **argv)
         }
     }
 
+    const char *exe_file_name = argv[optind];
+
     if (verbose) {
-        printf("Parsing executable file '%s'...\n", argv[optind]);
+        printf("Parsing executable file '%s'...\n", exe_file_name);
     }
 
     // TODO implement default value where exe object decides internally what to do.
@@ -160,7 +180,7 @@ int main(int argc, char **argv)
         }
     }
 
-    unassemblize::Executable exe(argv[optind], format, verbose);
+    unassemblize::Executable exe(exe_file_name, format, verbose);
 
     if (print_secs) {
         print_sections(exe);
@@ -174,13 +194,21 @@ int main(int argc, char **argv)
 
     exe.load_config(config_file);
 
-    FILE *fp = nullptr;
-    if (output != nullptr) {
-        fp = fopen(output, "w+");
+    if (start_addr == 0 && end_addr == 0) {
+        for (const unassemblize::Executable::SymbolMap::value_type &pair : exe.get_symbol_map()) {
+            const uint64_t address = pair.first;
+            const unassemblize::Executable::Symbol &symbol = pair.second;
+            std::string sanitized_symbol_name = symbol.name;
+#if defined(WIN32)
+            remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");
+#endif
+            std::string function_file_name = std::string(exe_file_name) + "." + sanitized_symbol_name + ".S";
+            dump_function_to_file(
+                function_file_name.c_str(), exe, section_name, symbol.address, symbol.address + symbol.size);
+        }
+    } else {
+        dump_function_to_file(output, exe, section_name, start_addr, end_addr);
     }
-
-    fprintf(fp, ".intel_syntax noprefix\n\n");
-    exe.dissassemble_function(fp, section_name, start_addr, end_addr);
 
     return 0;
 }

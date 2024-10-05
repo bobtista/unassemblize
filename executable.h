@@ -71,6 +71,8 @@ public:
     };
 
     using SectionMap = std::map<std::string, SectionInfo>;
+    using SymbolMap = std::map<uint64_t, Symbol>;
+
 public:
     Executable(const char *file_name, OutputFormats format = OUTPUT_IGAS, bool verbose = false);
     const SectionMap &get_section_map() const { return m_sectionMap; }
@@ -83,6 +85,7 @@ public:
     uint64_t end_address() const { return m_endAddress; };
     const Symbol &get_symbol(uint64_t addr) const;
     const Symbol &get_nearest_symbol(uint64_t addr) const;
+    const SymbolMap &get_symbol_map() const { return m_symbolMap; }
     void add_symbol(const char *sym, uint64_t addr);
     void load_config(const char *file_name);
     void save_config(const char *file_name);
@@ -114,7 +117,7 @@ private:
 private:
     std::unique_ptr<LIEF::Binary> m_binary;
     SectionMap m_sectionMap;
-    std::map<uint64_t, Symbol> m_symbolMap;
+    SymbolMap m_symbolMap;
     std::list<std::string> m_loadedSymbols;
     std::list<Object> m_targetObjects;
     OutputFormats m_outputFormat;
