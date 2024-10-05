@@ -2,6 +2,7 @@
 #include <Zycore/Format.h>
 #include <Zydis/Zydis.h>
 #include <inttypes.h>
+#include <iomanip>
 #include <sstream>
 #include <string.h>
 
@@ -12,7 +13,7 @@ uint32_t get_le32(const uint8_t *data)
     return (data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0];
 }
 
-// Copy of the disassmble function without any formatting.
+// Copy of the disassemble function without any formatting.
 static ZyanStatus UnasmDisassembleNoFormat(ZydisMachineMode machine_mode, ZyanU64 runtime_address, const void *buffer,
     ZyanUSize length, ZydisDisassembledInstruction *instruction)
 {
@@ -487,6 +488,22 @@ static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 
 
     return ZYAN_STATUS_SUCCESS;
 }
+
+std::string BuildInvalidInstructionString(
+    const ZydisDisassembledInstruction &ins, const uint8_t *ins_data, uint64_t runtime_address, uint64_t image_base)
+{
+    std::stringstream stream;
+    stream.fill('0');
+    stream << "; Unrecognized opcode at runtime-address:0x" << std::setw(8) << std::hex << runtime_address
+           << " image-address:0x" << std::setw(8) << std::hex << (runtime_address + image_base) << " bytes:";
+    for (ZyanU8 i = 0; i < ins.info.length; ++i) {
+        if (i > 0) {
+            stream << " ";
+        }
+        stream << std::setw(2) << std::hex << static_cast<uint32_t>(ins_data[i]);
+    }
+    return stream.str();
+}
 } // namespace
 
 void unassemblize::Function::disassemble(AsmFormat fmt)
@@ -515,9 +532,18 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
     in_jump_table = false;
 
     // Loop through function once to identify all jumps to local labels and create them.
-    while (ZYAN_SUCCESS(UnasmDisassembleNoFormat(
-               ZYDIS_MACHINE_MODE_LEGACY_32, runtime_address, section_data + offset, 96, &instruction))
-        && offset < end_offset) {
+    while (offset < end_offset) {
+        const ZyanStatus status =
+            UnasmDisassembleNoFormat(ZYDIS_MACHINE_MODE_LEGACY_32, runtime_address, section_data + offset, 96, &instruction);
+
+        if (!ZYAN_SUCCESS(status)) {
+            std::string str = BuildInvalidInstructionString(instruction, section_data + offset, runtime_address, image_base);
+            m_dissassembly += str + "\n";
+            offset += instruction.info.length;
+            runtime_address += instruction.info.length;
+            continue;
+        }
+
         uint64_t address;
 
         if (instruction.info.raw.imm->is_relative) {
@@ -586,9 +612,18 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
             break;
     }
 
-    while (ZYAN_SUCCESS(UnasmDisassembleCustom(
-               ZYDIS_MACHINE_MODE_LEGACY_32, runtime_address, section_data + offset, 96, &instruction, this, style))
-        && offset < end_offset) {
+    while (offset < end_offset) {
+        const ZyanStatus status = UnasmDisassembleCustom(
+            ZYDIS_MACHINE_MODE_LEGACY_32, runtime_address, section_data + offset, 96, &instruction, this, style);
+
+        if (!ZYAN_SUCCESS(status)) {
+            std::string str = BuildInvalidInstructionString(instruction, section_data + offset, runtime_address, image_base);
+            m_dissassembly += str + "\n";
+            offset += instruction.info.length;
+            runtime_address += instruction.info.length;
+            continue;
+        }
+
         if (m_labels.find(runtime_address) != m_labels.end()) {
             m_dissassembly += m_labels[runtime_address];
             m_dissassembly += ":\n";
