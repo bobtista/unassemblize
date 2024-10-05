@@ -1,5 +1,4 @@
 #include "function.h"
-#include <LIEF/LIEF.hpp>
 #include <Zycore/Format.h>
 #include <Zydis/Zydis.h>
 #include <inttypes.h>
@@ -492,15 +491,10 @@ static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 
 
 void unassemblize::Function::disassemble(AsmFormat fmt)
 {
-    const LIEF::Binary *binary = m_executable.get_binary();
-    assert(binary != nullptr);
-    const uint64_t image_base = binary->imagebase();
+    const uint64_t image_base = m_executable.do_add_base() ? m_executable.base_address() : 0;
     const unassemblize::Executable::SectionInfo *section_info = m_executable.find_section(image_base + m_startAddress);
 
     if (section_info == nullptr) {
-        return;
-    }
-    if (section_info->size == 0) {
         return;
     }
 
@@ -508,6 +502,11 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
     const uint64_t address_offset = section_info->address - image_base;
     ZyanUSize offset = m_startAddress - address_offset;
     const ZyanUSize end_offset = m_endAddress - address_offset;
+
+    if (end_offset - offset > section_info->size) {
+        return;
+    }
+
     const uint8_t *section_data = section_info->data;
 
     ZydisDisassembledInstruction instruction;

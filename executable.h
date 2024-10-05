@@ -83,6 +83,7 @@ public:
     uint64_t section_size(const char *name) const;
     uint64_t base_address() const;
     uint64_t end_address() const { return m_endAddress; };
+    bool do_add_base() const { return m_addBase; }
     const Symbol &get_symbol(uint64_t addr) const;
     const Symbol &get_nearest_symbol(uint64_t addr) const;
     const SymbolMap &get_symbol_map() const { return m_symbolMap; }
