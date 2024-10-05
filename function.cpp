@@ -1,9 +1,9 @@
 #include "function.h"
+#include <Zycore/Format.h>
 #include <Zydis/Zydis.h>
 #include <inttypes.h>
-#include <string.h>
 #include <sstream>
-#include <Zycore/Format.h>
+#include <string.h>
 
 namespace
 {
@@ -587,7 +587,6 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
                this,
                style))
         && offset <= end_offset) {
-
         if (m_labels.find(runtime_address) != m_labels.end()) {
             m_dissassembly += m_labels[runtime_address];
             m_dissassembly += ":\n";

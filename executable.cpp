@@ -376,7 +376,7 @@ void unassemblize::Executable::dump_objects(nlohmann::json &js)
         }
     }
 
-    for (auto it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it) {        
+    for (auto it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it) {
         js.push_back({{"name", it->name}, {"sections", nlohmann::json()}});
         auto &sections = js.back().at("sections");
 
@@ -386,8 +386,7 @@ void unassemblize::Executable::dump_objects(nlohmann::json &js)
     }
 }
 
-void unassemblize::Executable::dissassemble_function(
-    FILE *output, const char *section_name, uint64_t start, uint64_t end)
+void unassemblize::Executable::dissassemble_function(FILE *output, const char *section_name, uint64_t start, uint64_t end)
 {
     // Abort if we can't output anywhere.
     if (output == nullptr) {
@@ -399,8 +398,7 @@ void unassemblize::Executable::dissassemble_function(
     }
 }
 
-void unassemblize::Executable::dissassemble_gas_func(
-    FILE *output, const char *section_name, uint64_t start, uint64_t end)
+void unassemblize::Executable::dissassemble_gas_func(FILE *output, const char *section_name, uint64_t start, uint64_t end)
 {
     if (start != 0 && end != 0) {
         unassemblize::Function func(*this, section_name, start, end);
@@ -413,17 +411,9 @@ void unassemblize::Executable::dissassemble_gas_func(
         const std::string &sym = get_symbol(start).name;
 
         if (!sym.empty()) {
-            fprintf(output,
-                ".globl %s\n%s:\n%s",
-                sym.c_str(),
-                sym.c_str(),
-                func.dissassembly().c_str());
+            fprintf(output, ".globl %s\n%s:\n%s", sym.c_str(), sym.c_str(), func.dissassembly().c_str());
         } else {
-            fprintf(output,
-                ".globl sub_%" PRIx64 "\nsub_%" PRIx64 ":\n%s",
-                start,
-                start,
-                func.dissassembly().c_str());
+            fprintf(output, ".globl sub_%" PRIx64 "\nsub_%" PRIx64 ":\n%s", start, start, func.dissassembly().c_str());
         }
     }
 }

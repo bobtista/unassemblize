@@ -50,7 +50,7 @@ public:
     };
 
     struct Symbol
-    {  
+    {
         Symbol(std::string &_name, uint64_t _value, uint64_t _size) : name(_name), value(_value), size(_size) {}
         std::string &name;
         uint64_t value;
@@ -128,4 +128,4 @@ private:
     static const char s_configSection[];
     static const char s_objectSection[];
 };
-}
+} // namespace unassemblize
