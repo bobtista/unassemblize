@@ -12,6 +12,7 @@
  */
 #include "function.h"
 #include "gitinfo.h"
+#include "pdbreader.h"
 #include <LIEF/LIEF.hpp>
 #include <getopt.h>
 #include <inttypes.h>
@@ -33,18 +34,18 @@ void print_help()
         "Usage:\n"
         "  unassemblize [OPTIONS] [INPUT]\n"
         "Options:\n"
-        "  -o --output     Filename for single file output. Default is program.S\n"
+        "  -o --output     Filename for single file output. Default is 'auto'\n"
         "  -f --format     Assembly output format.\n"
-        "  -c --config     Configuration file describing how to dissassemble the input\n"
+        "  -c --config     Configuration file describing how to disassemble the input. Default is 'auto'\n"
         "                  file and containing extra symbol info. Default: config.json\n"
-        "  -s --start      Starting address of a single function to dissassemble in\n"
-        "                  hexidecimal notation.\n"
-        "  -e --end        Ending address of a single function to dissassemble in\n"
-        "                  hexidecimal notation.\n"
+        "  -s --start      Starting address of a single function to disassemble in\n"
+        "                  hexadecimal notation.\n"
+        "  -e --end        Ending address of a single function to disassemble in\n"
+        "                  hexadecimal notation.\n"
         "  -v --verbose    Verbose output on current state of the program.\n"
         "  --section       Section to target for dissassembly, defaults to '.text'.\n"
         "  --listsections  Prints a list of sections in the exe then exits.\n"
-        "  -d --dumpsyms   Dumps symbols stored in the executable to the config file.\n"
+        "  -d --dumpsyms   Dumps symbols stored in a executable or pdb to the config file.\n"
         "                  then exits.\n"
         "  -h --help       Displays this help.\n\n",
         revision,
@@ -82,6 +83,124 @@ void remove_characters(std::string &s, const std::string &chars)
         std::remove_if(s.begin(), s.end(), [&chars](const char &c) { return chars.find(c) != std::string::npos; }), s.end());
 }
 
+std::string get_remove_file_ext(const std::string &file_name)
+{
+    const size_t pos = file_name.find_last_of(".");
+    if (pos != std::string::npos) {
+        return file_name.substr(0, pos);
+    }
+    return file_name;
+}
+
+std::string get_file_ext(const std::string &file_name)
+{
+    const size_t pos = file_name.find_last_of(".");
+    if (pos != std::string::npos) {
+        return file_name.substr(pos + 1);
+    }
+    return {};
+}
+
+const char *const auto_str = "auto"; // When output is set to "auto", then output name is chosen for input file name.
+
+enum class InputType
+{
+    Exe,
+    Pdb,
+};
+
+struct ExeOptions
+{
+    std::string input_file;
+    std::string config_file = "config.json";
+    std::string output_file;
+    std::string section_name = ".text"; // unused
+    std::string format_str;
+    uint64_t start_addr = 0;
+    uint64_t end_addr = 0;
+    bool print_secs = false;
+    bool dump_syms = false;
+    bool verbose = false;
+};
+
+int process_exe(const ExeOptions &o)
+{
+    if (o.verbose) {
+        printf("Parsing exe file '%s'...\n", o.input_file.c_str());
+    }
+
+    // TODO implement default value where exe object decides internally what to do.
+    unassemblize::Executable::OutputFormats format = unassemblize::Executable::OUTPUT_IGAS;
+
+    if (!o.format_str.empty()) {
+        if (0 == strcasecmp(o.format_str.c_str(), "igas")) {
+            format = unassemblize::Executable::OUTPUT_IGAS;
+        } else if (0 == strcasecmp(o.format_str.c_str(), "masm")) {
+            format = unassemblize::Executable::OUTPUT_MASM;
+        }
+    }
+
+    unassemblize::Executable exe(o.input_file.c_str(), format, o.verbose);
+
+    if (o.print_secs) {
+        print_sections(exe);
+        return 0;
+    }
+
+    if (o.dump_syms) {
+        exe.save_config(o.config_file.c_str());
+        return 0;
+    }
+
+    exe.load_config(o.config_file.c_str());
+
+    if (o.start_addr == 0 && o.end_addr == 0) {
+        for (const unassemblize::Executable::SymbolMap::value_type &pair : exe.get_symbol_map()) {
+            const uint64_t address = pair.first;
+            const unassemblize::Executable::Symbol &symbol = pair.second;
+            std::string sanitized_symbol_name = symbol.name;
+#if defined(WIN32)
+            remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");
+#endif
+            std::string file_name;
+            if (!o.output_file.empty()) {
+                // program.symbol.S
+                file_name = get_remove_file_ext(o.output_file) + "." + sanitized_symbol_name + ".S";
+            }
+            dump_function_to_file(file_name, exe, o.section_name.c_str(), symbol.address, symbol.address + symbol.size);
+        }
+    } else {
+        dump_function_to_file(o.output_file, exe, o.section_name.c_str(), o.start_addr, o.end_addr);
+    }
+
+    return 0;
+}
+
+struct PdbOptions
+{
+    std::string input_file;
+    std::string config_file = "config.json";
+    bool print_secs = false;
+    bool dump_syms = false;
+    bool verbose = false;
+};
+
+int process_pdb(const PdbOptions &o)
+{
+    unassemblize::PdbReader pdb_reader(o.input_file, o.verbose);
+
+    if (!pdb_reader.read()) {
+        return 1;
+    }
+
+    if (o.dump_syms) {
+        pdb_reader.save_config(o.config_file);
+        return 0;
+    }
+
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
     if (argc <= 1) {
@@ -89,10 +208,13 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    const char *const auto_output = "auto"; // When output is set to "auto", then output name is chosen for input file name.
-    const char *output = auto_output; // "program.S"
+    // When input_file_type is set to "auto", then input file type is chosen by file extension.
+    const char *input_type = auto_str;
+    // When output_file is set to "auto", then output file name is chosen for input file name.
+    const char *output_file = auto_str;
+    // When config file is set to "auto", then config file name is chosen for input file name.
+    const char *config_file = auto_str;
     const char *section_name = ".text"; // unused
-    const char *config_file = "config.json";
     const char *format_string = nullptr;
     uint64_t start_addr = 0;
     uint64_t end_addr = 0;
@@ -102,6 +224,7 @@ int main(int argc, char **argv)
 
     while (true) {
         static struct option long_options[] = {
+            {"input-type", required_argument, nullptr, 3},
             {"output", required_argument, nullptr, 'o'},
             {"format", required_argument, nullptr, 'f'},
             {"start", required_argument, nullptr, 's'},
@@ -130,11 +253,14 @@ int main(int argc, char **argv)
             case 2:
                 print_secs = true;
                 break;
+            case 3:
+                input_type = optarg;
+                break;
             case 'd':
                 dump_syms = true;
                 break;
             case 'o':
-                output = optarg;
+                output_file = optarg;
                 break;
             case 'f':
                 format_string = optarg;
@@ -152,7 +278,7 @@ int main(int argc, char **argv)
                 verbose = true;
                 break;
             case '?':
-                printf("\nOption %d not recognised.\n", optopt);
+                printf("\nOption %d not recognized.\n", optopt);
                 print_help();
                 return 0;
             case ':':
@@ -167,69 +293,68 @@ int main(int argc, char **argv)
         }
     }
 
-    const char *exe_file_name = argv[optind];
+    const char *input_file = argv[optind];
 
-    if (exe_file_name == nullptr || exe_file_name[0] == '\0') {
+    if (input_file == nullptr || input_file[0] == '\0') {
         printf("Missing input file command line argument. Exiting...\n");
         return 1;
     }
 
-    if (verbose) {
-        printf("Parsing executable file '%s'...\n", exe_file_name);
+    std::string input_file_str(input_file);
+    std::string input_file_ext = get_file_ext(input_file_str);
+    std::string config_file_str(config_file);
+    std::string output_file_str(output_file);
+
+    if (config_file_str == auto_str) {
+        // program.config.json
+        config_file_str = get_remove_file_ext(input_file_str) + ".config.json";
     }
 
-    // TODO implement default value where exe object decides internally what to do.
-    unassemblize::Executable::OutputFormats format = unassemblize::Executable::OUTPUT_IGAS;
-
-    if (format_string != nullptr) {
-        if (strcasecmp(format_string, "igas") == 0) {
-            format = unassemblize::Executable::OUTPUT_IGAS;
-        } else if (strcasecmp(format_string, "masm") == 0) {
-            format = unassemblize::Executable::OUTPUT_MASM;
-        }
+    if (output_file_str == auto_str) {
+        // program.S
+        output_file_str = get_remove_file_ext(input_file_str) + ".S";
     }
 
-    unassemblize::Executable exe(exe_file_name, format, verbose);
+    InputType type = InputType::Exe;
 
-    if (print_secs) {
-        print_sections(exe);
-        return 0;
-    }
-
-    if (dump_syms) {
-        exe.save_config(config_file);
-        return 0;
-    }
-
-    exe.load_config(config_file);
-
-    if (start_addr == 0 && end_addr == 0) {
-        for (const unassemblize::Executable::SymbolMap::value_type &pair : exe.get_symbol_map()) {
-            const uint64_t address = pair.first;
-            const unassemblize::Executable::Symbol &symbol = pair.second;
-            std::string sanitized_symbol_name = symbol.name;
-#if defined(WIN32)
-            remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");
-#endif
-            std::string file_name;
-            if (0 == strcmp(output, "")) {
-                // empty
-            } else if (0 == strcmp(output, auto_output)) {
-                file_name = std::string(exe_file_name) + "." + sanitized_symbol_name + ".S";
-            } else {
-                file_name = std::string(output) + "." + sanitized_symbol_name + ".S";
-            }
-            dump_function_to_file(file_name, exe, section_name, symbol.address, symbol.address + symbol.size);
-        }
-    } else {
-        std::string file_name;
-        if (0 == strcmp(output, auto_output)) {
-            file_name = std::string(exe_file_name) + ".S";
+    if (0 == strcmp(input_type, auto_str)) {
+        if (0 == strcasecmp(input_file_ext.c_str(), "pdb")) {
+            type = InputType::Pdb;
         } else {
-            file_name = output;
+            type = InputType::Exe;
         }
-        dump_function_to_file(file_name, exe, section_name, start_addr, end_addr);
+    } else if (0 == strcasecmp(input_type, "exe")) {
+        type = InputType::Exe;
+    } else if (0 == strcasecmp(input_type, "pdb")) {
+        type = InputType::Pdb;
+    } else {
+        printf("Unrecognized input file type '%s'. Exiting...\n", input_type);
+        return 1;
     }
 
-    return 0;
+    if (InputType::Exe == type) {
+        ExeOptions o;
+        o.input_file = input_file_str;
+        o.config_file = config_file_str;
+        o.output_file = output_file_str;
+        o.section_name = section_name;
+        o.format_str = format_string;
+        o.start_addr = start_addr;
+        o.end_addr = end_addr;
+        o.print_secs = print_secs;
+        o.dump_syms = dump_syms;
+        o.verbose = verbose;
+        return process_exe(o);
+    } else if (InputType::Pdb == type) {
+        PdbOptions o;
+        o.input_file = input_file_str;
+        o.config_file = config_file_str;
+        o.print_secs = print_secs;
+        o.dump_syms = dump_syms;
+        o.verbose = verbose;
+        return process_pdb(o);
+    } else {
+        // Impossible
+        return 1;
+    }
 }

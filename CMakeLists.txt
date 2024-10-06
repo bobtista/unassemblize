@@ -60,6 +60,7 @@ FetchContent_MakeAvailable(json)
 set(GIT_PRE_CONFIGURE_FILE "gitinfo.cpp.in")
 set(GIT_POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp")
 include(GitWatcher)
+include(FindDiaSDK.cmake)
 
 add_executable(unassemblize)
 
@@ -71,9 +72,11 @@ target_sources(unassemblize PRIVATE
     function.cpp
     function.h
     main.cpp
+    pdbreader.cpp
+    pdbreader.h
 )
-target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json)
-target_include_directories(unassemblize PRIVATE .)
+target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json ${DIASDK_LIBRARIES})
+target_include_directories(unassemblize PRIVATE . ${DIASDK_INCLUDE_DIRS})
 
 if(WINDOWS)
     target_sources(unassemblize PRIVATE wincompat/getopt.c wincompat/getopt.h wincompat/strings.h)
