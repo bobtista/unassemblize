@@ -1,9 +1,9 @@
 /**
  * @file
  *
- * @brief Class encapsulating a single function dissassembly.
+ * @brief Class encapsulating a single function disassembly.
  *
- * @copyright Assemblize is free software: you can redistribute it and/or
+ * @copyright Unassemblize is free software: you can redistribute it and/or
  *            modify it under the terms of the GNU General Public License
  *            as published by the Free Software Foundation, either version
  *            3 of the License, or (at your option) any later version.
@@ -36,7 +36,7 @@ public:
         m_section(section_name), m_startAddress(start), m_endAddress(end), m_executable(exe)
     {
     }
-    void disassemble(AsmFormat fmt = FORMAT_DEFAULT); // Run the dissassmbly of the function.
+    void disassemble(AsmFormat fmt = FORMAT_DEFAULT); // Run the disassembly of the function.
     const std::string &dissassembly() const { return m_dissassembly; }
     const std::vector<std::string> &dependencies() const { return m_deps; }
     void add_dependency(const std::string &dep) { return m_deps.push_back(dep); }
@@ -53,7 +53,7 @@ public:
 private:
     std::map<uint64_t, std::string> m_labels; // Map of labels this function uses internally.
     std::vector<std::string> m_deps; // Symbols this function depends on.
-    std::string m_dissassembly; // Dissassembly buffer for this function.
+    std::string m_dissassembly; // Disassembly buffer for this function.
     const std::string m_section; // #TODO: Unused, remove?
     const uint64_t m_startAddress; // Runtime start address of the function.
     const uint64_t m_endAddress; // Runtime end address of the function.
