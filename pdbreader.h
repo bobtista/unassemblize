@@ -28,16 +28,17 @@ class PdbReader
     using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
 
 public:
-    PdbReader(const std::string &pdb_file, bool verbose = false);
+    PdbReader(bool verbose = false);
 
-    bool read();
+    bool read(const std::string &pdb_file);
+
     void load_json(const nlohmann::json &js);
     bool load_config(const std::string &file_name);
     void save_json(nlohmann::json &js, bool overwrite_sections = false);
     bool save_config(const std::string &file_name, bool overwrite_sections = false);
 
 private:
-    bool load();
+    bool load(const std::string &pdb_file);
     void unload();
     bool read_symbols();
 
@@ -59,7 +60,6 @@ private:
     void read_line(PdbFunctionInfo &function_info, IDiaLineNumber *pLine);
 
 private:
-    const std::string m_filename;
     const bool m_verbose = false;
     IDiaDataSource *m_pDiaSource = nullptr;
     IDiaSession *m_pDiaSession = nullptr;

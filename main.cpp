@@ -187,15 +187,16 @@ struct PdbOptions
 
 int process_pdb(const PdbOptions &o)
 {
-    unassemblize::PdbReader pdb_reader(o.input_file, o.verbose);
+    unassemblize::PdbReader pdb_reader(o.verbose);
 
-    if (!pdb_reader.read()) {
+    // Currently does not read back config file here.
+
+    if (!pdb_reader.read(o.input_file)) {
         return 1;
     }
 
     if (o.dump_syms) {
         pdb_reader.save_config(o.config_file);
-        return 0;
     }
 
     return 0;

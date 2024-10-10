@@ -22,16 +22,13 @@ const char *const s_compilands = "pdb_compilands";
 const char *const s_sourceFiles = "pdb_source_files";
 const char *const s_functions = "pdb_functions";
 
-PdbReader::PdbReader(const std::string &pdb_file, bool verbose) :
-    m_filename(pdb_file), m_verbose(verbose), m_dwMachineType(CV_CFL_80386)
-{
-}
+PdbReader::PdbReader(bool verbose) : m_verbose(verbose), m_dwMachineType(CV_CFL_80386) {}
 
-bool PdbReader::read()
+bool PdbReader::read(const std::string &pdb_file)
 {
     bool success = false;
 
-    if (load()) {
+    if (load(pdb_file)) {
         success = read_symbols();
     }
     unload();
@@ -111,7 +108,7 @@ bool PdbReader::save_config(const std::string &file_name, bool overwrite_section
     return true;
 }
 
-bool PdbReader::load()
+bool PdbReader::load(const std::string &pdb_file)
 {
     unload();
 
@@ -135,7 +132,7 @@ bool PdbReader::load()
 
     // Open and prepare a program database (.pdb) file as a debug data source
 
-    const std::wstring wfilename = util::to_utf16(m_filename);
+    const std::wstring wfilename = util::to_utf16(pdb_file);
 
     hr = m_pDiaSource->loadDataFromPdb(wfilename.c_str());
 
