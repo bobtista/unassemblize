@@ -100,19 +100,12 @@ private:
     void dissassemble_gas_func(FILE *fp, const char *section_name, uint64_t start, uint64_t end);
 
     void load_symbols(nlohmann::json &js);
-    /**
-     * Dump symbols from the executable to a config file.
-     */
     void dump_symbols(nlohmann::json &js);
+
     void load_sections(nlohmann::json &js);
-    /**
-     * Dump sections from the executable to a config file.
-     */
     void dump_sections(nlohmann::json &js);
+
     void load_objects(nlohmann::json &js);
-    /**
-     * Dump sections from the executable to a config file.
-     */
     void dump_objects(nlohmann::json &js);
 
 private:

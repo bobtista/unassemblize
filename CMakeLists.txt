@@ -74,6 +74,8 @@ target_sources(unassemblize PRIVATE
     main.cpp
     pdbreader.cpp
     pdbreader.h
+    pdbreadertypes.cpp
+    pdbreadertypes.h
     util.h
 )
 target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json ${DIASDK_LIBRARIES})

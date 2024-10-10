@@ -13,9 +13,15 @@
 #include "pdbreader.h"
 #include "util.h"
 #include <dia2.h>
+#include <fstream>
+#include <iostream>
 
 namespace unassemblize
 {
+const char *const s_compilands = "pdb_compilands";
+const char *const s_sourceFiles = "pdb_source_files";
+const char *const s_functions = "pdb_functions";
+
 PdbReader::PdbReader(const std::string &pdb_file, bool verbose) :
     m_filename(pdb_file), m_verbose(verbose), m_dwMachineType(CV_CFL_80386)
 {
@@ -33,9 +39,77 @@ bool PdbReader::read()
     return success;
 }
 
-void PdbReader::dump_symbols(nlohmann::json &js) {}
+void PdbReader::load_json(const nlohmann::json &js)
+{
+    js.at(s_compilands).get_to(m_compilands);
+    js.at(s_sourceFiles).get_to(m_sourceFiles);
+    js.at(s_functions).get_to(m_functions);
+}
 
-void PdbReader::save_config(const std::string &config_file) {}
+bool PdbReader::load_config(const std::string &file_name)
+{
+    if (m_verbose) {
+        printf("Loading config file '%s'...\n", file_name.c_str());
+    }
+
+    nlohmann::json js;
+
+    {
+        std::ifstream fs(file_name);
+
+        if (!fs.good()) {
+            return false;
+        }
+
+        js = nlohmann::json::parse(fs);
+    }
+
+    load_json(js);
+
+    return true;
+}
+
+void PdbReader::save_json(nlohmann::json &js, bool overwrite_sections)
+{
+    // Don't dump if we already have sections for these.
+
+    if (overwrite_sections || js.find(s_compilands) == js.end()) {
+        js[s_compilands] = m_compilands;
+    }
+    if (overwrite_sections || js.find(s_sourceFiles) == js.end()) {
+        js[s_sourceFiles] = m_sourceFiles;
+    }
+    if (overwrite_sections || js.find(s_functions) == js.end()) {
+        js[s_functions] = m_functions;
+    }
+}
+
+bool PdbReader::save_config(const std::string &file_name, bool overwrite_sections)
+{
+    if (m_verbose) {
+        printf("Saving config file '%s'...\n", file_name.c_str());
+    }
+
+    nlohmann::json js;
+
+    // Parse the config file if it already exists and update it.
+    {
+        std::ifstream fs(file_name);
+
+        if (fs.good()) {
+            js = nlohmann::json::parse(fs);
+        }
+    }
+
+    save_json(js, overwrite_sections);
+
+    {
+        std::ofstream fs(file_name);
+        fs << std::setw(2) << js << std::endl;
+    }
+
+    return true;
+}
 
 bool PdbReader::load()
 {
