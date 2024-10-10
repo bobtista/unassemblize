@@ -105,8 +105,6 @@ struct PdbFunctionInfo
 
 struct PdbSourceFileInfo
 {
-    bool is_valid() const { return !name.empty(); }
-
     std::string name;
     CV_Chksum checksumType;
     std::vector<uint8_t> checksum;
@@ -119,6 +117,12 @@ struct PdbCompilandInfo
     std::string name; // File name of the compiland's object file.
     std::vector<IndexT> sourceFileIds; // Synonymous for indices
     std::vector<IndexT> functionIds; // Synonymous for indices
+};
+
+struct PdbExeInfo
+{
+    std::string exeFileName; // Name of the .exe file.
+    std::string pdbFilePath; // Full path for the .exe file's .pdb or .dbg file.
 };
 
 void to_json(nlohmann::json &js, const PdbAddress &d);
@@ -135,5 +139,8 @@ void from_json(const nlohmann::json &js, PdbSourceFileInfo &d);
 
 void to_json(nlohmann::json &js, const PdbFunctionInfo &d);
 void from_json(const nlohmann::json &js, PdbFunctionInfo &d);
+
+void to_json(nlohmann::json &js, const PdbExeInfo &d);
+void from_json(const nlohmann::json &js, PdbExeInfo &d);
 
 } // namespace unassemblize

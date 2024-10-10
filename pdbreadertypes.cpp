@@ -115,4 +115,19 @@ void from_json(const nlohmann::json &js, PdbFunctionInfo &d)
     js.at("name_global").get_to(d.globalName);
     js.at("lines").get_to(d.sourceLines);
 }
+
+void to_json(nlohmann::json &js, const PdbExeInfo &d)
+{
+    js = nlohmann::json{
+        {"exe_file_name", d.exeFileName},
+        {"pdb_file_path", d.pdbFilePath},
+    };
+}
+
+void from_json(const nlohmann::json &js, PdbExeInfo &d)
+{
+    js.at("exe_file_name").get_to(d.exeFileName);
+    js.at("pdb_file_path").get_to(d.pdbFilePath);
+}
+
 } // namespace unassemblize

@@ -40,7 +40,9 @@ public:
 private:
     bool load(const std::string &pdb_file);
     void unload();
+
     bool read_symbols();
+    bool read_global_scope();
 
     IDiaEnumSourceFiles *get_enum_source_files();
     bool read_source_files();
@@ -72,6 +74,7 @@ private:
     std::vector<PdbCompilandInfo> m_compilands;
     std::vector<PdbSourceFileInfo> m_sourceFiles;
     std::vector<PdbFunctionInfo> m_functions;
+    PdbExeInfo m_exe;
 
     StringToIndexMapT m_sourceFileNameToIndexMap;
 };

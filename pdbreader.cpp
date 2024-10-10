@@ -21,6 +21,7 @@ namespace unassemblize
 const char *const s_compilands = "pdb_compilands";
 const char *const s_sourceFiles = "pdb_source_files";
 const char *const s_functions = "pdb_functions";
+const char *const s_exe = "pdb_exe";
 
 PdbReader::PdbReader(bool verbose) : m_verbose(verbose), m_dwMachineType(CV_CFL_80386) {}
 
@@ -41,6 +42,7 @@ void PdbReader::load_json(const nlohmann::json &js)
     js.at(s_compilands).get_to(m_compilands);
     js.at(s_sourceFiles).get_to(m_sourceFiles);
     js.at(s_functions).get_to(m_functions);
+    js.at(s_exe).get_to(m_exe);
 }
 
 bool PdbReader::load_config(const std::string &file_name)
@@ -78,6 +80,9 @@ void PdbReader::save_json(nlohmann::json &js, bool overwrite_sections)
     }
     if (overwrite_sections || js.find(s_functions) == js.end()) {
         js[s_functions] = m_functions;
+    }
+    if (overwrite_sections || js.find(s_exe) == js.end()) {
+        js[s_exe] = m_exe;
     }
 }
 
@@ -207,6 +212,7 @@ bool PdbReader::read_symbols()
     m_functions.reserve(1024 * 100);
 
     bool ok = true;
+    read_global_scope();
     ok = ok && read_source_files();
     ok = ok && read_compilands();
 
@@ -214,6 +220,30 @@ bool PdbReader::read_symbols()
     m_sourceFileNameToIndexMap.clear();
 
     return ok;
+}
+
+bool PdbReader::read_global_scope()
+{
+    IDiaSymbol *pSymbol;
+    if (m_pDiaSession->get_globalScope(&pSymbol) == S_OK) {
+        {
+            BSTR name;
+            if (pSymbol->get_name(&name) == S_OK) {
+                m_exe.exeFileName = util::to_utf8(name);
+                SysFreeString(name);
+            }
+        }
+        {
+            BSTR name;
+            if (pSymbol->get_symbolsFileName(&name) == S_OK) {
+                m_exe.pdbFilePath = util::to_utf8(name);
+                SysFreeString(name);
+            }
+        }
+        pSymbol->Release();
+    }
+
+    return !m_exe.exeFileName.empty() && !m_exe.pdbFilePath.empty();
 }
 
 IDiaEnumSourceFiles *PdbReader::get_enum_source_files()
@@ -276,7 +306,7 @@ void PdbReader::read_source_file_initial(IDiaSourceFile *pSourceFile)
     m_sourceFiles.emplace_back();
     PdbSourceFileInfo &fileInfo = m_sourceFiles.back();
 
-    assert(!fileInfo.is_valid());
+    assert(fileInfo.name.empty());
 
     // Populate source file info.
     {
