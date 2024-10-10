@@ -18,6 +18,8 @@
 #include <sstream>
 #include <string.h>
 
+namespace unassemblize
+{
 namespace
 {
 uint32_t get_le32(const uint8_t *data)
@@ -71,11 +73,11 @@ ZydisFormatterFunc default_print_address_absolute;
 static ZyanStatus UnasmFormatterPrintAddressAbsolute(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
-    unassemblize::Function *func = static_cast<unassemblize::Function *>(context->user_data);
+    Function *func = static_cast<Function *>(context->user_data);
     uint64_t address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
     char hex_buff[32];
-    const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+    const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -88,7 +90,7 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -104,7 +106,7 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -125,11 +127,11 @@ ZydisFormatterFunc default_print_address_relative;
 static ZyanStatus UnasmFormatterPrintAddressRelative(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
-    unassemblize::Function *func = static_cast<unassemblize::Function *>(context->user_data);
+    Function *func = static_cast<Function *>(context->user_data);
     uint64_t address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
     char hex_buff[32];
-    const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+    const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -142,7 +144,7 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -158,7 +160,7 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -179,10 +181,10 @@ ZydisFormatterFunc default_print_immediate;
 static ZyanStatus UnasmFormatterPrintIMM(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
-    unassemblize::Function *func = static_cast<unassemblize::Function *>(context->user_data);
+    Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->imm.value.u;
     char hex_buff[32];
-    const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+    const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -195,7 +197,7 @@ static ZyanStatus UnasmFormatterPrintIMM(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -211,7 +213,7 @@ static ZyanStatus UnasmFormatterPrintIMM(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -232,10 +234,10 @@ ZydisFormatterFunc default_print_displacement;
 static ZyanStatus UnasmFormatterPrintDISP(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
-    unassemblize::Function *func = static_cast<unassemblize::Function *>(context->user_data);
+    Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->mem.disp.value;
     char hex_buff[32];
-    const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+    const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -248,7 +250,7 @@ static ZyanStatus UnasmFormatterPrintDISP(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_nearest_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_nearest_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -270,7 +272,7 @@ static ZyanStatus UnasmFormatterPrintDISP(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_nearest_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_nearest_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -297,10 +299,10 @@ ZydisFormatterFunc default_format_operand_ptr;
 static ZyanStatus UnasmFormatterFormatOperandPTR(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
-    unassemblize::Function *func = static_cast<unassemblize::Function *>(context->user_data);
+    Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->ptr.offset;
     char hex_buff[32];
-    const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+    const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -313,7 +315,7 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -329,7 +331,7 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -350,10 +352,10 @@ ZydisFormatterFunc default_format_operand_mem;
 static ZyanStatus UnasmFormatterFormatOperandMEM(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
-    unassemblize::Function *func = static_cast<unassemblize::Function *>(context->user_data);
+    Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->mem.disp.value;
     char hex_buff[32];
-    const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+    const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
     if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM) || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB)) {
         ZYAN_CHECK(formatter->func_print_typecast(formatter, buffer, context));
@@ -371,7 +373,7 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -387,7 +389,7 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const unassemblize::Executable::Symbol &symbol = func->executable().get_symbol(address);
+        const Executable::Symbol &symbol = func->executable().get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -518,10 +520,10 @@ std::string BuildInvalidInstructionString(
 }
 } // namespace
 
-void unassemblize::Function::disassemble(AsmFormat fmt)
+void Function::disassemble(AsmFormat fmt)
 {
     const uint64_t image_base = m_executable.do_add_base() ? m_executable.base_address() : 0;
-    const unassemblize::Executable::SectionInfo *section_info = m_executable.find_section(image_base + m_startAddress);
+    const Executable::SectionInfo *section_info = m_executable.find_section(image_base + m_startAddress);
 
     if (section_info == nullptr) {
         return;
@@ -657,7 +659,7 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
                 // If this is first entry of jump table, create label to jump to.
 
                 if (!in_jump_table) {
-                    const unassemblize::Executable::Symbol &symbol = m_executable.get_symbol(runtime_address);
+                    const Executable::Symbol &symbol = m_executable.get_symbol(runtime_address);
 
                     if (!symbol.name.empty()) {
                         m_dissassembly += symbol.name;
@@ -667,7 +669,7 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
                     in_jump_table = true;
                 }
 
-                const unassemblize::Executable::Symbol &symbol = m_executable.get_symbol(next_int);
+                const Executable::Symbol &symbol = m_executable.get_symbol(next_int);
 
                 if (!symbol.name.empty()) {
                     if (fmt == FORMAT_MASM) {
@@ -686,3 +688,5 @@ void unassemblize::Function::disassemble(AsmFormat fmt)
         }
     }
 }
+
+} // namespace unassemblize

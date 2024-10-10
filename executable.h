@@ -122,10 +122,5 @@ private:
     uint8_t m_dataPad;
     bool m_verbose;
     bool m_addBase;
-
-    static const char s_symbolSection[];
-    static const char s_sectionsSection[];
-    static const char s_configSection[];
-    static const char s_objectSection[];
 };
 } // namespace unassemblize

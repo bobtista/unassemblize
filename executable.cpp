@@ -18,12 +18,14 @@
 #include <nlohmann/json.hpp>
 #include <strings.h>
 
-const char unassemblize::Executable::s_symbolSection[] = "symbols";
-const char unassemblize::Executable::s_sectionsSection[] = "sections";
-const char unassemblize::Executable::s_configSection[] = "config";
-const char unassemblize::Executable::s_objectSection[] = "objects";
+namespace unassemblize
+{
+const char *const s_symbolSection = "symbols";
+const char *const s_sectionsSection = "sections";
+const char *const s_configSection = "config";
+const char *const s_objectSection = "objects";
 
-unassemblize::Executable::Executable(const char *file_name, OutputFormats format, bool verbose) :
+Executable::Executable(const char *file_name, OutputFormats format, bool verbose) :
     m_binary(LIEF::Parser::parse(file_name)),
     m_endAddress(0),
     m_outputFormat(format),
@@ -97,7 +99,7 @@ unassemblize::Executable::Executable(const char *file_name, OutputFormats format
     }
 }
 
-const unassemblize::Executable::SectionInfo *unassemblize::Executable::find_section(uint64_t addr) const
+const Executable::SectionInfo *Executable::find_section(uint64_t addr) const
 {
     for (const SectionMap::value_type &pair : m_sectionMap) {
         const SectionInfo &info = pair.second;
@@ -108,30 +110,30 @@ const unassemblize::Executable::SectionInfo *unassemblize::Executable::find_sect
     return nullptr;
 }
 
-const uint8_t *unassemblize::Executable::section_data(const char *name) const
+const uint8_t *Executable::section_data(const char *name) const
 {
     auto it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.data : nullptr;
 }
 
-uint64_t unassemblize::Executable::section_address(const char *name) const
+uint64_t Executable::section_address(const char *name) const
 {
     auto it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.address : UINT64_MAX;
 }
 
-uint64_t unassemblize::Executable::section_size(const char *name) const
+uint64_t Executable::section_size(const char *name) const
 {
     auto it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.size : 0;
 }
 
-uint64_t unassemblize::Executable::base_address() const
+uint64_t Executable::base_address() const
 {
     return m_binary->imagebase();
 }
 
-const unassemblize::Executable::Symbol &unassemblize::Executable::get_symbol(uint64_t addr) const
+const Executable::Symbol &Executable::get_symbol(uint64_t addr) const
 {
     static std::string empty;
     static Symbol def(empty, 0, 0);
@@ -144,7 +146,7 @@ const unassemblize::Executable::Symbol &unassemblize::Executable::get_symbol(uin
     return def;
 }
 
-const unassemblize::Executable::Symbol &unassemblize::Executable::get_nearest_symbol(uint64_t addr) const
+const Executable::Symbol &Executable::get_nearest_symbol(uint64_t addr) const
 {
     static std::string empty;
     static Symbol def(empty, 0, 0);
@@ -161,7 +163,7 @@ const unassemblize::Executable::Symbol &unassemblize::Executable::get_nearest_sy
     return def;
 }
 
-void unassemblize::Executable::add_symbol(const char *sym, uint64_t addr)
+void Executable::add_symbol(const char *sym, uint64_t addr)
 {
     if (m_symbolMap.find(addr) == m_symbolMap.end()) {
         m_loadedSymbols.push_back(sym);
@@ -169,7 +171,7 @@ void unassemblize::Executable::add_symbol(const char *sym, uint64_t addr)
     }
 }
 
-void unassemblize::Executable::load_config(const char *file_name)
+void Executable::load_config(const char *file_name)
 {
     if (m_verbose) {
         printf("Loading config file '%s'...\n", file_name);
@@ -204,7 +206,7 @@ void unassemblize::Executable::load_config(const char *file_name)
     }
 }
 
-void unassemblize::Executable::save_config(const char *file_name)
+void Executable::save_config(const char *file_name)
 {
     if (m_verbose) {
         printf("Saving config file '%s'...\n", file_name);
@@ -251,7 +253,7 @@ void unassemblize::Executable::save_config(const char *file_name)
     fs << std::setw(4) << j << std::endl;
 }
 
-void unassemblize::Executable::load_symbols(nlohmann::json &js)
+void Executable::load_symbols(nlohmann::json &js)
 {
     if (m_verbose) {
         printf("Loading external symbols...\n");
@@ -282,7 +284,7 @@ void unassemblize::Executable::load_symbols(nlohmann::json &js)
     }
 }
 
-void unassemblize::Executable::dump_symbols(nlohmann::json &js)
+void Executable::dump_symbols(nlohmann::json &js)
 {
     if (m_verbose) {
         printf("Saving symbols...\n");
@@ -293,7 +295,7 @@ void unassemblize::Executable::dump_symbols(nlohmann::json &js)
     }
 }
 
-void unassemblize::Executable::load_sections(nlohmann::json &js)
+void Executable::load_sections(nlohmann::json &js)
 {
     if (m_verbose) {
         printf("Loading section info...\n");
@@ -326,7 +328,7 @@ void unassemblize::Executable::load_sections(nlohmann::json &js)
     }
 }
 
-void unassemblize::Executable::dump_sections(nlohmann::json &js)
+void Executable::dump_sections(nlohmann::json &js)
 {
     if (m_verbose) {
         printf("Saving section info...\n");
@@ -337,7 +339,7 @@ void unassemblize::Executable::dump_sections(nlohmann::json &js)
     }
 }
 
-void unassemblize::Executable::load_objects(nlohmann::json &js)
+void Executable::load_objects(nlohmann::json &js)
 {
     if (m_verbose) {
         printf("Loading objects...\n");
@@ -365,7 +367,7 @@ void unassemblize::Executable::load_objects(nlohmann::json &js)
     }
 }
 
-void unassemblize::Executable::dump_objects(nlohmann::json &js)
+void Executable::dump_objects(nlohmann::json &js)
 {
     if (m_verbose) {
         printf("Saving objects...\n");
@@ -395,17 +397,17 @@ void unassemblize::Executable::dump_objects(nlohmann::json &js)
     }
 }
 
-void unassemblize::Executable::dissassemble_function(FILE *fp, const char *section_name, uint64_t start, uint64_t end)
+void Executable::dissassemble_function(FILE *fp, const char *section_name, uint64_t start, uint64_t end)
 {
     if (m_outputFormat != OUTPUT_MASM) {
         dissassemble_gas_func(fp, section_name, start, end);
     }
 }
 
-void unassemblize::Executable::dissassemble_gas_func(FILE *fp, const char *section_name, uint64_t start, uint64_t end)
+void Executable::dissassemble_gas_func(FILE *fp, const char *section_name, uint64_t start, uint64_t end)
 {
     if (start != 0 && end != 0) {
-        unassemblize::Function func(*this, section_name, start, end);
+        Function func(*this, section_name, start, end);
         if (m_outputFormat == OUTPUT_IGAS) {
             func.disassemble(Function::FORMAT_IGAS);
         } else {
@@ -423,3 +425,5 @@ void unassemblize::Executable::dissassemble_gas_func(FILE *fp, const char *secti
         }
     }
 }
+
+} // namespace unassemblize
