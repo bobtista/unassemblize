@@ -16,9 +16,11 @@
 #include <IntSafe.h>
 #include <nlohmann/json.hpp>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 struct IDiaDataSource;
+struct IDiaEnumSourceFiles;
 struct IDiaLineNumber;
 struct IDiaSession;
 struct IDiaSourceFile;
@@ -93,7 +95,7 @@ struct PdbFunctionInfo
 {
     bool has_valid_source_file_id() const { return sourceFileId != -1; }
 
-    IndexT sourceFileId = -1; // Synonymous for index, can be -1, matches DIA2 index
+    IndexT sourceFileId = -1; // Synonymous for index, can be -1, does not match DIA2 index
     IndexT compilandId = -1; // Synonymous for index, can not be -1, matches DIA2 index
 
     PdbAddress address;
@@ -129,7 +131,7 @@ struct PdbCompilandInfo
 
 class PdbReader
 {
-    using AddressToIndexMapT = std::unordered_map<Address32T, IndexT>;
+    using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
 
 public:
     PdbReader(const std::string &pdb_file, bool verbose = false);
@@ -143,6 +145,10 @@ private:
     void unload();
     bool read_symbols();
 
+    IDiaEnumSourceFiles *get_enum_source_files();
+    bool read_source_files();
+    void read_source_file_initial(IDiaSourceFile *pSourceFile);
+
     bool read_compilands();
     void read_compiland_symbol(PdbCompilandInfo &compilandInfo, IDiaSymbol *pSymbol);
     void read_compiland_function(
@@ -152,8 +158,8 @@ private:
 
     void read_public_function(PdbFunctionInfo &functionInfo, IDiaSymbol *pSymbol);
 
-    void read_source_file(PdbCompilandInfo &compilandInfo, IDiaSourceFile *pSourceFile);
-    void read_source_file_from_line(PdbFunctionInfo &functionInfo, IndexT functionId, IDiaLineNumber *pLine);
+    void read_source_file_for_compiland(PdbCompilandInfo &compilandInfo, IDiaSourceFile *pSourceFile);
+    void read_source_file_for_function(PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSourceFile *pSourceFile);
     void read_line(PdbFunctionInfo &function_info, IDiaLineNumber *pLine);
 
     const std::string m_filename;
@@ -164,11 +170,13 @@ private:
     uint32_t m_dwMachineType = 0;
     bool m_coInitialized = false;
 
-    // Compilands and Source Files indices match DIA2 indices.
-    // Source Files may contain unused entries.
+    // Compilands indices match DIA2 indices.
+    // Source Files indices do not match DIA2 indices (aka "unique id").
     std::vector<PdbCompilandInfo> m_compilands;
     std::vector<PdbSourceFileInfo> m_sourceFiles;
     std::vector<PdbFunctionInfo> m_functions;
+
+    StringToIndexMapT m_sourceFileNameToIndexMap;
 };
 
 } // namespace unassemblize

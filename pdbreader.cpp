@@ -133,15 +133,122 @@ bool PdbReader::read_symbols()
     m_sourceFiles.clear();
     m_functions.clear();
 
-    m_sourceFiles.reserve(1024);
     m_functions.reserve(1024 * 100);
 
-    bool success = read_compilands();
+    bool ok = true;
+    ok = ok && read_source_files();
+    ok = ok && read_compilands();
 
-    m_sourceFiles.shrink_to_fit();
     m_functions.shrink_to_fit();
+    m_sourceFileNameToIndexMap.clear();
 
-    return success;
+    return ok;
+}
+
+IDiaEnumSourceFiles *PdbReader::get_enum_source_files()
+{
+    // https://learn.microsoft.com/en-us/visualstudio/debugger/debug-interface-access/idiaenumsourcefiles
+
+    IDiaEnumSourceFiles *pUnknown = NULL;
+    REFIID iid = __uuidof(IDiaEnumSourceFiles);
+    IDiaEnumTables *pEnumTables = NULL;
+    IDiaTable *pTable = NULL;
+    ULONG celt = 0;
+
+    if (m_pDiaSession->getEnumTables(&pEnumTables) != S_OK) {
+        wprintf(L"ERROR - GetTable() getEnumTables\n");
+        return NULL;
+    }
+    while (pEnumTables->Next(1, &pTable, &celt) == S_OK && celt == 1) {
+        // There is only one table that matches the given iid
+        HRESULT hr = pTable->QueryInterface(iid, (void **)&pUnknown);
+        pTable->Release();
+        if (hr == S_OK) {
+            break;
+        }
+    }
+    pEnumTables->Release();
+    return pUnknown;
+}
+
+bool PdbReader::read_source_files()
+{
+    IDiaEnumSourceFiles *pEnumSourceFiles = get_enum_source_files();
+    if (pEnumSourceFiles != nullptr) {
+        {
+            LONG count = 0;
+            pEnumSourceFiles->get_Count(&count);
+            m_sourceFiles.reserve(count);
+            m_sourceFileNameToIndexMap.reserve(count);
+        }
+
+        IDiaSourceFile *pSourceFile;
+        ULONG celt = 0;
+
+        // Go through all the source files.
+
+        while (SUCCEEDED(pEnumSourceFiles->Next(1, &pSourceFile, &celt)) && (celt == 1)) {
+            read_source_file_initial(pSourceFile);
+            pSourceFile->Release();
+        }
+        pEnumSourceFiles->Release();
+        return true;
+    }
+    return false;
+}
+
+void PdbReader::read_source_file_initial(IDiaSourceFile *pSourceFile)
+{
+    // Note: get_uniqueId returns a random id. Do not trust it.
+
+    const IndexT sourceFileIndex = m_sourceFiles.size();
+    m_sourceFiles.emplace_back();
+    PdbSourceFileInfo &fileInfo = m_sourceFiles.back();
+
+    assert(!fileInfo.is_valid());
+
+    // Populate source file info.
+    {
+        BSTR name;
+        if (pSourceFile->get_fileName(&name) == S_OK) {
+            fileInfo.name = util::to_utf8(name);
+            m_sourceFileNameToIndexMap[fileInfo.name] = sourceFileIndex;
+            SysFreeString(name);
+        }
+    }
+    {
+        DWORD checksumType = CHKSUM_TYPE_NONE;
+        if (pSourceFile->get_checksumType(&checksumType) == S_OK) {
+            fileInfo.checksumType = static_cast<CV_Chksum>(checksumType);
+        }
+    }
+    {
+        BYTE checksum[256];
+        DWORD cbChecksum = sizeof(checksum);
+        if (pSourceFile->get_checksum(cbChecksum, &cbChecksum, checksum) == S_OK) {
+            fileInfo.checksum.assign(checksum, checksum + cbChecksum);
+        }
+    }
+    {
+        IDiaEnumSymbols *pEnumCompilands;
+        if (pSourceFile->get_compilands(&pEnumCompilands) == S_OK) {
+            IDiaSymbol *pCompiland;
+            ULONG celt = 0;
+
+            {
+                LONG count = 0;
+                pEnumCompilands->get_Count(&count);
+                fileInfo.compilandIds.reserve(count);
+            }
+
+            while (SUCCEEDED(pEnumCompilands->Next(1, &pCompiland, &celt)) && (celt == 1)) {
+                DWORD indexId;
+                if (pCompiland->get_symIndexId(&indexId) == S_OK) {
+                    fileInfo.compilandIds.push_back(indexId);
+                }
+            }
+        }
+    }
 }
 
 bool PdbReader::read_compilands()
@@ -193,7 +300,7 @@ bool PdbReader::read_compilands()
                 }
 
                 while (SUCCEEDED(pEnumSourceFiles->Next(1, &pSourceFile, &celt)) && (celt == 1)) {
-                    read_source_file(compilandInfo, pSourceFile);
+                    read_source_file_for_compiland(compilandInfo, pSourceFile);
                     pSourceFile->Release();
                 }
 
@@ -411,7 +518,12 @@ void PdbReader::read_compiland_function(
 
             while (SUCCEEDED(pLines->Next(1, &pLine, &celt)) && (celt == 1)) {
                 if (line_index++ == 0) {
-                    read_source_file_from_line(functionInfo, functionId, pLine);
+                    IDiaSourceFile *pSource;
+                    if (pLine->get_sourceFile(&pSource) == S_OK) {
+                        read_source_file_for_function(functionInfo, functionId, pSource);
+
+                        pSource->Release();
+                    }
                 }
                 read_line(functionInfo, pLine);
                 pLine->Release();
@@ -475,79 +587,33 @@ void PdbReader::read_public_function(PdbFunctionInfo &functionInfo, IDiaSymbol *
     }
 }
 
-void PdbReader::read_source_file(PdbCompilandInfo &compilandInfo, IDiaSourceFile *pSourceFile)
+void PdbReader::read_source_file_for_compiland(PdbCompilandInfo &compilandInfo, IDiaSourceFile *pSourceFile)
 {
-    // Source file data is populated this way because there is no pure source file enumeration in DIA2 and findFileById
-    // function fails for valid unique id's. Function specific info is filled elsewhere.
+    BSTR name;
+    if (pSourceFile->get_fileName(&name) == S_OK) {
+        std::string n = util::to_utf8(name);
+        StringToIndexMapT::iterator it = m_sourceFileNameToIndexMap.find(n);
+        assert(it != m_sourceFileNameToIndexMap.end());
 
-    DWORD sourceId;
-    if (pSourceFile->get_uniqueId(&sourceId) == S_OK) {
-        compilandInfo.sourceFileIds.push_back(sourceId);
+        compilandInfo.sourceFileIds.push_back(it->second);
 
-        if (m_sourceFiles.size() < sourceId + 1) {
-            // Allocate file(s).
-            m_sourceFiles.resize(sourceId + 1);
-        }
-        PdbSourceFileInfo &fileInfo = m_sourceFiles[sourceId];
-
-        if (!fileInfo.is_valid()) {
-            // Populate source file info.
-            {
-                BSTR name;
-                if (pSourceFile->get_fileName(&name) == S_OK) {
-                    fileInfo.name = util::to_utf8(name);
-                    SysFreeString(name);
-                }
-            }
-            {
-                DWORD checksumType = CHKSUM_TYPE_NONE;
-                if (pSourceFile->get_checksumType(&checksumType) == S_OK) {
-                    fileInfo.checksumType = static_cast<CV_Chksum>(checksumType);
-                }
-            }
-            {
-                BYTE checksum[256];
-                DWORD cbChecksum = sizeof(checksum);
-                if (pSourceFile->get_checksum(cbChecksum, &cbChecksum, checksum) == S_OK) {
-                    fileInfo.checksum.assign(checksum, checksum + cbChecksum);
-                }
-            }
-            {
-                IDiaEnumSymbols *pEnumCompilands;
-                if (pSourceFile->get_compilands(&pEnumCompilands) == S_OK) {
-                    IDiaSymbol *pCompiland;
-                    ULONG celt = 0;
-
-                    {
-                        LONG count = 0;
-                        pEnumCompilands->get_Count(&count);
-                        fileInfo.compilandIds.reserve(count);
-                    }
-
-                    while (SUCCEEDED(pEnumCompilands->Next(1, &pCompiland, &celt)) && (celt == 1)) {
-                        DWORD indexId;
-                        if (pCompiland->get_symIndexId(&indexId) == S_OK) {
-                            fileInfo.compilandIds.push_back(indexId);
-                        }
-                    }
-                }
-            }
-        }
+        SysFreeString(name);
     }
 }
 
-void PdbReader::read_source_file_from_line(PdbFunctionInfo &functionInfo, IndexT functionId, IDiaLineNumber *pLine)
+void PdbReader::read_source_file_for_function(PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSourceFile *pSourceFile)
 {
-    IDiaSourceFile *pSource;
-    if (pLine->get_sourceFile(&pSource) == S_OK) {
-        DWORD sourceId;
-        if (pSource->get_uniqueId(&sourceId) == S_OK) {
-            assert(functionInfo.sourceFileId == -1);
-            functionInfo.sourceFileId = static_cast<IndexT>(sourceId);
-            m_sourceFiles[sourceId].functionIds.push_back(functionId);
-        }
+    BSTR name;
+    if (pSourceFile->get_fileName(&name) == S_OK) {
+        std::string n = util::to_utf8(name);
+        StringToIndexMapT::iterator it = m_sourceFileNameToIndexMap.find(n);
+        assert(it != m_sourceFileNameToIndexMap.end());
 
-        pSource->Release();
+        assert(functionInfo.sourceFileId == -1);
+        functionInfo.sourceFileId = static_cast<IndexT>(it->second);
+        m_sourceFiles[it->second].functionIds.push_back(functionId);
+
+        SysFreeString(name);
     }
 }
 
@@ -555,18 +621,17 @@ void PdbReader::read_line(PdbFunctionInfo &functionInfo, IDiaLineNumber *pLine)
 {
     DWORD dwRVA;
     DWORD dwLinenum;
-    DWORD dwSrcId;
     DWORD dwLength;
 
-    const HRESULT hr1 = pLine->get_relativeVirtualAddress(&dwRVA);
-    const HRESULT hr2 = pLine->get_lineNumber(&dwLinenum);
-    const HRESULT hr3 = pLine->get_sourceFileId(&dwSrcId);
-    const HRESULT hr4 = pLine->get_length(&dwLength);
+    bool ok = true;
 
-    if (hr1 == S_OK && hr2 == S_OK && hr3 == S_OK && hr4 == S_OK) {
+    ok = ok && pLine->get_relativeVirtualAddress(&dwRVA) == S_OK;
+    ok = ok && pLine->get_lineNumber(&dwLinenum) == S_OK;
+    ok = ok && pLine->get_length(&dwLength) == S_OK;
+
+    if (ok) {
         functionInfo.sourceLines.emplace_back();
         PdbSourceLineInfo &lineInfo = functionInfo.sourceLines.back();
-        assert(functionInfo.sourceFileId == static_cast<uint32_t>(dwSrcId));
         lineInfo.lineNumber = static_cast<uint32_t>(dwLinenum);
         lineInfo.offset = static_cast<uint32_t>(dwRVA) - functionInfo.address.relVirtual;
         lineInfo.length = static_cast<uint32_t>(dwLength);
