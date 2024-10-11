@@ -193,7 +193,7 @@ int main(int argc, char **argv)
     // When config file is set to "auto", then config file name is chosen for input file name.
     const char *config_file = auto_str;
     const char *section_name = ".text"; // unused
-    const char *format_string = nullptr;
+    const char *format_string = auto_str;
     uint64_t start_addr = 0;
     uint64_t end_addr = 0;
     bool print_secs = false;
