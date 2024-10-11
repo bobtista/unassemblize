@@ -25,20 +25,23 @@ const char *const s_sectionsSection = "sections";
 const char *const s_configSection = "config";
 const char *const s_objectSection = "objects";
 
-Executable::Executable(const char *file_name, OutputFormats format, bool verbose) :
-    m_binary(LIEF::Parser::parse(file_name)),
-    m_endAddress(0),
-    m_outputFormat(format),
-    m_codeAlignment(sizeof(uint32_t)),
-    m_dataAlignment(sizeof(uint32_t)),
-    m_codePad(0x90), // NOP
-    m_dataPad(0x00),
-    m_verbose(verbose),
-    m_addBase(false)
+Executable::Executable(OutputFormats format, bool verbose) : m_outputFormat(format), m_verbose(verbose) {}
+
+Executable::~Executable() {}
+
+bool Executable::read(const std::string &exe_file)
 {
     if (m_verbose) {
         printf("Loading section info...\n");
     }
+
+    m_binary = LIEF::Parser::parse(exe_file);
+
+    if (m_binary.get() == nullptr) {
+        return false;
+    }
+
+    m_imageData.imageBase = m_binary->imagebase();
 
     bool checked_image_base = false;
 
@@ -47,7 +50,7 @@ Executable::Executable(const char *file_name, OutputFormats format, bool verbose
             SectionInfo &section = m_sectionMap[it->name()];
             section.data = it->content().data();
 
-            // Check on first section incase binary is huge and later sections start higher than imagebase.
+            // Check on first section in case binary is huge and later sections start higher than imagebase.
             if (!checked_image_base && it->virtual_address() < m_binary->imagebase()) {
                 m_addBase = true;
             }
@@ -61,8 +64,8 @@ Executable::Executable(const char *file_name, OutputFormats format, bool verbose
 
             section.size = it->size();
 
-            if (section.address + section.size > m_endAddress) {
-                m_endAddress = section.address + section.size;
+            if (section.address + section.size > m_imageData.imageEnd) {
+                m_imageData.imageEnd = section.address + section.size;
             }
 
             // Naive split on whether section contains data or code... have entrypoint? Code, else data.
@@ -83,7 +86,9 @@ Executable::Executable(const char *file_name, OutputFormats format, bool verbose
 
     for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it) {
         if (it->value() != 0 && !it->name().empty() && m_symbolMap.find(it->value()) == m_symbolMap.end()) {
-            uint64_t value = it->value() > m_binary->imagebase() ? it->value() : it->value() + m_binary->imagebase();
+            uint64_t value = it->value() > m_binary->imagebase() ?
+                it->value() :
+                it->value() + m_binary->imagebase(); // TODO: Check what is going on with image base.
             m_symbolMap.insert({it->value(), Symbol(it->name(), value, it->size())});
         }
     }
@@ -92,11 +97,39 @@ Executable::Executable(const char *file_name, OutputFormats format, bool verbose
 
     for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it) {
         if (it->value() != 0 && !it->name().empty() && m_symbolMap.find(it->value()) == m_symbolMap.end()) {
-            uint64_t value = it->value() > m_binary->imagebase() ? it->value() : it->value() + m_binary->imagebase();
+            uint64_t value = it->value() > m_binary->imagebase() ?
+                it->value() :
+                it->value() + m_binary->imagebase(); // TODO: Check what is going on with image base.
             m_loadedSymbols.push_back(it->name());
             m_symbolMap.insert({it->value(), Symbol(m_loadedSymbols.back(), value, it->size())});
         }
     }
+
+    if (m_targetObjects.empty()) {
+        m_targetObjects.push_back(
+            {m_binary->name().substr(m_binary->name().find_last_of("/\\") + 1), std::list<ObjectSection>()});
+        auto &obj = m_targetObjects.back();
+
+        for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
+            if (it->name().empty() || it->size() == 0) {
+                continue;
+            }
+
+            obj.sections.push_back({it->name(), it->offset(), it->size()});
+        }
+    }
+
+    return true;
+}
+
+void Executable::add_symbols(const SymbolNames &loadedSymbols, const SymbolMap &symbolMap)
+{
+    // TODO: implement
+}
+
+const Executable::SectionMap &Executable::get_section_map() const
+{
+    return m_sectionMap;
 }
 
 const Executable::SectionInfo *Executable::find_section(uint64_t addr) const
@@ -130,7 +163,17 @@ uint64_t Executable::section_size(const char *name) const
 
 uint64_t Executable::base_address() const
 {
-    return m_binary->imagebase();
+    return m_imageData.imageBase;
+}
+
+uint64_t Executable::end_address() const
+{
+    return m_imageData.imageEnd;
+}
+
+bool Executable::do_add_base() const
+{
+    return m_addBase;
 }
 
 const Executable::Symbol &Executable::get_symbol(uint64_t addr) const
@@ -163,6 +206,11 @@ const Executable::Symbol &Executable::get_nearest_symbol(uint64_t addr) const
     return def;
 }
 
+const Executable::SymbolMap &Executable::get_symbol_map() const
+{
+    return m_symbolMap;
+}
+
 void Executable::add_symbol(const char *sym, uint64_t addr)
 {
     if (m_symbolMap.find(addr) == m_symbolMap.end()) {
@@ -187,10 +235,10 @@ void Executable::load_config(const char *file_name)
 
     if (j.find(s_configSection) != j.end()) {
         nlohmann::json &conf = j.at(s_configSection);
-        conf.at("codealign").get_to(m_codeAlignment);
-        conf.at("dataalign").get_to(m_dataAlignment);
-        conf.at("codepadding").get_to(m_codePad);
-        conf.at("datapadding").get_to(m_dataPad);
+        conf.at("codealign").get_to(m_imageData.codeAlignment);
+        conf.at("dataalign").get_to(m_imageData.dataAlignment);
+        conf.at("codepadding").get_to(m_imageData.codePad);
+        conf.at("datapadding").get_to(m_imageData.dataPad);
     }
 
     if (j.find(s_symbolSection) != j.end()) {
@@ -228,10 +276,10 @@ void Executable::save_config(const char *file_name)
     }
 
     nlohmann::json &conf = j.at(s_configSection);
-    conf["codealign"] = m_codeAlignment;
-    conf["dataalign"] = m_dataAlignment;
-    conf["codepadding"] = m_codePad;
-    conf["datapadding"] = m_dataPad;
+    conf["codealign"] = m_imageData.codeAlignment;
+    conf["dataalign"] = m_imageData.dataAlignment;
+    conf["codepadding"] = m_imageData.codePad;
+    conf["datapadding"] = m_imageData.dataPad;
 
     // Don't dump if we already have a sections for these.
     if (j.find(s_symbolSection) == j.end()) {
@@ -353,6 +401,16 @@ void Executable::load_objects(nlohmann::json &js)
             continue;
         }
 
+        {
+            // Skip if entry already exists.
+            auto it_object = std::find_if(m_targetObjects.begin(), m_targetObjects.end(), [&](const Object &object) {
+                return object.name == obj_name;
+            });
+            if (it_object != m_targetObjects.end()) {
+                continue;
+            }
+        }
+
         m_targetObjects.push_back({obj_name, std::list<ObjectSection>()});
         auto &obj = m_targetObjects.back();
         auto &sections = js.back().at("sections");
@@ -371,20 +429,6 @@ void Executable::dump_objects(nlohmann::json &js)
 {
     if (m_verbose) {
         printf("Saving objects...\n");
-    }
-
-    if (m_targetObjects.empty()) {
-        m_targetObjects.push_back(
-            {m_binary->name().substr(m_binary->name().find_last_of("/\\") + 1), std::list<ObjectSection>()});
-        auto &obj = m_targetObjects.back();
-
-        for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
-            if (it->name().empty() || it->size() == 0) {
-                continue;
-            }
-
-            obj.sections.push_back({it->name(), it->offset(), it->size()});
-        }
     }
 
     for (auto it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it) {

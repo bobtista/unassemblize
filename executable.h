@@ -52,7 +52,7 @@ public:
     struct Symbol
     {
         Symbol(std::string &_name, uint64_t _address, uint64_t _size) : name(_name), address(_address), size(_size) {}
-        std::string &name;
+        std::string &name; // TODO: use symbol names index?
         uint64_t address;
         uint64_t size;
     };
@@ -67,29 +67,48 @@ public:
     struct Object
     {
         std::string name;
-        std::list<ObjectSection> sections;
+        std::list<ObjectSection> sections; // TODO: vector
     };
 
-    using SectionMap = std::map<std::string, SectionInfo>;
-    using SymbolMap = std::map<uint64_t, Symbol>;
+    struct ImageData
+    {
+        uint64_t imageBase = 0; // Default image base address if the ASLR is not enabled.
+        uint64_t imageEnd = 0; // Image end address.
+        uint32_t codeAlignment = sizeof(uint32_t);
+        uint32_t dataAlignment = sizeof(uint32_t);
+        uint8_t codePad = 0x90; // NOP
+        uint8_t dataPad = 0x00;
+    };
+
+    using SectionMap = std::map<std::string, SectionInfo>; // TODO: unordered_map maybe
+    using SymbolMap = std::map<uint64_t, Symbol>; // TODO: unordered_map maybe
+    using SymbolNames = std::list<std::string>; // TODO: vector
+    using Objects = std::list<Object>; // TODO: vector
 
 public:
-    Executable(const char *file_name, OutputFormats format = OUTPUT_IGAS, bool verbose = false);
-    const SectionMap &get_section_map() const { return m_sectionMap; }
-    const LIEF::Binary *get_binary() const { return m_binary.get(); }
-    const SectionInfo *find_section(uint64_t addr) const;
-    const uint8_t *section_data(const char *name) const;
-    uint64_t section_address(const char *name) const;
-    uint64_t section_size(const char *name) const;
-    uint64_t base_address() const;
-    uint64_t end_address() const { return m_endAddress; };
-    bool do_add_base() const { return m_addBase; }
-    const Symbol &get_symbol(uint64_t addr) const;
-    const Symbol &get_nearest_symbol(uint64_t addr) const;
-    const SymbolMap &get_symbol_map() const { return m_symbolMap; }
-    void add_symbol(const char *sym, uint64_t addr);
+    Executable(OutputFormats format = OUTPUT_IGAS, bool verbose = false);
+    ~Executable();
+
+    bool read(const std::string &exe_file);
+
+    void add_symbols(const SymbolNames &loadedSymbols, const SymbolMap &symbolMap);
+
     void load_config(const char *file_name);
     void save_config(const char *file_name);
+
+    const SectionMap &get_section_map() const;
+    const SectionInfo *find_section(uint64_t addr) const;
+    const uint8_t *section_data(const char *name) const; // TODO: check how to improve this
+    uint64_t section_address(const char *name) const; // TODO: check how to improve this
+    uint64_t section_size(const char *name) const; // TODO: check how to improve this
+    uint64_t base_address() const;
+    uint64_t end_address() const;
+    bool do_add_base() const;
+    const Symbol &get_symbol(uint64_t addr) const;
+    const Symbol &get_nearest_symbol(uint64_t addr) const;
+    const SymbolMap &get_symbol_map() const;
+    void add_symbol(const char *sym, uint64_t addr);
+
     /**
      * Disassembles a range of bytes and outputs the format as though it were a single function.
      * Addresses should be the absolute addresses when the binary is loaded at its preferred base address.
@@ -109,18 +128,16 @@ private:
     void dump_objects(nlohmann::json &js);
 
 private:
+    const OutputFormats m_outputFormat;
+    const bool m_verbose;
+    bool m_addBase = false;
+
     std::unique_ptr<LIEF::Binary> m_binary;
     SectionMap m_sectionMap;
     SymbolMap m_symbolMap;
-    std::list<std::string> m_loadedSymbols;
-    std::list<Object> m_targetObjects;
-    OutputFormats m_outputFormat;
-    uint64_t m_endAddress;
-    uint32_t m_codeAlignment;
-    uint32_t m_dataAlignment;
-    uint8_t m_codePad;
-    uint8_t m_dataPad;
-    bool m_verbose;
-    bool m_addBase;
+    SymbolNames m_loadedSymbols;
+    Objects m_targetObjects;
+    ImageData m_imageData;
 };
+
 } // namespace unassemblize

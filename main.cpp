@@ -10,11 +10,11 @@
  *            A full copy of the GNU General Public License can be found in
  *            LICENSE
  */
+#include "executable.h"
 #include "function.h"
 #include "gitinfo.h"
 #include "pdbreader.h"
 #include "util.h"
-#include <LIEF/LIEF.hpp>
 #include <getopt.h>
 #include <inttypes.h>
 #include <stdio.h>
@@ -117,7 +117,11 @@ bool process_exe(const ExeOptions &o)
         }
     }
 
-    unassemblize::Executable exe(o.input_file.c_str(), format, o.verbose);
+    unassemblize::Executable exe(format, o.verbose);
+
+    if (!exe.read(o.input_file)) {
+        return false;
+    }
 
     if (o.print_secs) {
         print_sections(exe);
