@@ -13,6 +13,7 @@
 #include "function.h"
 #include "gitinfo.h"
 #include "pdbreader.h"
+#include "util.h"
 #include <LIEF/LIEF.hpp>
 #include <getopt.h>
 #include <inttypes.h>
@@ -77,30 +78,6 @@ void dump_function_to_file(
     }
 }
 
-void remove_characters(std::string &s, const std::string &chars)
-{
-    s.erase(
-        std::remove_if(s.begin(), s.end(), [&chars](const char &c) { return chars.find(c) != std::string::npos; }), s.end());
-}
-
-std::string get_remove_file_ext(const std::string &file_name)
-{
-    const size_t pos = file_name.find_last_of(".");
-    if (pos != std::string::npos) {
-        return file_name.substr(0, pos);
-    }
-    return file_name;
-}
-
-std::string get_file_ext(const std::string &file_name)
-{
-    const size_t pos = file_name.find_last_of(".");
-    if (pos != std::string::npos) {
-        return file_name.substr(pos + 1);
-    }
-    return {};
-}
-
 const char *const auto_str = "auto"; // When output is set to "auto", then output name is chosen for input file name.
 
 enum class InputType
@@ -160,12 +137,12 @@ int process_exe(const ExeOptions &o)
             const unassemblize::Executable::Symbol &symbol = pair.second;
             std::string sanitized_symbol_name = symbol.name;
 #if defined(WIN32)
-            remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");
+            util::remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");
 #endif
             std::string file_name;
             if (!o.output_file.empty()) {
                 // program.symbol.S
-                file_name = get_remove_file_ext(o.output_file) + "." + sanitized_symbol_name + ".S";
+                file_name = util::get_remove_file_ext(o.output_file) + "." + sanitized_symbol_name + ".S";
             }
             dump_function_to_file(file_name, exe, o.section_name.c_str(), symbol.address, symbol.address + symbol.size);
         }
@@ -302,18 +279,18 @@ int main(int argc, char **argv)
     }
 
     std::string input_file_str(input_file);
-    std::string input_file_ext = get_file_ext(input_file_str);
+    std::string input_file_ext = util::get_file_ext(input_file_str);
     std::string config_file_str(config_file);
     std::string output_file_str(output_file);
 
     if (config_file_str == auto_str) {
         // program.config.json
-        config_file_str = get_remove_file_ext(input_file_str) + ".config.json";
+        config_file_str = util::get_remove_file_ext(input_file_str) + ".config.json";
     }
 
     if (output_file_str == auto_str) {
         // program.S
-        output_file_str = get_remove_file_ext(input_file_str) + ".S";
+        output_file_str = util::get_remove_file_ext(input_file_str) + ".S";
     }
 
     InputType type = InputType::Exe;

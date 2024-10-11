@@ -12,33 +12,16 @@
  */
 #pragma once
 
-#include <codecvt>
 #include <string>
 
 namespace util
 {
-std::string to_utf8(const wchar_t *utf16)
-{
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> convert;
-    return convert.to_bytes(utf16);
-}
-
-std::string to_utf8(const std::wstring &utf16)
-{
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> convert;
-    return convert.to_bytes(utf16);
-}
-
-std::wstring to_utf16(const char *utf8)
-{
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> convert;
-    return convert.from_bytes(utf8);
-}
-
-std::wstring to_utf16(const std::string &utf8)
-{
-    std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> convert;
-    return convert.from_bytes(utf8);
-}
+std::string to_utf8(const wchar_t *utf16);
+std::string to_utf8(const std::wstring &utf16);
+std::wstring to_utf16(const char *utf8);
+std::wstring to_utf16(const std::string &utf8);
+void remove_characters(std::string &s, const std::string &chars);
+std::string get_remove_file_ext(const std::string &file_name);
+std::string get_file_ext(const std::string &file_name);
 
 } // namespace util
