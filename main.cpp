@@ -100,7 +100,7 @@ struct ExeOptions
     bool verbose = false;
 };
 
-int process_exe(const ExeOptions &o)
+bool process_exe(const ExeOptions &o)
 {
     if (o.verbose) {
         printf("Parsing exe file '%s'...\n", o.input_file.c_str());
@@ -121,12 +121,12 @@ int process_exe(const ExeOptions &o)
 
     if (o.print_secs) {
         print_sections(exe);
-        return 0;
+        return true;
     }
 
     if (o.dump_syms) {
         exe.save_config(o.config_file.c_str());
-        return 0;
+        return true;
     }
 
     exe.load_config(o.config_file.c_str());
@@ -150,7 +150,7 @@ int process_exe(const ExeOptions &o)
         dump_function_to_file(o.output_file, exe, o.section_name.c_str(), o.start_addr, o.end_addr);
     }
 
-    return 0;
+    return true;
 }
 
 struct PdbOptions
@@ -162,21 +162,21 @@ struct PdbOptions
     bool verbose = false;
 };
 
-int process_pdb(const PdbOptions &o)
+bool process_pdb(const PdbOptions &o)
 {
     unassemblize::PdbReader pdb_reader(o.verbose);
 
     // Currently does not read back config file here.
 
     if (!pdb_reader.read(o.input_file)) {
-        return 1;
+        return false;
     }
 
     if (o.dump_syms) {
         pdb_reader.save_config(o.config_file);
     }
 
-    return 0;
+    return true;
 }
 
 int main(int argc, char **argv)
@@ -322,7 +322,7 @@ int main(int argc, char **argv)
         o.print_secs = print_secs;
         o.dump_syms = dump_syms;
         o.verbose = verbose;
-        return process_exe(o);
+        return process_exe(o) ? 0 : 1;
     } else if (InputType::Pdb == type) {
         PdbOptions o;
         o.input_file = input_file_str;
@@ -330,7 +330,7 @@ int main(int argc, char **argv)
         o.print_secs = print_secs;
         o.dump_syms = dump_syms;
         o.verbose = verbose;
-        return process_pdb(o);
+        return process_pdb(o) ? 0 : 1;
     } else {
         // Impossible
         return 1;
