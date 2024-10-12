@@ -563,11 +563,8 @@ void Function::disassemble(AsmFormat fmt)
         if (instruction.info.raw.imm->is_relative) {
             ZydisCalcAbsoluteAddress(&instruction.info, instruction.operands, runtime_address, &address);
 
-            if (address >= m_startAddress && address < m_endAddress && m_labels.find(address) == m_labels.end()) {
-                std::stringstream stream;
-                stream << std::hex << address;
-                m_labels[address] = std::string("loc_") + stream.str();
-                m_executable.add_symbol(m_labels[address].c_str(), address);
+            if (address >= m_startAddress && address < m_endAddress) {
+                add_symbol(address);
             }
         }
 
@@ -583,23 +580,14 @@ void Function::disassemble(AsmFormat fmt)
             while (next_int >= m_startAddress && next_int < m_endAddress) {
                 // If this is first entry of jump table, create label to jump to.
                 if (!in_jump_table) {
-                    if (runtime_address >= m_startAddress && runtime_address < m_endAddress
-                        && m_labels.find(runtime_address) == m_labels.end()) {
-                        std::stringstream stream;
-                        stream << std::hex << runtime_address;
-                        m_labels[runtime_address] = std::string("loc_") + stream.str();
-                        m_executable.add_symbol(m_labels[runtime_address].c_str(), runtime_address);
+                    if (runtime_address >= m_startAddress && runtime_address < m_endAddress) {
+                        add_symbol(runtime_address);
                     }
 
                     in_jump_table = true;
                 }
 
-                if (m_labels.find(next_int) == m_labels.end()) {
-                    std::stringstream stream;
-                    stream << std::hex << next_int;
-                    m_labels[next_int] = std::string("loc_") + stream.str();
-                    m_executable.add_symbol(m_labels[next_int].c_str(), next_int);
-                }
+                add_symbol(next_int);
 
                 offset += sizeof(uint32_t);
                 runtime_address += sizeof(uint32_t);
@@ -686,6 +674,19 @@ void Function::disassemble(AsmFormat fmt)
                 next_int = get_le32(section_data + offset);
             }
         }
+    }
+}
+
+void Function::add_symbol(uint64_t address)
+{
+    if (m_labels.find(address) == m_labels.end()) {
+        std::stringstream stream;
+        stream << "loc_" << std::hex << address;
+        m_labels[address] = stream.str();
+        Executable::Symbol symbol;
+        symbol.name = m_labels[address];
+        symbol.address = address;
+        m_executable.add_symbol(symbol);
     }
 }
 

@@ -13,11 +13,11 @@
 #pragma once
 
 #include <list>
-#include <map>
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <stdio.h>
 #include <string>
+#include <unordered_map>
 
 namespace LIEF
 {
@@ -80,7 +80,8 @@ public:
     };
 
     using SectionMap = std::map<std::string, SectionInfo>; // TODO: unordered_map maybe
-    using SymbolMap = std::map<uint64_t, Symbol>; // TODO: unordered_map maybe
+    using Symbols = std::vector<Symbol>;
+    using AddressToIndexMap = std::unordered_map<uint64_t, uint32_t>;
     using Objects = std::list<Object>; // TODO: vector
 
 public:
@@ -88,8 +89,6 @@ public:
     ~Executable();
 
     bool read(const std::string &exe_file);
-
-    void add_symbols(const SymbolMap &symbolMap);
 
     void load_config(const char *file_name);
     void save_config(const char *file_name);
@@ -104,8 +103,9 @@ public:
     bool do_add_base() const;
     const Symbol &get_symbol(uint64_t addr) const;
     const Symbol &get_nearest_symbol(uint64_t addr) const;
-    const SymbolMap &get_symbol_map() const;
-    void add_symbol(const char *sym, uint64_t addr);
+    const Symbols &get_symbols() const;
+    void add_symbols(const Symbols &symbols);
+    void add_symbol(const Symbol &symbol);
 
     /**
      * Disassembles a range of bytes and outputs the format as though it were a single function.
@@ -117,13 +117,13 @@ private:
     void dissassemble_gas_func(FILE *fp, const char *section_name, uint64_t start, uint64_t end);
 
     void load_symbols(nlohmann::json &js);
-    void dump_symbols(nlohmann::json &js);
+    void dump_symbols(nlohmann::json &js) const;
 
     void load_sections(nlohmann::json &js);
-    void dump_sections(nlohmann::json &js);
+    void dump_sections(nlohmann::json &js) const;
 
     void load_objects(nlohmann::json &js);
-    void dump_objects(nlohmann::json &js);
+    void dump_objects(nlohmann::json &js) const;
 
 private:
     const OutputFormats m_outputFormat;
@@ -132,7 +132,8 @@ private:
 
     std::unique_ptr<LIEF::Binary> m_binary;
     SectionMap m_sectionMap;
-    SymbolMap m_symbolMap;
+    Symbols m_symbols;
+    AddressToIndexMap m_symbolAddressToIndexMap;
     Objects m_targetObjects;
     ImageData m_imageData;
 

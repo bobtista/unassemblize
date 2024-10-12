@@ -51,6 +51,8 @@ public:
     const Executable &executable() const { return m_executable; }
 
 private:
+    void add_symbol(uint64_t address);
+
     std::map<uint64_t, std::string> m_labels; // Map of labels this function uses internally.
     std::vector<std::string> m_deps; // Symbols this function depends on.
     std::string m_dissassembly; // Disassembly buffer for this function.

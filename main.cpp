@@ -136,9 +136,11 @@ bool process_exe(const ExeOptions &o)
     exe.load_config(o.config_file.c_str());
 
     if (o.start_addr == 0 && o.end_addr == 0) {
-        for (const unassemblize::Executable::SymbolMap::value_type &pair : exe.get_symbol_map()) {
-            const uint64_t address = pair.first;
-            const unassemblize::Executable::Symbol &symbol = pair.second;
+        // Creates a copy of symbols because symbols are modified during function disassembling.
+        // TODO: Remove copy when fixed.
+        const unassemblize::Executable::Symbols symbolsCopy = exe.get_symbols();
+
+        for (const unassemblize::Executable::Symbol &symbol : symbolsCopy) {
             std::string sanitized_symbol_name = symbol.name;
 #if defined(WIN32)
             util::remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");

@@ -84,32 +84,48 @@ bool Executable::read(const std::string &exe_file)
         printf("Indexing embedded symbols...\n");
     }
 
-    auto exe_syms = m_binary->symbols();
+    {
+        auto exe_syms = m_binary->symbols();
 
-    for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it) {
-        if (it->value() != 0 && !it->name().empty() && m_symbolMap.find(it->value()) == m_symbolMap.end()) {
-            uint64_t value = it->value() > m_binary->imagebase() ?
+        const size_t newSize = m_symbols.size() + exe_syms.size();
+        m_symbols.reserve(newSize);
+        m_symbolAddressToIndexMap.reserve(newSize);
+
+        for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it) {
+            Symbol symbol;
+            symbol.name = it->name();
+            symbol.address = it->value() > m_binary->imagebase() ?
                 it->value() :
                 it->value() + m_binary->imagebase(); // TODO: Check what is going on with image base.
-            m_symbolMap.insert({it->value(), {it->name(), value, it->size()}});
+            symbol.size = it->size();
+
+            add_symbol(symbol);
         }
     }
 
-    auto exe_imports = m_binary->imported_functions();
+    {
+        auto exe_imports = m_binary->imported_functions();
 
-    for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it) {
-        if (it->value() != 0 && !it->name().empty() && m_symbolMap.find(it->value()) == m_symbolMap.end()) {
-            uint64_t value = it->value() > m_binary->imagebase() ?
+        const size_t newSize = m_symbols.size() + exe_imports.size();
+        m_symbols.reserve(newSize);
+        m_symbolAddressToIndexMap.reserve(newSize);
+
+        for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it) {
+            Symbol symbol;
+            symbol.name = it->name();
+            symbol.address = it->value() > m_binary->imagebase() ?
                 it->value() :
                 it->value() + m_binary->imagebase(); // TODO: Check what is going on with image base.
-            m_symbolMap.insert({it->value(), {it->name(), value, it->size()}});
+            symbol.size = it->size();
+
+            add_symbol(symbol);
         }
     }
 
     if (m_targetObjects.empty()) {
         m_targetObjects.push_back(
             {m_binary->name().substr(m_binary->name().find_last_of("/\\") + 1), std::list<ObjectSection>()});
-        auto &obj = m_targetObjects.back();
+        Object &obj = m_targetObjects.back();
 
         for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
             if (it->name().empty() || it->size() == 0) {
@@ -121,11 +137,6 @@ bool Executable::read(const std::string &exe_file)
     }
 
     return true;
-}
-
-void Executable::add_symbols(const SymbolMap &symbolMap)
-{
-    // TODO: implement
 }
 
 const Executable::SectionMap &Executable::get_section_map() const
@@ -146,19 +157,19 @@ const Executable::SectionInfo *Executable::find_section(uint64_t addr) const
 
 const uint8_t *Executable::section_data(const char *name) const
 {
-    auto it = m_sectionMap.find(name);
+    SectionMap::const_iterator it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.data : nullptr;
 }
 
 uint64_t Executable::section_address(const char *name) const
 {
-    auto it = m_sectionMap.find(name);
+    SectionMap::const_iterator it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.address : UINT64_MAX;
 }
 
 uint64_t Executable::section_size(const char *name) const
 {
-    auto it = m_sectionMap.find(name);
+    SectionMap::const_iterator it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.size : 0;
 }
 
@@ -179,10 +190,10 @@ bool Executable::do_add_base() const
 
 const Executable::Symbol &Executable::get_symbol(uint64_t addr) const
 {
-    auto it = m_symbolMap.find(addr);
+    AddressToIndexMap::const_iterator it = m_symbolAddressToIndexMap.find(addr);
 
-    if (it != m_symbolMap.end()) {
-        return it->second;
+    if (it != m_symbolAddressToIndexMap.end()) {
+        return m_symbols[it->second];
     }
 
     return s_emptySymbol;
@@ -190,28 +201,48 @@ const Executable::Symbol &Executable::get_symbol(uint64_t addr) const
 
 const Executable::Symbol &Executable::get_nearest_symbol(uint64_t addr) const
 {
-    auto it = m_symbolMap.lower_bound(addr);
+    AddressToIndexMap::const_iterator it = m_symbolAddressToIndexMap.lower_bound(addr);
 
-    if (it != m_symbolMap.end()) {
-        if (it->second.address == addr) {
-            return it->second;
+    if (it != m_symbolAddressToIndexMap.end()) {
+        const Symbol &symbol = m_symbols[it->second];
+        if (symbol.address == addr) {
+            return symbol;
         } else {
-            return std::prev(it)->second;
+            const Symbol &prevSymbol = m_symbols[std::prev(it)->second];
+            return prevSymbol;
         }
     }
 
     return s_emptySymbol;
 }
 
-const Executable::SymbolMap &Executable::get_symbol_map() const
+const Executable::Symbols &Executable::get_symbols() const
 {
-    return m_symbolMap;
+    return m_symbols;
 }
 
-void Executable::add_symbol(const char *sym, uint64_t addr)
+void Executable::add_symbols(const Symbols &symbols)
 {
-    if (m_symbolMap.find(addr) == m_symbolMap.end()) {
-        m_symbolMap.insert({addr, {sym, addr, 0}});
+    uint32_t index = static_cast<uint32_t>(m_symbols.size());
+    const uint32_t size = index + symbols.size();
+    m_symbols.insert(m_symbols.end(), symbols.begin(), symbols.end());
+    m_symbolAddressToIndexMap.reserve(size);
+
+    assert(m_symbols.size() == size);
+
+    for (; index < size; ++index) {
+        m_symbolAddressToIndexMap[m_symbols[index].address] = index;
+    }
+}
+
+void Executable::add_symbol(const Symbol &symbol)
+{
+    AddressToIndexMap::iterator it = m_symbolAddressToIndexMap.find(symbol.address);
+
+    if (it == m_symbolAddressToIndexMap.end()) {
+        uint32_t index = static_cast<uint32_t>(m_symbols.size());
+        m_symbols.push_back(symbol);
+        m_symbolAddressToIndexMap[symbol.address] = index;
     }
 }
 
@@ -303,38 +334,37 @@ void Executable::load_symbols(nlohmann::json &js)
         printf("Loading external symbols...\n");
     }
 
+    size_t newSize = m_symbols.size() + js.size();
+    m_symbols.reserve(newSize);
+    m_symbolAddressToIndexMap.reserve(newSize);
+
     for (auto it = js.begin(); it != js.end(); ++it) {
-        std::string name;
-        it->at("name").get_to(name);
+        Symbol symbol;
 
-        // Don't try and load an empty symbol.
-        if (!name.empty()) {
-            uint64_t size = 0;
-            uint64_t addr = 0;
-            it->at("address").get_to(addr);
-
-            if (addr == 0) {
-                continue;
-            }
-
-            it->at("size").get_to(size);
-
-            // Only load symbols for addresses we don't have any symbol for yet.
-            if (m_symbolMap.find(addr) == m_symbolMap.end()) {
-                m_symbolMap.insert({addr, {name, addr, size}});
-            }
+        it->at("name").get_to(symbol.name);
+        if (symbol.name.empty()) {
+            continue;
         }
+
+        it->at("address").get_to(symbol.address);
+        if (symbol.address == 0) {
+            continue;
+        }
+
+        it->at("size").get_to(symbol.size);
+
+        add_symbol(symbol);
     }
 }
 
-void Executable::dump_symbols(nlohmann::json &js)
+void Executable::dump_symbols(nlohmann::json &js) const
 {
     if (m_verbose) {
         printf("Saving symbols...\n");
     }
 
-    for (auto it = m_symbolMap.begin(); it != m_symbolMap.end(); ++it) {
-        js.push_back({{"name", it->second.name}, {"address", it->second.address}, {"size", it->second.size}});
+    for (const Symbol &symbol : m_symbols) {
+        js.push_back({{"name", symbol.name}, {"address", symbol.address}, {"size", symbol.size}});
     }
 }
 
@@ -350,7 +380,7 @@ void Executable::load_sections(nlohmann::json &js)
 
         // Don't try and load an empty symbol.
         if (!name.empty()) {
-            auto section = m_sectionMap.find(name);
+            SectionMap::iterator section = m_sectionMap.find(name);
 
             if (section == m_sectionMap.end() && m_verbose) {
                 printf("Tried to load section info for section not present in this binary!\n");
@@ -371,13 +401,13 @@ void Executable::load_sections(nlohmann::json &js)
     }
 }
 
-void Executable::dump_sections(nlohmann::json &js)
+void Executable::dump_sections(nlohmann::json &js) const
 {
     if (m_verbose) {
         printf("Saving section info...\n");
     }
 
-    for (auto it = m_sectionMap.begin(); it != m_sectionMap.end(); ++it) {
+    for (SectionMap::const_iterator it = m_sectionMap.begin(); it != m_sectionMap.end(); ++it) {
         js.push_back({{"name", it->first}, {"type", it->second.type == SECTION_CODE ? "code" : "data"}});
     }
 }
@@ -398,16 +428,16 @@ void Executable::load_objects(nlohmann::json &js)
 
         {
             // Skip if entry already exists.
-            auto it_object = std::find_if(m_targetObjects.begin(), m_targetObjects.end(), [&](const Object &object) {
-                return object.name == obj_name;
-            });
+            Objects::const_iterator it_object = std::find_if(m_targetObjects.begin(),
+                m_targetObjects.end(),
+                [&](const Object &object) { return object.name == obj_name; });
             if (it_object != m_targetObjects.end()) {
                 continue;
             }
         }
 
         m_targetObjects.push_back({obj_name, std::list<ObjectSection>()});
-        auto &obj = m_targetObjects.back();
+        Object &obj = m_targetObjects.back();
         auto &sections = js.back().at("sections");
 
         for (auto sec = sections.begin(); sec != sections.end(); ++sec) {
@@ -420,13 +450,13 @@ void Executable::load_objects(nlohmann::json &js)
     }
 }
 
-void Executable::dump_objects(nlohmann::json &js)
+void Executable::dump_objects(nlohmann::json &js) const
 {
     if (m_verbose) {
         printf("Saving objects...\n");
     }
 
-    for (auto it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it) {
+    for (Objects::const_iterator it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it) {
         js.push_back({{"name", it->name}, {"sections", nlohmann::json()}});
         auto &sections = js.back().at("sections");
 
