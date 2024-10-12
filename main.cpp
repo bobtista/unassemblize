@@ -136,11 +136,7 @@ bool process_exe(const ExeOptions &o)
     exe.load_config(o.config_file.c_str());
 
     if (o.start_addr == 0 && o.end_addr == 0) {
-        // Creates a copy of symbols because symbols are modified during function disassembling.
-        // TODO: Remove copy when fixed.
-        const unassemblize::Executable::Symbols symbolsCopy = exe.get_symbols();
-
-        for (const unassemblize::Executable::Symbol &symbol : symbolsCopy) {
+        for (const unassemblize::Executable::Symbol &symbol : exe.get_symbols()) {
             std::string sanitized_symbol_name = symbol.name;
 #if defined(WIN32)
             util::remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");

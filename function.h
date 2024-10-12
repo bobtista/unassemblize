@@ -32,8 +32,8 @@ public:
     };
 
 public:
-    Function(Executable &exe, const char *section_name, uint64_t start, uint64_t end) :
-        m_section(section_name), m_startAddress(start), m_endAddress(end), m_executable(exe)
+    Function(const Executable &exe, const char *section_name, uint64_t start, uint64_t end) :
+        m_executable(exe), m_section(section_name), m_startAddress(start), m_endAddress(end)
     {
     }
     void disassemble(AsmFormat fmt = FORMAT_DEFAULT); // Run the disassembly of the function.
@@ -47,18 +47,22 @@ public:
     {
         return m_executable.section_address(m_section.c_str()) + m_executable.section_size(m_section.c_str());
     }
-    const std::map<uint64_t, std::string> &labels() const { return m_labels; }
     const Executable &executable() const { return m_executable; }
+    const Executable::Symbol &get_symbol(uint64_t addr) const;
+    const Executable::Symbol &get_nearest_symbol(uint64_t addr) const;
 
 private:
-    void add_symbol(uint64_t address);
+    void add_pseudo_symbol(uint64_t address);
 
-    std::map<uint64_t, std::string> m_labels; // Map of labels this function uses internally.
-    std::vector<std::string> m_deps; // Symbols this function depends on.
-    std::string m_dissassembly; // Disassembly buffer for this function.
+private:
+    const Executable &m_executable;
     const std::string m_section; // #TODO: Unused, remove?
     const uint64_t m_startAddress; // Runtime start address of the function.
     const uint64_t m_endAddress; // Runtime end address of the function.
-    Executable &m_executable;
+
+    Executable::Symbols m_pseudoSymbols; // Symbols used in disassemble step.
+    Executable::AddressToIndexMap m_pseudoSymbolAddressToIndexMap;
+    std::vector<std::string> m_deps; // Symbols this function depends on.
+    std::string m_dissassembly; // Disassembly buffer for this function.
 };
 } // namespace unassemblize

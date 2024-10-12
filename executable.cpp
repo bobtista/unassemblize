@@ -240,7 +240,7 @@ void Executable::add_symbol(const Symbol &symbol)
     AddressToIndexMap::iterator it = m_symbolAddressToIndexMap.find(symbol.address);
 
     if (it == m_symbolAddressToIndexMap.end()) {
-        uint32_t index = static_cast<uint32_t>(m_symbols.size());
+        const uint32_t index = static_cast<uint32_t>(m_symbols.size());
         m_symbols.push_back(symbol);
         m_symbolAddressToIndexMap[symbol.address] = index;
     }
