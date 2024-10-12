@@ -51,10 +51,9 @@ public:
 
     struct Symbol
     {
-        Symbol(std::string &_name, uint64_t _address, uint64_t _size) : name(_name), address(_address), size(_size) {}
-        std::string &name; // TODO: use symbol names index?
-        uint64_t address;
-        uint64_t size;
+        std::string name;
+        uint64_t address = 0;
+        uint64_t size = 0;
     };
 
     struct ObjectSection
@@ -82,7 +81,6 @@ public:
 
     using SectionMap = std::map<std::string, SectionInfo>; // TODO: unordered_map maybe
     using SymbolMap = std::map<uint64_t, Symbol>; // TODO: unordered_map maybe
-    using SymbolNames = std::list<std::string>; // TODO: vector
     using Objects = std::list<Object>; // TODO: vector
 
 public:
@@ -91,7 +89,7 @@ public:
 
     bool read(const std::string &exe_file);
 
-    void add_symbols(const SymbolNames &loadedSymbols, const SymbolMap &symbolMap);
+    void add_symbols(const SymbolMap &symbolMap);
 
     void load_config(const char *file_name);
     void save_config(const char *file_name);
@@ -135,9 +133,10 @@ private:
     std::unique_ptr<LIEF::Binary> m_binary;
     SectionMap m_sectionMap;
     SymbolMap m_symbolMap;
-    SymbolNames m_loadedSymbols;
     Objects m_targetObjects;
     ImageData m_imageData;
+
+    static Symbol s_emptySymbol;
 };
 
 } // namespace unassemblize

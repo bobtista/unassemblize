@@ -25,6 +25,8 @@ const char *const s_sectionsSection = "sections";
 const char *const s_configSection = "config";
 const char *const s_objectSection = "objects";
 
+Executable::Symbol Executable::s_emptySymbol;
+
 Executable::Executable(OutputFormats format, bool verbose) : m_outputFormat(format), m_verbose(verbose) {}
 
 Executable::~Executable() {}
@@ -89,7 +91,7 @@ bool Executable::read(const std::string &exe_file)
             uint64_t value = it->value() > m_binary->imagebase() ?
                 it->value() :
                 it->value() + m_binary->imagebase(); // TODO: Check what is going on with image base.
-            m_symbolMap.insert({it->value(), Symbol(it->name(), value, it->size())});
+            m_symbolMap.insert({it->value(), {it->name(), value, it->size()}});
         }
     }
 
@@ -100,8 +102,7 @@ bool Executable::read(const std::string &exe_file)
             uint64_t value = it->value() > m_binary->imagebase() ?
                 it->value() :
                 it->value() + m_binary->imagebase(); // TODO: Check what is going on with image base.
-            m_loadedSymbols.push_back(it->name());
-            m_symbolMap.insert({it->value(), Symbol(m_loadedSymbols.back(), value, it->size())});
+            m_symbolMap.insert({it->value(), {it->name(), value, it->size()}});
         }
     }
 
@@ -122,7 +123,7 @@ bool Executable::read(const std::string &exe_file)
     return true;
 }
 
-void Executable::add_symbols(const SymbolNames &loadedSymbols, const SymbolMap &symbolMap)
+void Executable::add_symbols(const SymbolMap &symbolMap)
 {
     // TODO: implement
 }
@@ -178,21 +179,17 @@ bool Executable::do_add_base() const
 
 const Executable::Symbol &Executable::get_symbol(uint64_t addr) const
 {
-    static std::string empty;
-    static Symbol def(empty, 0, 0);
     auto it = m_symbolMap.find(addr);
 
     if (it != m_symbolMap.end()) {
         return it->second;
     }
 
-    return def;
+    return s_emptySymbol;
 }
 
 const Executable::Symbol &Executable::get_nearest_symbol(uint64_t addr) const
 {
-    static std::string empty;
-    static Symbol def(empty, 0, 0);
     auto it = m_symbolMap.lower_bound(addr);
 
     if (it != m_symbolMap.end()) {
@@ -203,7 +200,7 @@ const Executable::Symbol &Executable::get_nearest_symbol(uint64_t addr) const
         }
     }
 
-    return def;
+    return s_emptySymbol;
 }
 
 const Executable::SymbolMap &Executable::get_symbol_map() const
@@ -214,8 +211,7 @@ const Executable::SymbolMap &Executable::get_symbol_map() const
 void Executable::add_symbol(const char *sym, uint64_t addr)
 {
     if (m_symbolMap.find(addr) == m_symbolMap.end()) {
-        m_loadedSymbols.push_back(sym);
-        m_symbolMap.insert({addr, Symbol(m_loadedSymbols.back(), addr, 0)});
+        m_symbolMap.insert({addr, {sym, addr, 0}});
     }
 }
 
@@ -325,8 +321,7 @@ void Executable::load_symbols(nlohmann::json &js)
 
             // Only load symbols for addresses we don't have any symbol for yet.
             if (m_symbolMap.find(addr) == m_symbolMap.end()) {
-                m_loadedSymbols.push_back(name);
-                m_symbolMap.insert({addr, {m_loadedSymbols.back(), addr, size}});
+                m_symbolMap.insert({addr, {name, addr, size}});
             }
         }
     }
