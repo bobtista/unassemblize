@@ -25,7 +25,7 @@ const char *const s_sectionsSection = "sections";
 const char *const s_configSection = "config";
 const char *const s_objectSection = "objects";
 
-Executable::Symbol Executable::s_emptySymbol;
+ExeSymbol Executable::s_emptySymbol;
 
 Executable::Executable(OutputFormats format, bool verbose) : m_outputFormat(format), m_verbose(verbose) {}
 
@@ -49,7 +49,7 @@ bool Executable::read(const std::string &exe_file)
 
     for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
         if (!it->name().empty() && it->size() != 0) {
-            SectionInfo &section = m_sectionMap[it->name()];
+            ExeSectionInfo &section = m_sectionMap[it->name()];
             section.data = it->content().data();
 
             // Check on first section in case binary is huge and later sections start higher than imagebase.
@@ -92,7 +92,7 @@ bool Executable::read(const std::string &exe_file)
         m_symbolAddressToIndexMap.reserve(newSize);
 
         for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it) {
-            Symbol symbol;
+            ExeSymbol symbol;
             symbol.name = it->name();
             symbol.address = it->value() > m_binary->imagebase() ?
                 it->value() :
@@ -111,7 +111,7 @@ bool Executable::read(const std::string &exe_file)
         m_symbolAddressToIndexMap.reserve(newSize);
 
         for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it) {
-            Symbol symbol;
+            ExeSymbol symbol;
             symbol.name = it->name();
             symbol.address = it->value() > m_binary->imagebase() ?
                 it->value() :
@@ -124,8 +124,8 @@ bool Executable::read(const std::string &exe_file)
 
     if (m_targetObjects.empty()) {
         m_targetObjects.push_back(
-            {m_binary->name().substr(m_binary->name().find_last_of("/\\") + 1), std::list<ObjectSection>()});
-        Object &obj = m_targetObjects.back();
+            {m_binary->name().substr(m_binary->name().find_last_of("/\\") + 1), std::list<ExeObjectSection>()});
+        ExeObject &obj = m_targetObjects.back();
 
         for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
             if (it->name().empty() || it->size() == 0) {
@@ -139,15 +139,15 @@ bool Executable::read(const std::string &exe_file)
     return true;
 }
 
-const Executable::SectionMap &Executable::get_section_map() const
+const ExeSectionMap &Executable::get_section_map() const
 {
     return m_sectionMap;
 }
 
-const Executable::SectionInfo *Executable::find_section(uint64_t addr) const
+const ExeSectionInfo *Executable::find_section(uint64_t addr) const
 {
-    for (const SectionMap::value_type &pair : m_sectionMap) {
-        const SectionInfo &info = pair.second;
+    for (const ExeSectionMap::value_type &pair : m_sectionMap) {
+        const ExeSectionInfo &info = pair.second;
         if (addr >= info.address && addr < info.address + info.size) {
             return &info;
         }
@@ -157,19 +157,19 @@ const Executable::SectionInfo *Executable::find_section(uint64_t addr) const
 
 const uint8_t *Executable::section_data(const char *name) const
 {
-    SectionMap::const_iterator it = m_sectionMap.find(name);
+    ExeSectionMap::const_iterator it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.data : nullptr;
 }
 
 uint64_t Executable::section_address(const char *name) const
 {
-    SectionMap::const_iterator it = m_sectionMap.find(name);
+    ExeSectionMap::const_iterator it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.address : UINT64_MAX;
 }
 
 uint64_t Executable::section_size(const char *name) const
 {
-    SectionMap::const_iterator it = m_sectionMap.find(name);
+    ExeSectionMap::const_iterator it = m_sectionMap.find(name);
     return it != m_sectionMap.end() ? it->second.size : 0;
 }
 
@@ -188,9 +188,9 @@ bool Executable::do_add_base() const
     return m_addBase;
 }
 
-const Executable::Symbol &Executable::get_symbol(uint64_t addr) const
+const ExeSymbol &Executable::get_symbol(uint64_t addr) const
 {
-    AddressToIndexMap::const_iterator it = m_symbolAddressToIndexMap.find(addr);
+    Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.find(addr);
 
     if (it != m_symbolAddressToIndexMap.end()) {
         return m_symbols[it->second];
@@ -199,16 +199,16 @@ const Executable::Symbol &Executable::get_symbol(uint64_t addr) const
     return s_emptySymbol;
 }
 
-const Executable::Symbol &Executable::get_nearest_symbol(uint64_t addr) const
+const ExeSymbol &Executable::get_nearest_symbol(uint64_t addr) const
 {
-    AddressToIndexMap::const_iterator it = m_symbolAddressToIndexMap.lower_bound(addr);
+    Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.lower_bound(addr);
 
     if (it != m_symbolAddressToIndexMap.end()) {
-        const Symbol &symbol = m_symbols[it->second];
+        const ExeSymbol &symbol = m_symbols[it->second];
         if (symbol.address == addr) {
             return symbol;
         } else {
-            const Symbol &prevSymbol = m_symbols[std::prev(it)->second];
+            const ExeSymbol &prevSymbol = m_symbols[std::prev(it)->second];
             return prevSymbol;
         }
     }
@@ -216,12 +216,12 @@ const Executable::Symbol &Executable::get_nearest_symbol(uint64_t addr) const
     return s_emptySymbol;
 }
 
-const Executable::Symbols &Executable::get_symbols() const
+const ExeSymbols &Executable::get_symbols() const
 {
     return m_symbols;
 }
 
-void Executable::add_symbols(const Symbols &symbols)
+void Executable::add_symbols(const ExeSymbols &symbols)
 {
     uint32_t index = static_cast<uint32_t>(m_symbols.size());
     const uint32_t size = index + symbols.size();
@@ -235,9 +235,9 @@ void Executable::add_symbols(const Symbols &symbols)
     }
 }
 
-void Executable::add_symbol(const Symbol &symbol)
+void Executable::add_symbol(const ExeSymbol &symbol)
 {
-    AddressToIndexMap::iterator it = m_symbolAddressToIndexMap.find(symbol.address);
+    Address64ToIndexMap::iterator it = m_symbolAddressToIndexMap.find(symbol.address);
 
     if (it == m_symbolAddressToIndexMap.end()) {
         const uint32_t index = static_cast<uint32_t>(m_symbols.size());
@@ -339,7 +339,7 @@ void Executable::load_symbols(nlohmann::json &js)
     m_symbolAddressToIndexMap.reserve(newSize);
 
     for (auto it = js.begin(); it != js.end(); ++it) {
-        Symbol symbol;
+        ExeSymbol symbol;
 
         it->at("name").get_to(symbol.name);
         if (symbol.name.empty()) {
@@ -363,7 +363,7 @@ void Executable::dump_symbols(nlohmann::json &js) const
         printf("Saving symbols...\n");
     }
 
-    for (const Symbol &symbol : m_symbols) {
+    for (const ExeSymbol &symbol : m_symbols) {
         js.push_back({{"name", symbol.name}, {"address", symbol.address}, {"size", symbol.size}});
     }
 }
@@ -380,7 +380,7 @@ void Executable::load_sections(nlohmann::json &js)
 
         // Don't try and load an empty symbol.
         if (!name.empty()) {
-            SectionMap::iterator section = m_sectionMap.find(name);
+            ExeSectionMap::iterator section = m_sectionMap.find(name);
 
             if (section == m_sectionMap.end() && m_verbose) {
                 printf("Tried to load section info for section not present in this binary!\n");
@@ -407,7 +407,7 @@ void Executable::dump_sections(nlohmann::json &js) const
         printf("Saving section info...\n");
     }
 
-    for (SectionMap::const_iterator it = m_sectionMap.begin(); it != m_sectionMap.end(); ++it) {
+    for (ExeSectionMap::const_iterator it = m_sectionMap.begin(); it != m_sectionMap.end(); ++it) {
         js.push_back({{"name", it->first}, {"type", it->second.type == SECTION_CODE ? "code" : "data"}});
     }
 }
@@ -428,21 +428,21 @@ void Executable::load_objects(nlohmann::json &js)
 
         {
             // Skip if entry already exists.
-            Objects::const_iterator it_object = std::find_if(m_targetObjects.begin(),
+            ExeObjects::const_iterator it_object = std::find_if(m_targetObjects.begin(),
                 m_targetObjects.end(),
-                [&](const Object &object) { return object.name == obj_name; });
+                [&](const ExeObject &object) { return object.name == obj_name; });
             if (it_object != m_targetObjects.end()) {
                 continue;
             }
         }
 
-        m_targetObjects.push_back({obj_name, std::list<ObjectSection>()});
-        Object &obj = m_targetObjects.back();
+        m_targetObjects.push_back({obj_name, std::list<ExeObjectSection>()});
+        ExeObject &obj = m_targetObjects.back();
         auto &sections = js.back().at("sections");
 
         for (auto sec = sections.begin(); sec != sections.end(); ++sec) {
             obj.sections.emplace_back();
-            ObjectSection &section = obj.sections.back();
+            ExeObjectSection &section = obj.sections.back();
             sec->at("name").get_to(section.name);
             sec->at("offset").get_to(section.offset);
             sec->at("size").get_to(section.size);
@@ -456,7 +456,7 @@ void Executable::dump_objects(nlohmann::json &js) const
         printf("Saving objects...\n");
     }
 
-    for (Objects::const_iterator it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it) {
+    for (ExeObjects::const_iterator it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it) {
         js.push_back({{"name", it->name}, {"sections", nlohmann::json()}});
         auto &sections = js.back().at("sections");
 

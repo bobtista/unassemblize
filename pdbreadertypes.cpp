@@ -1,7 +1,7 @@
 /**
  * @file
  *
- * @brief Class to extract relevant symbols from PDB files
+ * @brief Data to store relevant symbols from PDB files
  *
  * @copyright Unassemblize is free software: you can redistribute it and/or
  *            modify it under the terms of the GNU General Public License
@@ -11,6 +11,7 @@
  *            LICENSE
  */
 #include "pdbreadertypes.h"
+#include <nlohmann/json.hpp>
 
 namespace unassemblize
 {

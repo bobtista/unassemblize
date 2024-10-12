@@ -22,6 +22,8 @@ namespace unassemblize
 {
 class Function
 {
+    using Address64ToIndexMap = std::unordered_map<Address64T, IndexT>;
+
 public:
     enum AsmFormat
     {
@@ -48,8 +50,8 @@ public:
         return m_executable.section_address(m_section.c_str()) + m_executable.section_size(m_section.c_str());
     }
     const Executable &executable() const { return m_executable; }
-    const Executable::Symbol &get_symbol(uint64_t addr) const;
-    const Executable::Symbol &get_nearest_symbol(uint64_t addr) const;
+    const ExeSymbol &get_symbol(uint64_t addr) const;
+    const ExeSymbol &get_nearest_symbol(uint64_t addr) const;
 
 private:
     void add_pseudo_symbol(uint64_t address);
@@ -60,8 +62,8 @@ private:
     const uint64_t m_startAddress; // Runtime start address of the function.
     const uint64_t m_endAddress; // Runtime end address of the function.
 
-    Executable::Symbols m_pseudoSymbols; // Symbols used in disassemble step.
-    Executable::AddressToIndexMap m_pseudoSymbolAddressToIndexMap;
+    ExeSymbols m_pseudoSymbols; // Symbols used in disassemble step.
+    Address64ToIndexMap m_pseudoSymbolAddressToIndexMap;
     std::vector<std::string> m_deps; // Symbols this function depends on.
     std::string m_dissassembly; // Disassembly buffer for this function.
 };

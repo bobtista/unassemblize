@@ -12,12 +12,10 @@
  */
 #pragma once
 
-#include <list>
+#include "executabletypes.h"
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <stdio.h>
-#include <string>
-#include <unordered_map>
 
 namespace LIEF
 {
@@ -28,61 +26,14 @@ namespace unassemblize
 {
 class Executable
 {
+    using Address64ToIndexMap = std::unordered_map<Address64T, IndexT>;
+
 public:
     enum OutputFormats
     {
         OUTPUT_IGAS,
         OUTPUT_MASM,
     };
-
-    enum SectionTypes
-    {
-        SECTION_DATA,
-        SECTION_CODE,
-    };
-
-    struct SectionInfo
-    {
-        const uint8_t *data;
-        uint64_t address;
-        uint64_t size;
-        SectionTypes type;
-    };
-
-    struct Symbol
-    {
-        std::string name;
-        uint64_t address = 0;
-        uint64_t size = 0;
-    };
-
-    struct ObjectSection
-    {
-        std::string name;
-        uint64_t offset;
-        uint64_t size;
-    };
-
-    struct Object
-    {
-        std::string name;
-        std::list<ObjectSection> sections; // TODO: vector
-    };
-
-    struct ImageData
-    {
-        uint64_t imageBase = 0; // Default image base address if the ASLR is not enabled.
-        uint64_t imageEnd = 0; // Image end address.
-        uint32_t codeAlignment = sizeof(uint32_t);
-        uint32_t dataAlignment = sizeof(uint32_t);
-        uint8_t codePad = 0x90; // NOP
-        uint8_t dataPad = 0x00;
-    };
-
-    using SectionMap = std::map<std::string, SectionInfo>; // TODO: unordered_map maybe
-    using Symbols = std::vector<Symbol>;
-    using AddressToIndexMap = std::unordered_map<uint64_t, uint32_t>;
-    using Objects = std::list<Object>; // TODO: vector
 
 public:
     Executable(OutputFormats format = OUTPUT_IGAS, bool verbose = false);
@@ -93,19 +44,19 @@ public:
     void load_config(const char *file_name);
     void save_config(const char *file_name);
 
-    const SectionMap &get_section_map() const;
-    const SectionInfo *find_section(uint64_t addr) const;
+    const ExeSectionMap &get_section_map() const;
+    const ExeSectionInfo *find_section(uint64_t addr) const;
     const uint8_t *section_data(const char *name) const; // TODO: check how to improve this
     uint64_t section_address(const char *name) const; // TODO: check how to improve this
     uint64_t section_size(const char *name) const; // TODO: check how to improve this
     uint64_t base_address() const;
     uint64_t end_address() const;
     bool do_add_base() const;
-    const Symbol &get_symbol(uint64_t addr) const;
-    const Symbol &get_nearest_symbol(uint64_t addr) const;
-    const Symbols &get_symbols() const;
-    void add_symbols(const Symbols &symbols);
-    void add_symbol(const Symbol &symbol);
+    const ExeSymbol &get_symbol(uint64_t addr) const;
+    const ExeSymbol &get_nearest_symbol(uint64_t addr) const;
+    const ExeSymbols &get_symbols() const;
+    void add_symbols(const ExeSymbols &symbols);
+    void add_symbol(const ExeSymbol &symbol);
 
     /**
      * Disassembles a range of bytes and outputs the format as though it were a single function.
@@ -131,13 +82,13 @@ private:
     bool m_addBase = false;
 
     std::unique_ptr<LIEF::Binary> m_binary;
-    SectionMap m_sectionMap;
-    Symbols m_symbols;
-    AddressToIndexMap m_symbolAddressToIndexMap;
-    Objects m_targetObjects;
-    ImageData m_imageData;
+    ExeSectionMap m_sectionMap;
+    ExeSymbols m_symbols;
+    Address64ToIndexMap m_symbolAddressToIndexMap;
+    ExeObjects m_targetObjects;
+    ExeImageData m_imageData;
 
-    static Symbol s_emptySymbol;
+    static ExeSymbol s_emptySymbol;
 };
 
 } // namespace unassemblize

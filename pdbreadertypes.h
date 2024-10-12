@@ -1,7 +1,7 @@
 /**
  * @file
  *
- * @brief Class to extract relevant symbols from PDB files
+ * @brief Data to store relevant symbols from PDB files
  *
  * @copyright Unassemblize is free software: you can redistribute it and/or
  *            modify it under the terms of the GNU General Public License
@@ -12,8 +12,8 @@
  */
 #pragma once
 
-#include <IntSafe.h>
-#include <nlohmann/json.hpp>
+#include "executabletypes.h"
+#include <nlohmann/json_fwd.hpp>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -63,10 +63,6 @@ enum class CV_Call
     // Do NOT add any more machine specific conventions.  This is to be used for
     // calling conventions in the source only (e.g. __cdecl, __stdcall).
 };
-
-using Address64T = uint64_t;
-using Address32T = uint32_t;
-using IndexT = uint32_t;
 
 struct PdbAddress
 {

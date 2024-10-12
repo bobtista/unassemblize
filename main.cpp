@@ -56,7 +56,7 @@ void print_help()
 
 void print_sections(unassemblize::Executable &exe)
 {
-    const unassemblize::Executable::SectionMap &map = exe.get_section_map();
+    const unassemblize::ExeSectionMap &map = exe.get_section_map();
     for (auto it = map.begin(); it != map.end(); ++it) {
         printf(
             "Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n", it->first.c_str(), it->second.address, it->second.size);
@@ -136,7 +136,7 @@ bool process_exe(const ExeOptions &o)
     exe.load_config(o.config_file.c_str());
 
     if (o.start_addr == 0 && o.end_addr == 0) {
-        for (const unassemblize::Executable::Symbol &symbol : exe.get_symbols()) {
+        for (const unassemblize::ExeSymbol &symbol : exe.get_symbols()) {
             std::string sanitized_symbol_name = symbol.name;
 #if defined(WIN32)
             util::remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");

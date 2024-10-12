@@ -77,7 +77,7 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
     uint64_t address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
     char hex_buff[32];
-    const Executable::Symbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -89,7 +89,7 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -105,7 +105,7 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -130,7 +130,7 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
     uint64_t address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
     char hex_buff[32];
-    const Executable::Symbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -142,7 +142,7 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -158,7 +158,7 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -182,7 +182,7 @@ static ZyanStatus UnasmFormatterPrintIMM(
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->imm.value.u;
     char hex_buff[32];
-    const Executable::Symbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -194,7 +194,7 @@ static ZyanStatus UnasmFormatterPrintIMM(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -210,7 +210,7 @@ static ZyanStatus UnasmFormatterPrintIMM(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -234,7 +234,7 @@ static ZyanStatus UnasmFormatterPrintDISP(
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->mem.disp.value;
     char hex_buff[32];
-    const Executable::Symbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -246,7 +246,7 @@ static ZyanStatus UnasmFormatterPrintDISP(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_nearest_symbol(address);
+        const ExeSymbol &symbol = func->get_nearest_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -268,7 +268,7 @@ static ZyanStatus UnasmFormatterPrintDISP(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_nearest_symbol(address);
+        const ExeSymbol &symbol = func->get_nearest_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -298,7 +298,7 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->ptr.offset;
     char hex_buff[32];
-    const Executable::Symbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
@@ -310,7 +310,7 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -326,7 +326,7 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -350,7 +350,7 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->mem.disp.value;
     char hex_buff[32];
-    const Executable::Symbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol(address);
 
     if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM) || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB)) {
         ZYAN_CHECK(formatter->func_print_typecast(formatter, buffer, context));
@@ -367,7 +367,7 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -383,7 +383,7 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const Executable::Symbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol(address);
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -517,7 +517,7 @@ std::string BuildInvalidInstructionString(
 void Function::disassemble(AsmFormat fmt)
 {
     const uint64_t image_base = m_executable.do_add_base() ? m_executable.base_address() : 0;
-    const Executable::SectionInfo *section_info = m_executable.find_section(image_base + m_startAddress);
+    const ExeSectionInfo *section_info = m_executable.find_section(image_base + m_startAddress);
 
     if (section_info == nullptr) {
         return;
@@ -620,7 +620,7 @@ void Function::disassemble(AsmFormat fmt)
             continue;
         }
 
-        const Executable::Symbol &runtime_symbol = get_symbol(runtime_address);
+        const ExeSymbol &runtime_symbol = get_symbol(runtime_address);
 
         if (!runtime_symbol.name.empty()) {
             m_dissassembly += runtime_symbol.name;
@@ -643,7 +643,7 @@ void Function::disassemble(AsmFormat fmt)
                 // If this is first entry of jump table, create label to jump to.
 
                 if (!in_jump_table) {
-                    const Executable::Symbol &symbol = m_executable.get_symbol(runtime_address);
+                    const ExeSymbol &symbol = m_executable.get_symbol(runtime_address);
 
                     if (!symbol.name.empty()) {
                         m_dissassembly += symbol.name;
@@ -653,7 +653,7 @@ void Function::disassemble(AsmFormat fmt)
                     in_jump_table = true;
                 }
 
-                const Executable::Symbol &symbol = m_executable.get_symbol(next_int);
+                const ExeSymbol &symbol = m_executable.get_symbol(next_int);
 
                 if (!symbol.name.empty()) {
                     if (fmt == FORMAT_MASM) {
@@ -676,18 +676,18 @@ void Function::disassemble(AsmFormat fmt)
 void Function::add_pseudo_symbol(uint64_t address)
 {
     {
-        const Executable::Symbol &symbol = m_executable.get_symbol(address);
+        const ExeSymbol &symbol = m_executable.get_symbol(address);
         if (symbol.address != 0) {
             return;
         }
     }
 
-    Executable::AddressToIndexMap::iterator it = m_pseudoSymbolAddressToIndexMap.find(address);
+    Address64ToIndexMap::iterator it = m_pseudoSymbolAddressToIndexMap.find(address);
 
     if (it == m_pseudoSymbolAddressToIndexMap.end()) {
         std::stringstream stream;
         stream << "loc_" << std::hex << address;
-        Executable::Symbol symbol;
+        ExeSymbol symbol;
         symbol.name = stream.str();
         symbol.address = address;
         symbol.size = 0;
@@ -698,9 +698,9 @@ void Function::add_pseudo_symbol(uint64_t address)
     }
 }
 
-const Executable::Symbol &Function::get_symbol(uint64_t addr) const
+const ExeSymbol &Function::get_symbol(uint64_t addr) const
 {
-    Executable::AddressToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(addr);
+    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(addr);
 
     if (it != m_pseudoSymbolAddressToIndexMap.end()) {
         return m_pseudoSymbols[it->second];
@@ -709,16 +709,16 @@ const Executable::Symbol &Function::get_symbol(uint64_t addr) const
     return m_executable.get_symbol(addr);
 }
 
-const Executable::Symbol &Function::get_nearest_symbol(uint64_t addr) const
+const ExeSymbol &Function::get_nearest_symbol(uint64_t addr) const
 {
-    Executable::AddressToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.lower_bound(addr);
+    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.lower_bound(addr);
 
     if (it != m_pseudoSymbolAddressToIndexMap.end()) {
-        const Executable::Symbol &symbol = m_pseudoSymbols[it->second];
+        const ExeSymbol &symbol = m_pseudoSymbols[it->second];
         if (symbol.address == addr) {
             return symbol;
         } else {
-            const Executable::Symbol &prevSymbol = m_pseudoSymbols[std::prev(it)->second];
+            const ExeSymbol &prevSymbol = m_pseudoSymbols[std::prev(it)->second];
             return prevSymbol;
         }
     }

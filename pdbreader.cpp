@@ -15,6 +15,7 @@
 #include <dia2.h>
 #include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 
 namespace unassemblize
 {
