@@ -24,7 +24,7 @@ const char *const s_sourceFiles = "pdb_source_files";
 const char *const s_functions = "pdb_functions";
 const char *const s_exe = "pdb_exe";
 
-PdbReader::PdbReader(bool verbose) : m_verbose(verbose), m_dwMachineType(CV_CFL_80386) {}
+PdbReader::PdbReader() : m_dwMachineType(CV_CFL_80386) {}
 
 bool PdbReader::read(const std::string &pdb_file)
 {
@@ -36,6 +36,25 @@ bool PdbReader::read(const std::string &pdb_file)
     unload();
 
     return success;
+}
+
+ExeSymbols PdbReader::build_exe_symbols() const
+{
+    ExeSymbols symbols;
+    symbols.reserve(m_functions.size());
+    for (const PdbFunctionInfo &function : m_functions) {
+        ExeSymbol symbol;
+        symbol.name = function.decoratedName;
+        symbol.address = function.address.relVirtual;
+        symbol.size = function.length;
+        symbols.emplace_back(std::move(symbol));
+    }
+    return symbols;
+}
+
+const PdbExeInfo &PdbReader::get_exe_info() const
+{
+    return m_exe;
 }
 
 void PdbReader::load_json(const nlohmann::json &js)

@@ -57,6 +57,15 @@ std::string get_remove_file_ext(const std::string &file_name)
     return file_name;
 }
 
+std::string get_file_path(const std::string &file_path)
+{
+    const size_t pos = file_path.find_last_of("/\\");
+    if (pos != std::string::npos) {
+        return file_path.substr(0, pos);
+    }
+    return file_path;
+}
+
 std::string get_file_ext(const std::string &file_name)
 {
     const size_t pos = file_name.find_last_of(".");

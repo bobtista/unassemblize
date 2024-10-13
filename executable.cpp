@@ -27,7 +27,7 @@ const char *const s_objectSection = "objects";
 
 ExeSymbol Executable::s_emptySymbol;
 
-Executable::Executable(OutputFormats format, bool verbose) : m_outputFormat(format), m_verbose(verbose) {}
+Executable::Executable() {}
 
 Executable::~Executable() {}
 
@@ -223,15 +223,12 @@ const ExeSymbols &Executable::get_symbols() const
 
 void Executable::add_symbols(const ExeSymbols &symbols)
 {
-    uint32_t index = static_cast<uint32_t>(m_symbols.size());
-    const uint32_t size = index + symbols.size();
-    m_symbols.insert(m_symbols.end(), symbols.begin(), symbols.end());
+    const size_t size = m_symbols.size() + symbols.size();
+    m_symbols.reserve(size);
     m_symbolAddressToIndexMap.reserve(size);
 
-    assert(m_symbols.size() == size);
-
-    for (; index < size; ++index) {
-        m_symbolAddressToIndexMap[m_symbols[index].address] = index;
+    for (const ExeSymbol &symbol : symbols) {
+        add_symbol(symbol);
     }
 }
 

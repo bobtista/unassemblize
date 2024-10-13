@@ -29,15 +29,18 @@ class Executable
     using Address64ToIndexMap = std::unordered_map<Address64T, IndexT>;
 
 public:
-    enum OutputFormats
+    enum OutputFormat
     {
         OUTPUT_IGAS,
         OUTPUT_MASM,
     };
 
 public:
-    Executable(OutputFormats format = OUTPUT_IGAS, bool verbose = false);
+    Executable();
     ~Executable();
+
+    void set_output_format(OutputFormat format) { m_outputFormat = format; }
+    void set_verbose(bool verbose) { m_verbose = verbose; }
 
     bool read(const std::string &exe_file);
 
@@ -55,7 +58,15 @@ public:
     const ExeSymbol &get_symbol(uint64_t addr) const;
     const ExeSymbol &get_nearest_symbol(uint64_t addr) const;
     const ExeSymbols &get_symbols() const;
+
+    /*
+     * Adds series of new symbols if not already present.
+     */
     void add_symbols(const ExeSymbols &symbols);
+
+    /*
+     * Adds new symbol if not already present.
+     */
     void add_symbol(const ExeSymbol &symbol);
 
     /**
@@ -77,8 +88,8 @@ private:
     void dump_objects(nlohmann::json &js) const;
 
 private:
-    const OutputFormats m_outputFormat;
-    const bool m_verbose;
+    OutputFormat m_outputFormat = OUTPUT_IGAS;
+    bool m_verbose = false;
     bool m_addBase = false;
 
     std::unique_ptr<LIEF::Binary> m_binary;

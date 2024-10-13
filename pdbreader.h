@@ -28,9 +28,15 @@ class PdbReader
     using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
 
 public:
-    PdbReader(bool verbose = false);
+    PdbReader();
+
+    void set_verbose(bool verbose) { m_verbose = verbose; }
 
     bool read(const std::string &pdb_file);
+
+    ExeSymbols build_exe_symbols() const;
+
+    const PdbExeInfo &get_exe_info() const;
 
     void load_json(const nlohmann::json &js);
     bool load_config(const std::string &file_name);
@@ -62,12 +68,12 @@ private:
     void read_line(PdbFunctionInfo &function_info, IDiaLineNumber *pLine);
 
 private:
-    const bool m_verbose = false;
     IDiaDataSource *m_pDiaSource = nullptr;
     IDiaSession *m_pDiaSession = nullptr;
     IDiaSymbol *m_pDiaSymbol = nullptr;
     uint32_t m_dwMachineType = 0;
     bool m_coInitialized = false;
+    bool m_verbose = false;
 
     // Compilands indices match DIA2 indices.
     // Source Files indices do not match DIA2 indices (aka "unique id").
