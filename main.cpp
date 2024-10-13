@@ -82,6 +82,7 @@ const char *const auto_str = "auto"; // When output is set to "auto", then outpu
 
 enum class InputType
 {
+    Unknown,
     Exe,
     Pdb,
 };
@@ -179,6 +180,44 @@ bool process_pdb(const PdbOptions &o)
     }
 
     return true;
+}
+
+std::string get_config_file_name(const std::string &input_file, const std::string &config_file)
+{
+    if (0 == strcasecmp(config_file.c_str(), auto_str)) {
+        // program.config.json
+        return util::get_remove_file_ext(input_file) + ".config.json";
+    }
+    return config_file;
+}
+
+std::string get_output_file_name(const std::string &input_file, const std::string &output_file)
+{
+    if (0 == strcasecmp(output_file.c_str(), auto_str)) {
+        // program.S
+        return util::get_remove_file_ext(input_file) + ".S";
+    }
+    return output_file;
+}
+
+InputType get_input_type(const std::string &input_file, const std::string &input_type)
+{
+    InputType type = InputType::Unknown;
+
+    if (0 == strcasecmp(input_type.c_str(), auto_str)) {
+        std::string input_file_ext = util::get_file_ext(input_file);
+        if (0 == strcasecmp(input_file_ext.c_str(), "pdb")) {
+            type = InputType::Pdb;
+        } else {
+            type = InputType::Exe;
+        }
+    } else if (0 == strcasecmp(input_type.c_str(), "exe")) {
+        type = InputType::Exe;
+    } else if (0 == strcasecmp(input_type.c_str(), "pdb")) {
+        type = InputType::Pdb;
+    }
+
+    return type;
 }
 
 int main(int argc, char **argv)
@@ -280,43 +319,17 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    std::string input_file_str(input_file);
-    std::string input_file_ext = util::get_file_ext(input_file_str);
-    std::string config_file_str(config_file);
-    std::string output_file_str(output_file);
-
-    if (config_file_str == auto_str) {
-        // program.config.json
-        config_file_str = util::get_remove_file_ext(input_file_str) + ".config.json";
-    }
-
-    if (output_file_str == auto_str) {
-        // program.S
-        output_file_str = util::get_remove_file_ext(input_file_str) + ".S";
-    }
-
-    InputType type = InputType::Exe;
-
-    if (0 == strcmp(input_type, auto_str)) {
-        if (0 == strcasecmp(input_file_ext.c_str(), "pdb")) {
-            type = InputType::Pdb;
-        } else {
-            type = InputType::Exe;
-        }
-    } else if (0 == strcasecmp(input_type, "exe")) {
-        type = InputType::Exe;
-    } else if (0 == strcasecmp(input_type, "pdb")) {
-        type = InputType::Pdb;
-    } else {
+    const InputType type = get_input_type(input_file, input_type);
+    if (type == InputType::Unknown) {
         printf("Unrecognized input file type '%s'. Exiting...\n", input_type);
         return 1;
     }
 
     if (InputType::Exe == type) {
         ExeOptions o;
-        o.input_file = input_file_str;
-        o.config_file = config_file_str;
-        o.output_file = output_file_str;
+        o.input_file = input_file;
+        o.config_file = get_config_file_name(o.input_file, config_file);
+        o.output_file = get_output_file_name(o.input_file, output_file);
         o.section_name = section_name;
         o.format_str = format_string;
         o.start_addr = start_addr;
@@ -327,8 +340,8 @@ int main(int argc, char **argv)
         return process_exe(o) ? 0 : 1;
     } else if (InputType::Pdb == type) {
         PdbOptions o;
-        o.input_file = input_file_str;
-        o.config_file = config_file_str;
+        o.input_file = input_file;
+        o.config_file = get_config_file_name(o.input_file, config_file);
         o.print_secs = print_secs;
         o.dump_syms = dump_syms;
         o.verbose = verbose;
