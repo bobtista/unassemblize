@@ -161,12 +161,12 @@ public:
             for (const unassemblize::ExeSymbol &symbol : m_executable.get_symbols()) {
                 std::string sanitized_symbol_name = symbol.name;
 #if defined(WIN32)
-                util::remove_characters(sanitized_symbol_name, "\\/:*?\"<>|");
+                util::remove_characters_inplace(sanitized_symbol_name, "\\/:*?\"<>|");
 #endif
                 std::string file_name;
                 if (!o.output_file.empty()) {
                     // program.symbol.S
-                    file_name = util::get_remove_file_ext(o.output_file) + "." + sanitized_symbol_name + ".S";
+                    file_name = util::get_file_name_without_ext(o.output_file) + "." + sanitized_symbol_name + ".S";
                 }
                 dump_function_to_file(
                     file_name, m_executable, o.section_name.c_str(), symbol.address, symbol.address + symbol.size);
@@ -213,7 +213,7 @@ std::string get_config_file_name(const std::string &input_file, const std::strin
 {
     if (0 == strcasecmp(config_file.c_str(), auto_str)) {
         // program.config.json
-        return util::get_remove_file_ext(input_file) + ".config.json";
+        return util::get_file_name_without_ext(input_file) + ".config.json";
     }
     return config_file;
 }
@@ -222,7 +222,7 @@ std::string get_output_file_name(const std::string &input_file, const std::strin
 {
     if (0 == strcasecmp(output_file.c_str(), auto_str)) {
         // program.S
-        return util::get_remove_file_ext(input_file) + ".S";
+        return util::get_file_name_without_ext(input_file) + ".S";
     }
     return output_file;
 }
@@ -347,14 +347,9 @@ int main(int argc, char **argv)
     }
 
     const InputType type = get_input_type(input_file, input_type);
-    if (type == InputType::Unknown) {
-        printf("Unrecognized input file type '%s'. Exiting...\n", input_type);
-        return 1;
-    }
-
-    Runner runner;
 
     if (InputType::Exe == type) {
+        Runner runner;
         ExeOptions o;
         o.input_file = input_file;
         o.config_file = get_config_file_name(o.input_file, config_file);
@@ -368,6 +363,7 @@ int main(int argc, char **argv)
         o.verbose = verbose;
         return runner.process_exe(o) ? 0 : 1;
     } else if (InputType::Pdb == type) {
+        Runner runner;
         bool success;
         {
             PdbOptions o;
@@ -394,7 +390,7 @@ int main(int argc, char **argv)
         }
         return success ? 0 : 1;
     } else {
-        // Impossible
+        printf("Unrecognized input file type '%s'. Exiting...\n", input_type);
         return 1;
     }
 }

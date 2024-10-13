@@ -42,13 +42,13 @@ std::wstring to_utf16(const std::string &utf8)
     return convert.from_bytes(utf8);
 }
 
-void remove_characters(std::string &s, const std::string &chars)
+void remove_characters_inplace(std::string &s, const std::string &chars)
 {
     s.erase(
         std::remove_if(s.begin(), s.end(), [&chars](const char &c) { return chars.find(c) != std::string::npos; }), s.end());
 }
 
-std::string get_remove_file_ext(const std::string &file_name)
+std::string get_file_name_without_ext(const std::string &file_name)
 {
     const size_t pos = file_name.find_last_of(".");
     if (pos != std::string::npos) {

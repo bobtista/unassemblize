@@ -18,8 +18,8 @@ namespace unassemblize
 void to_json(nlohmann::json &js, const PdbAddress &d)
 {
     js = nlohmann::json{
-        {"abs_virtual", d.absVirtual},
-        {"rel_virtual", d.relVirtual},
+        {"virtual_abs", d.absVirtual},
+        {"virtual_rel", d.relVirtual},
         {"section", d.section},
         {"offset", d.offset},
     };
@@ -27,8 +27,8 @@ void to_json(nlohmann::json &js, const PdbAddress &d)
 
 void from_json(const nlohmann::json &js, PdbAddress &d)
 {
-    js.at("abs_virtual").get_to(d.absVirtual);
-    js.at("rel_virtual").get_to(d.relVirtual);
+    js.at("virtual_phy").get_to(d.absVirtual);
+    js.at("virtual_rel").get_to(d.relVirtual);
     js.at("section").get_to(d.section);
     js.at("offset").get_to(d.offset);
 }
