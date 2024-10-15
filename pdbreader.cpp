@@ -12,6 +12,7 @@
  */
 #include "pdbreader.h"
 #include "util.h"
+#include <array>
 #include <dia2.h>
 #include <fstream>
 #include <iostream>
@@ -42,12 +43,18 @@ ExeSymbols PdbReader::build_exe_symbols() const
 {
     ExeSymbols symbols;
     symbols.reserve(m_functions.size());
-    for (const PdbFunctionInfo &function : m_functions) {
-        ExeSymbol symbol;
-        symbol.name = function.decoratedName;
-        symbol.address = function.address.relVirtual;
-        symbol.size = function.length;
-        symbols.emplace_back(std::move(symbol));
+    for (const PdbSymbolInfo &pdbSymbol : m_symbols) {
+        ExeSymbol exeSymbol;
+        if (!pdbSymbol.decoratedName.empty()) {
+            exeSymbol.name = pdbSymbol.decoratedName;
+        } else if (!pdbSymbol.globalName.empty()) {
+            exeSymbol.name = pdbSymbol.globalName;
+        } else {
+            exeSymbol.name = pdbSymbol.undecoratedName;
+        }
+        exeSymbol.address = pdbSymbol.address.absVirtual;
+        exeSymbol.size = pdbSymbol.length;
+        symbols.emplace_back(std::move(exeSymbol));
     }
     return symbols;
 }
@@ -232,12 +239,29 @@ bool PdbReader::read_symbols()
     m_functions.reserve(1024 * 100);
 
     bool ok = true;
-    read_global_scope();
+    ok = ok && read_global_scope();
+    ok = ok && read_publics();
+    ok = ok && read_globals();
     ok = ok && read_source_files();
     ok = ok && read_compilands();
 
     m_functions.shrink_to_fit();
+    m_symbols.shrink_to_fit();
+
     m_sourceFileNameToIndexMap.clear();
+    m_addressToSymbolsMap.clear();
+
+#if 0 // Collects all functions that are missing in public & global symbols.
+    std::vector<PdbFunctionInfo *> missingFunctions;
+    for (PdbFunctionInfo &function : m_functions) {
+        auto it = std::find_if(m_symbols.begin(), m_symbols.end(), [&](const PdbSymbolInfo &symbol) {
+            return symbol.decoratedName == function.decoratedName;
+        });
+        if (it == m_symbols.end()) {
+            missingFunctions.push_back(&function);
+        }
+    }
+#endif
 
     return ok;
 }
@@ -714,7 +738,8 @@ void PdbReader::read_public_function(PdbFunctionInfo &functionInfo, IDiaSymbol *
 {
     BSTR name;
     if (pSymbol->get_name(&name) == S_OK) {
-        functionInfo.decoratedName = util::to_utf8(name);
+        const std::string n = util::to_utf8(name);
+        functionInfo.decoratedName = get_relevant_symbol_name(functionInfo.decoratedName, n);
         SysFreeString(name);
     }
 }
@@ -768,6 +793,196 @@ void PdbReader::read_line(PdbFunctionInfo &functionInfo, IDiaLineNumber *pLine)
         lineInfo.offset = dwVA - functionInfo.address.absVirtual;
         lineInfo.length = dwLength;
     }
+}
+
+bool PdbReader::read_publics()
+{
+    IDiaEnumSymbols *pEnumSymbols;
+
+    if (FAILED(m_pDiaSymbol->findChildren(SymTagPublicSymbol, NULL, nsNone, &pEnumSymbols))) {
+        return false;
+    }
+
+    {
+        LONG count = 0;
+        pEnumSymbols->get_Count(&count);
+        m_symbols.reserve(m_symbols.size() + count);
+        m_addressToSymbolsMap.reserve(m_addressToSymbolsMap.size() + count);
+    }
+
+    IDiaSymbol *pSymbol;
+    ULONG celt = 0;
+
+    while (SUCCEEDED(pEnumSymbols->Next(1, &pSymbol, &celt)) && (celt == 1)) {
+        PdbSymbolInfo symbolInfo;
+        read_public_symbol(symbolInfo, pSymbol);
+        add_or_update_symbol(std::move(symbolInfo));
+
+        pSymbol->Release();
+    }
+
+    pEnumSymbols->Release();
+
+    return true;
+}
+
+bool PdbReader::read_globals()
+{
+    constexpr size_t enumCount = 3;
+    std::array<enum SymTagEnum, enumCount> dwSymTags = {SymTagFunction, SymTagThunk, SymTagData};
+    std::array<IDiaEnumSymbols *, enumCount> enumSymbolsPtrs;
+    bool ok = true;
+    size_t combinedCount = 0;
+
+    for (size_t i = 0; i < dwSymTags.size(); ++i) {
+        enumSymbolsPtrs[i] = nullptr;
+        ok = ok && SUCCEEDED(m_pDiaSymbol->findChildren(dwSymTags[i], NULL, nsNone, &enumSymbolsPtrs[i]));
+        if (ok) {
+            LONG count = 0;
+            enumSymbolsPtrs[i]->get_Count(&count);
+            combinedCount += count;
+        }
+    }
+
+    if (ok) {
+        m_symbols.reserve(m_symbols.size() + combinedCount);
+        m_addressToSymbolsMap.reserve(m_addressToSymbolsMap.size() + combinedCount);
+
+        for (size_t i = 0; i < enumSymbolsPtrs.size(); ++i) {
+            IDiaSymbol *pSymbol;
+            ULONG celt = 0;
+
+            while (SUCCEEDED(enumSymbolsPtrs[i]->Next(1, &pSymbol, &celt)) && (celt == 1)) {
+                PdbSymbolInfo symbolInfo;
+                read_global_symbol(symbolInfo, pSymbol);
+                add_or_update_symbol(std::move(symbolInfo));
+
+                pSymbol->Release();
+            }
+        }
+    }
+
+    for (size_t i = 0; i < enumSymbolsPtrs.size(); ++i) {
+        if (enumSymbolsPtrs[i] != nullptr) {
+            enumSymbolsPtrs[i]->Release();
+            enumSymbolsPtrs[i] = nullptr;
+        }
+    }
+
+    return ok;
+}
+
+void PdbReader::read_common_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbol)
+{
+    ULONGLONG dwVA;
+    DWORD dwRVA;
+    DWORD dwSec;
+    DWORD dwOff;
+    ULONGLONG ulLen;
+
+    if (pSymbol->get_virtualAddress(&dwVA) == S_OK) {
+        symbolInfo.address.absVirtual = dwVA;
+    }
+    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK) {
+        symbolInfo.address.relVirtual = dwRVA;
+    }
+    if (pSymbol->get_addressSection(&dwSec) == S_OK) {
+        symbolInfo.address.section = dwSec;
+    }
+    if (pSymbol->get_addressOffset(&dwOff) == S_OK) {
+        symbolInfo.address.offset = dwOff;
+    }
+    if (pSymbol->get_length(&ulLen) == S_OK) {
+        symbolInfo.length = ulLen;
+    }
+
+    {
+        BSTR name;
+        if (pSymbol->get_undecoratedName(&name) == S_OK) {
+            symbolInfo.undecoratedName = util::to_utf8(name);
+            SysFreeString(name);
+        }
+    }
+}
+
+void PdbReader::read_public_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbol)
+{
+    read_common_symbol(symbolInfo, pSymbol);
+
+    {
+        BSTR name;
+        if (pSymbol->get_name(&name) == S_OK) {
+            symbolInfo.decoratedName = util::to_utf8(name);
+            SysFreeString(name);
+        }
+    }
+}
+
+void PdbReader::read_global_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbol)
+{
+    read_common_symbol(symbolInfo, pSymbol);
+
+    {
+        BSTR name;
+        if (pSymbol->get_name(&name) == S_OK) {
+            symbolInfo.globalName = util::to_utf8(name);
+            SysFreeString(name);
+        }
+    }
+}
+
+const std::string &PdbReader::get_relevant_symbol_name(const std::string &name1, const std::string &name2)
+{
+    if (name1.empty()) {
+        return name2;
+    } else if (name2.empty()) {
+        return name1;
+    } else {
+        if (name1.compare(name2) <= 0) {
+            return name1;
+        } else {
+            return name2;
+        }
+    }
+}
+
+bool PdbReader::add_or_update_symbol(PdbSymbolInfo &&symbolInfo)
+{
+    const auto address = symbolInfo.address.absVirtual;
+
+    if (address == ~decltype(address)(0)) {
+        return false;
+    }
+
+    Address64ToIndexMapT::iterator it = m_addressToSymbolsMap.find(address);
+
+    if (it == m_addressToSymbolsMap.end()) {
+        const IndexT index = static_cast<IndexT>(m_symbols.size());
+        m_symbols.emplace_back(std::move(symbolInfo));
+        m_addressToSymbolsMap[address] = index;
+    } else {
+        /* This update can hit in two ways:
+         *
+         * 1) a public symbol is also a global symbol
+         *
+         * 2) a symbol, such as an overloaded virtual destructor, has more than 1 symbol for its address:
+         *    ??_EArmorStore@@UAEPAXI@Z  public: virtual void * __thiscall ArmorStore::`vector deleting destructor'...
+         *    ??_GArmorStore@@UAEPAXI@Z  public: virtual void * __thiscall ArmorStore::`scalar deleting destructor'...
+         */
+        PdbSymbolInfo &curSymbolInfo = m_symbols[it->second];
+
+        if (symbolInfo.address.absVirtual != ~Address64T(0)) {
+            curSymbolInfo.address = symbolInfo.address;
+        }
+        if (symbolInfo.length != 0) {
+            curSymbolInfo.length = symbolInfo.length;
+        }
+        curSymbolInfo.decoratedName = get_relevant_symbol_name(curSymbolInfo.decoratedName, symbolInfo.decoratedName);
+        curSymbolInfo.undecoratedName = get_relevant_symbol_name(curSymbolInfo.undecoratedName, symbolInfo.undecoratedName);
+        curSymbolInfo.globalName = get_relevant_symbol_name(curSymbolInfo.globalName, symbolInfo.globalName);
+    }
+
+    return true;
 }
 
 } // namespace unassemblize

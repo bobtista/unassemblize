@@ -80,6 +80,16 @@ struct PdbSourceLineInfo
     uint32_t length = 0; // Length of asm bytes
 };
 
+struct PdbSymbolInfo
+{
+    PdbAddress address;
+    uint64_t length = 0;
+
+    std::string decoratedName;
+    std::string undecoratedName;
+    std::string globalName;
+};
+
 struct PdbFunctionInfo
 {
     bool has_valid_source_file_id() const { return sourceFileId != -1; }

@@ -26,6 +26,7 @@ namespace unassemblize
 class PdbReader
 {
     using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
+    using Address64ToIndexMapT = std::unordered_map<Address64T, IndexT>;
 
 public:
     PdbReader();
@@ -67,6 +68,18 @@ private:
     void read_source_file_for_function(PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSourceFile *pSourceFile);
     void read_line(PdbFunctionInfo &function_info, IDiaLineNumber *pLine);
 
+    bool read_publics();
+    bool read_globals();
+    void read_common_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbol);
+    void read_public_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbol);
+    void read_global_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbol);
+
+    /*
+     * This function decides on one of the input names by a fixed rule.
+     */
+    const std::string &get_relevant_symbol_name(const std::string &name1, const std::string &name2);
+    bool add_or_update_symbol(PdbSymbolInfo &&symbolInfo);
+
 private:
     IDiaDataSource *m_pDiaSource = nullptr;
     IDiaSession *m_pDiaSession = nullptr;
@@ -80,9 +93,12 @@ private:
     // Source Files indices do not match DIA2 indices (aka "unique id").
     std::vector<PdbSourceFileInfo> m_sourceFiles;
     std::vector<PdbFunctionInfo> m_functions;
+    // Symbols contains every public and global symbol, including functions.
+    std::vector<PdbSymbolInfo> m_symbols;
     PdbExeInfo m_exe;
 
     StringToIndexMapT m_sourceFileNameToIndexMap;
+    Address64ToIndexMapT m_addressToSymbolsMap;
 };
 
 } // namespace unassemblize
