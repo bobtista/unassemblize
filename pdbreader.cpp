@@ -353,14 +353,14 @@ void PdbReader::read_source_file_initial(IDiaSourceFile *pSourceFile)
     {
         IDiaEnumSymbols *pEnumCompilands;
         if (pSourceFile->get_compilands(&pEnumCompilands) == S_OK) {
-            IDiaSymbol *pCompiland;
-            ULONG celt = 0;
-
             {
                 LONG count = 0;
                 pEnumCompilands->get_Count(&count);
                 fileInfo.compilandIds.reserve(count);
             }
+
+            IDiaSymbol *pCompiland;
+            ULONG celt = 0;
 
             while (SUCCEEDED(pEnumCompilands->Next(1, &pCompiland, &celt)) && (celt == 1)) {
                 DWORD indexId;
@@ -394,6 +394,7 @@ bool PdbReader::read_compilands()
     // Go through all the compilands.
 
     while (SUCCEEDED(pEnumCompilands->Next(1, &pCompiland, &celt)) && (celt == 1)) {
+        const auto compilandId = static_cast<IndexT>(m_compilands.size());
         m_compilands.emplace_back();
         PdbCompilandInfo &compilandInfo = m_compilands.back();
 
@@ -445,7 +446,7 @@ bool PdbReader::read_compilands()
                 ULONG celtChildren = 0;
 
                 while (SUCCEEDED(pEnumChildren->Next(1, &pSymbol, &celtChildren)) && (celtChildren == 1)) {
-                    read_compiland_symbol(compilandInfo, pSymbol);
+                    read_compiland_symbol(compilandInfo, compilandId, pSymbol);
                     pSymbol->Release();
                 }
 
@@ -463,7 +464,7 @@ bool PdbReader::read_compilands()
     return true;
 }
 
-void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IDiaSymbol *pSymbol)
+void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IndexT compilandId, IDiaSymbol *pSymbol)
 {
     // This function provides skeleton functionality, as seen in DIA2DUMP app.
 
@@ -487,14 +488,13 @@ void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IDiaSymbo
             break;
 
         case SymTagFunction: {
-            const auto compilandId = static_cast<IndexT>(m_compilands.size() - 1);
             const auto functionId = static_cast<IndexT>(m_functions.size());
             compilandInfo.functionIds.push_back(functionId);
             m_functions.emplace_back();
             PdbFunctionInfo &functionInfo = m_functions.back();
-            assert(functionInfo.compilandId == -1);
             functionInfo.compilandId = compilandId;
             read_compiland_function(compilandInfo, functionInfo, functionId, pSymbol);
+            assert(functionInfo.address.absVirtual != 0);
             break;
         }
 
@@ -556,7 +556,7 @@ void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IDiaSymbo
                 ULONG celt = 0;
 
                 while (SUCCEEDED(pEnumChildren->Next(1, &pChild, &celt)) && (celt == 1)) {
-                    read_compiland_symbol(compilandInfo, pChild);
+                    read_compiland_symbol(compilandInfo, compilandId, pChild);
                     pChild->Release();
                 }
 
@@ -569,26 +569,31 @@ void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IDiaSymbo
 void PdbReader::read_compiland_function(
     PdbCompilandInfo &compiland_info, PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSymbol *pSymbol)
 {
-    ULONGLONG dwVA = ~ULONGLONG(0);
-    DWORD dwRVA = ~DWORD(0);
-    DWORD dwSec = 0;
-    DWORD dwOff = 0;
-    ULONGLONG ulLen = 0;
-    DWORD dwCall = DWORD(-1);
+    ULONGLONG dwVA;
+    DWORD dwRVA;
+    DWORD dwSec;
+    DWORD dwOff;
+    ULONGLONG ulLen;
+    DWORD dwCall;
 
-    pSymbol->get_virtualAddress(&dwVA);
-    pSymbol->get_relativeVirtualAddress(&dwRVA);
-    pSymbol->get_addressSection(&dwSec);
-    pSymbol->get_addressOffset(&dwOff);
-    pSymbol->get_length(&ulLen);
-    pSymbol->get_callingConvention(&dwCall);
-
-    functionInfo.address.absVirtual = static_cast<uint64_t>(dwVA);
-    functionInfo.address.relVirtual = static_cast<uint32_t>(dwRVA);
-    functionInfo.address.section = static_cast<uint32_t>(dwSec);
-    functionInfo.address.offset = static_cast<uint32_t>(dwOff);
-    functionInfo.length = static_cast<uint32_t>(ulLen);
-    functionInfo.call = static_cast<CV_Call>(dwCall);
+    if (pSymbol->get_virtualAddress(&dwVA) == S_OK) {
+        functionInfo.address.absVirtual = dwVA;
+    }
+    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK) {
+        functionInfo.address.relVirtual = dwRVA;
+    }
+    if (pSymbol->get_addressSection(&dwSec) == S_OK) {
+        functionInfo.address.section = dwSec;
+    }
+    if (pSymbol->get_addressOffset(&dwOff) == S_OK) {
+        functionInfo.address.offset = dwOff;
+    }
+    if (pSymbol->get_length(&ulLen) == S_OK) {
+        functionInfo.length = ulLen;
+    }
+    if (pSymbol->get_callingConvention(&dwCall) == S_OK) {
+        functionInfo.call = static_cast<CV_Call>(dwCall);
+    }
 
     {
         BSTR name;
@@ -610,6 +615,7 @@ void PdbReader::read_compiland_function(
         IDiaEnumSymbols *pEnumSymbols;
 
         if (SUCCEEDED(m_pDiaSymbol->findChildrenExByVA(SymTagPublicSymbol, NULL, nsNone, dwVA, &pEnumSymbols))) {
+            // Note: There can be more than one public symbol for a function.
             IDiaSymbol *pSymbol;
             ULONG celt = 0;
 
@@ -626,15 +632,14 @@ void PdbReader::read_compiland_function(
         IDiaEnumLineNumbers *pLines;
 
         if (SUCCEEDED(m_pDiaSession->findLinesByVA(dwVA, DWORD(ulLen), &pLines))) {
-            IDiaLineNumber *pLine;
-            DWORD celt;
-
             {
                 LONG count = 0;
                 pLines->get_Count(&count);
                 functionInfo.sourceLines.reserve(count);
             }
 
+            IDiaLineNumber *pLine;
+            ULONG celt = 0;
             int line_index = 0;
 
             while (SUCCEEDED(pLines->Next(1, &pLine, &celt)) && (celt == 1)) {
@@ -661,20 +666,23 @@ void PdbReader::read_compiland_function_start(PdbFunctionInfo &functionInfo, IDi
     assert(pSymbol->get_locationType(&dwLocType) == S_OK);
     assert(dwLocType == LocIsStatic);
 
-    ULONGLONG dwVA = ~ULONGLONG(0);
-    DWORD dwRVA = ~DWORD(0);
-    DWORD dwSec = 0;
-    DWORD dwOff = 0;
+    ULONGLONG dwVA;
+    DWORD dwRVA;
+    DWORD dwSec;
+    DWORD dwOff;
 
-    pSymbol->get_virtualAddress(&dwVA);
-    pSymbol->get_relativeVirtualAddress(&dwRVA);
-    pSymbol->get_addressSection(&dwSec);
-    pSymbol->get_addressOffset(&dwOff);
-
-    functionInfo.debugStartAddress.absVirtual = static_cast<uint64_t>(dwVA);
-    functionInfo.debugStartAddress.relVirtual = static_cast<uint32_t>(dwRVA);
-    functionInfo.debugStartAddress.section = static_cast<uint32_t>(dwSec);
-    functionInfo.debugStartAddress.offset = static_cast<uint32_t>(dwOff);
+    if (pSymbol->get_virtualAddress(&dwVA) == S_OK) {
+        functionInfo.debugStartAddress.absVirtual = dwVA;
+    }
+    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK) {
+        functionInfo.debugStartAddress.relVirtual = dwRVA;
+    }
+    if (pSymbol->get_addressSection(&dwSec) == S_OK) {
+        functionInfo.debugStartAddress.section = dwSec;
+    }
+    if (pSymbol->get_addressOffset(&dwOff) == S_OK) {
+        functionInfo.debugStartAddress.offset = dwOff;
+    }
 }
 
 void PdbReader::read_compiland_function_end(PdbFunctionInfo &functionInfo, IDiaSymbol *pSymbol)
@@ -683,20 +691,23 @@ void PdbReader::read_compiland_function_end(PdbFunctionInfo &functionInfo, IDiaS
     assert(pSymbol->get_locationType(&dwLocType) == S_OK);
     assert(dwLocType == LocIsStatic);
 
-    ULONGLONG dwVA = ~ULONGLONG(0);
-    DWORD dwRVA = ~DWORD(0);
-    DWORD dwSec = 0;
-    DWORD dwOff = 0;
+    ULONGLONG dwVA;
+    DWORD dwRVA;
+    DWORD dwSec;
+    DWORD dwOff;
 
-    pSymbol->get_virtualAddress(&dwVA);
-    pSymbol->get_relativeVirtualAddress(&dwRVA);
-    pSymbol->get_addressSection(&dwSec);
-    pSymbol->get_addressOffset(&dwOff);
-
-    functionInfo.debugEndAddress.absVirtual = static_cast<uint64_t>(dwVA);
-    functionInfo.debugEndAddress.relVirtual = static_cast<uint32_t>(dwRVA);
-    functionInfo.debugEndAddress.section = static_cast<uint32_t>(dwSec);
-    functionInfo.debugEndAddress.offset = static_cast<uint32_t>(dwOff);
+    if (pSymbol->get_virtualAddress(&dwVA) == S_OK) {
+        functionInfo.debugEndAddress.absVirtual = dwVA;
+    }
+    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK) {
+        functionInfo.debugEndAddress.relVirtual = dwRVA;
+    }
+    if (pSymbol->get_addressSection(&dwSec) == S_OK) {
+        functionInfo.debugEndAddress.section = dwSec;
+    }
+    if (pSymbol->get_addressOffset(&dwOff) == S_OK) {
+        functionInfo.debugEndAddress.offset = dwOff;
+    }
 }
 
 void PdbReader::read_public_function(PdbFunctionInfo &functionInfo, IDiaSymbol *pSymbol)
@@ -740,22 +751,22 @@ void PdbReader::read_source_file_for_function(PdbFunctionInfo &functionInfo, Ind
 
 void PdbReader::read_line(PdbFunctionInfo &functionInfo, IDiaLineNumber *pLine)
 {
-    DWORD dwRVA;
+    ULONGLONG dwVA;
     DWORD dwLinenum;
     DWORD dwLength;
 
     bool ok = true;
 
-    ok = ok && pLine->get_relativeVirtualAddress(&dwRVA) == S_OK;
+    ok = ok && pLine->get_virtualAddress(&dwVA) == S_OK;
     ok = ok && pLine->get_lineNumber(&dwLinenum) == S_OK;
     ok = ok && pLine->get_length(&dwLength) == S_OK;
 
     if (ok) {
         functionInfo.sourceLines.emplace_back();
         PdbSourceLineInfo &lineInfo = functionInfo.sourceLines.back();
-        lineInfo.lineNumber = static_cast<uint32_t>(dwLinenum);
-        lineInfo.offset = static_cast<uint32_t>(dwRVA) - functionInfo.address.relVirtual;
-        lineInfo.length = static_cast<uint32_t>(dwLength);
+        lineInfo.lineNumber = dwLinenum;
+        lineInfo.offset = dwVA - functionInfo.address.absVirtual;
+        lineInfo.length = dwLength;
     }
 }
 

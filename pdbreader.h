@@ -55,7 +55,7 @@ private:
     void read_source_file_initial(IDiaSourceFile *pSourceFile);
 
     bool read_compilands();
-    void read_compiland_symbol(PdbCompilandInfo &compilandInfo, IDiaSymbol *pSymbol);
+    void read_compiland_symbol(PdbCompilandInfo &compilandInfo, IndexT compilandId, IDiaSymbol *pSymbol);
     void read_compiland_function(
         PdbCompilandInfo &compilandInfo, PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSymbol *pSymbol);
     void read_compiland_function_start(PdbFunctionInfo &functionInfo, IDiaSymbol *pSymbol);
@@ -76,8 +76,8 @@ private:
     bool m_verbose = false;
 
     // Compilands indices match DIA2 indices.
-    // Source Files indices do not match DIA2 indices (aka "unique id").
     std::vector<PdbCompilandInfo> m_compilands;
+    // Source Files indices do not match DIA2 indices (aka "unique id").
     std::vector<PdbSourceFileInfo> m_sourceFiles;
     std::vector<PdbFunctionInfo> m_functions;
     PdbExeInfo m_exe;

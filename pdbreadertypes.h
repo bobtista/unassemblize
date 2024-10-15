@@ -64,10 +64,11 @@ enum class CV_Call
     // calling conventions in the source only (e.g. __cdecl, __stdcall).
 };
 
+// Only absVirtual is used currently. Perhaps remove the others variables.
 struct PdbAddress
 {
-    Address64T absVirtual = 0; // Position of the function within the executable
-    Address32T relVirtual = 0; // Relative position of the function within its block
+    Address64T absVirtual = ~Address64T(0); // Position of the function within the executable
+    Address32T relVirtual = ~Address32T(0); // Relative position of the function within its block
     uint32_t section = 0; // Section part of location
     Address32T offset = 0; // Offset part of location
 };
@@ -89,7 +90,7 @@ struct PdbFunctionInfo
     PdbAddress address;
     PdbAddress debugStartAddress;
     PdbAddress debugEndAddress;
-    uint32_t length = 0;
+    uint64_t length = 0;
     CV_Call call = CV_Call(-1);
 
     std::string decoratedName; // ?nameToLowercaseKey@NameKeyGenerator@@QAE?AW4NameKeyType@@PBD@Z
