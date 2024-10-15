@@ -52,27 +52,18 @@ bool Executable::read(const std::string &exe_file)
             ExeSectionInfo &section = m_sectionMap[it->name()];
             section.data = it->content().data();
 
-            // Check on first section in case binary is huge and later sections start higher than imagebase.
-            if (!checked_image_base && it->virtual_address() < m_binary->imagebase()) {
-                m_addBase = true;
-            }
-
             // For PE format virtual_address appears to be an offset, in ELF/Mach-O it appears to be absolute.
-            if (m_addBase) {
-                section.address = m_binary->imagebase() + it->virtual_address();
-            } else {
-                section.address = it->virtual_address();
-            }
-
+            // TODO: Check if ELF/Mach-O works correctly with this code - if necessary.
+            section.address = it->virtual_address();
             section.size = it->size();
 
-            if (section.address + section.size > m_imageData.imageEnd) {
-                m_imageData.imageEnd = section.address + section.size;
-            }
+            m_imageData.sectionsBegin = std::min(m_imageData.sectionsBegin, section.address);
+            m_imageData.sectionsEnd = std::max(m_imageData.sectionsEnd, section.address + section.size);
 
             // Naive split on whether section contains data or code... have entrypoint? Code, else data.
             // Needs to be refined by providing a config file with section types specified.
-            if (section.address < m_binary->entrypoint() && section.address + section.size >= m_binary->entrypoint()) {
+            const uint64_t entrypoint = m_binary->entrypoint() - m_binary->imagebase();
+            if (section.address < entrypoint && section.address + section.size >= entrypoint) {
                 section.type = SECTION_CODE;
             } else {
                 section.type = SECTION_DATA;
@@ -94,9 +85,7 @@ bool Executable::read(const std::string &exe_file)
         for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it) {
             ExeSymbol symbol;
             symbol.name = it->name();
-            symbol.address = it->value() > m_binary->imagebase() ?
-                it->value() :
-                it->value() + m_binary->imagebase(); // TODO: Check what is going on with image base.
+            symbol.address = it->value();
             symbol.size = it->size();
 
             add_symbol(symbol);
@@ -113,9 +102,7 @@ bool Executable::read(const std::string &exe_file)
         for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it) {
             ExeSymbol symbol;
             symbol.name = it->name();
-            symbol.address = it->value() > m_binary->imagebase() ?
-                it->value() :
-                it->value() + m_binary->imagebase(); // TODO: Check what is going on with image base.
+            symbol.address = it->value();
             symbol.size = it->size();
 
             add_symbol(symbol);
@@ -173,19 +160,29 @@ uint64_t Executable::section_size(const char *name) const
     return it != m_sectionMap.end() ? it->second.size : 0;
 }
 
-uint64_t Executable::base_address() const
+uint64_t Executable::image_base() const
 {
     return m_imageData.imageBase;
 }
 
-uint64_t Executable::end_address() const
+uint64_t Executable::text_section_begin_from_image_base() const
 {
-    return m_imageData.imageEnd;
+    return section_address(".text") + m_imageData.imageBase; // Slow
 }
 
-bool Executable::do_add_base() const
+uint64_t Executable::text_section_end_from_image_base() const
 {
-    return m_addBase;
+    return section_address(".text") + m_imageData.imageBase; // Slow
+}
+
+uint64_t Executable::all_sections_begin_from_image_base() const
+{
+    return m_imageData.sectionsBegin + m_imageData.imageBase;
+}
+
+uint64_t Executable::all_sections_end_from_image_base() const
+{
+    return m_imageData.sectionsEnd + m_imageData.imageBase;
 }
 
 const ExeSymbol &Executable::get_symbol(uint64_t addr) const
@@ -197,6 +194,11 @@ const ExeSymbol &Executable::get_symbol(uint64_t addr) const
     }
 
     return s_emptySymbol;
+}
+
+const ExeSymbol &Executable::get_symbol_from_image_base(uint64_t addr) const
+{
+    return get_symbol(addr - image_base());
 }
 
 const ExeSymbol &Executable::get_nearest_symbol(uint64_t addr) const
@@ -375,7 +377,7 @@ void Executable::load_sections(nlohmann::json &js)
         std::string name;
         it->at("name").get_to(name);
 
-        // Don't try and load an empty symbol.
+        // Don't try and load an empty section.
         if (!name.empty()) {
             ExeSectionMap::iterator section = m_sectionMap.find(name);
 
@@ -394,6 +396,15 @@ void Executable::load_sections(nlohmann::json &js)
             } else if (m_verbose) {
                 printf("Incorrect type specified for section '%s'.\n", name.c_str());
             }
+
+            auto it_address = it->find("address");
+            if (it_address != it->end()) {
+                it_address->get_to(section->second.address);
+            }
+            auto it_size = it->find("size");
+            if (it_size != it->end()) {
+                it_size->get_to(section->second.size);
+            }
         }
     }
 }
@@ -405,7 +416,8 @@ void Executable::dump_sections(nlohmann::json &js) const
     }
 
     for (ExeSectionMap::const_iterator it = m_sectionMap.begin(); it != m_sectionMap.end(); ++it) {
-        js.push_back({{"name", it->first}, {"type", it->second.type == SECTION_CODE ? "code" : "data"}});
+        const char *type_str = it->second.type == SECTION_CODE ? "code" : "data";
+        js.push_back({{"name", it->first}, {"type", type_str}, {"address", it->second.address}, {"size", it->second.size}});
     }
 }
 
@@ -463,17 +475,17 @@ void Executable::dump_objects(nlohmann::json &js) const
     }
 }
 
-void Executable::dissassemble_function(FILE *fp, const char *section_name, uint64_t start, uint64_t end)
+void Executable::dissassemble_function(FILE *fp, uint64_t start, uint64_t end)
 {
     if (m_outputFormat != OUTPUT_MASM) {
-        dissassemble_gas_func(fp, section_name, start, end);
+        dissassemble_gas_func(fp, start, end);
     }
 }
 
-void Executable::dissassemble_gas_func(FILE *fp, const char *section_name, uint64_t start, uint64_t end)
+void Executable::dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end)
 {
     if (start != 0 && end != 0) {
-        Function func(*this, section_name, start, end);
+        Function func(*this, start, end);
         if (m_outputFormat == OUTPUT_IGAS) {
             func.disassemble(Function::FORMAT_IGAS);
         } else {
@@ -483,10 +495,11 @@ void Executable::dissassemble_gas_func(FILE *fp, const char *section_name, uint6
         const std::string &sym = get_symbol(start).name;
 
         if (fp != nullptr) {
+            fprintf(fp, ".intel_syntax noprefix\n\n");
             if (!sym.empty()) {
-                fprintf(fp, ".globl %s\n%s:\n%s", sym.c_str(), sym.c_str(), func.dissassembly().c_str());
+                fprintf(fp, ".globl %s\n%s", sym.c_str(), func.dissassembly().c_str());
             } else {
-                fprintf(fp, ".globl sub_%" PRIx64 "\nsub_%" PRIx64 ":\n%s", start, start, func.dissassembly().c_str());
+                fprintf(fp, ".globl sub_%" PRIx64 "\n%s", start, func.dissassembly().c_str());
             }
         }
     }

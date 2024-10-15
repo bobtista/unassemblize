@@ -52,11 +52,14 @@ public:
     const uint8_t *section_data(const char *name) const; // TODO: check how to improve this
     uint64_t section_address(const char *name) const; // TODO: check how to improve this
     uint64_t section_size(const char *name) const; // TODO: check how to improve this
-    uint64_t base_address() const;
-    uint64_t end_address() const;
-    bool do_add_base() const;
+    uint64_t image_base() const; // Default image base address if the ASLR is not enabled.
+    uint64_t text_section_begin_from_image_base() const; // Begin address of .text section plus image base.
+    uint64_t text_section_end_from_image_base() const; // End address of .text section plus image base.
+    uint64_t all_sections_begin_from_image_base() const; // Begin address of first section plus image base.
+    uint64_t all_sections_end_from_image_base() const; // End address of last section plus image base.
     const ExeSymbol &get_symbol(uint64_t addr) const;
-    const ExeSymbol &get_nearest_symbol(uint64_t addr) const;
+    const ExeSymbol &get_symbol_from_image_base(uint64_t addr) const; // Adds the image base before symbol lookup.
+    const ExeSymbol &get_nearest_symbol(uint64_t addr) const; // TODO: investigate
     const ExeSymbols &get_symbols() const;
 
     /*
@@ -73,10 +76,10 @@ public:
      * Disassembles a range of bytes and outputs the format as though it were a single function.
      * Addresses should be the absolute addresses when the binary is loaded at its preferred base address.
      */
-    void dissassemble_function(FILE *fp, const char *section_name, uint64_t start, uint64_t end);
+    void dissassemble_function(FILE *fp, uint64_t start, uint64_t end);
 
 private:
-    void dissassemble_gas_func(FILE *fp, const char *section_name, uint64_t start, uint64_t end);
+    void dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end);
 
     void load_symbols(nlohmann::json &js);
     void dump_symbols(nlohmann::json &js) const;
@@ -90,7 +93,6 @@ private:
 private:
     OutputFormat m_outputFormat = OUTPUT_IGAS;
     bool m_verbose = false;
-    bool m_addBase = false;
 
     std::unique_ptr<LIEF::Binary> m_binary;
     ExeSectionMap m_sectionMap;

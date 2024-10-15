@@ -33,7 +33,7 @@ enum ExeSectionType
 struct ExeSectionInfo
 {
     const uint8_t *data;
-    Address64T address;
+    Address64T address; // Position of the section within the executable.
     uint64_t size;
     ExeSectionType type;
 };
@@ -41,14 +41,14 @@ struct ExeSectionInfo
 struct ExeSymbol
 {
     std::string name;
-    Address64T address = 0;
+    Address64T address = 0; // Position of the symbol within the executable.
     uint64_t size = 0;
 };
 
 struct ExeObjectSection
 {
     std::string name;
-    Address64T offset;
+    Address64T offset; // Position of the object within the executable.
     uint64_t size;
 };
 
@@ -61,7 +61,8 @@ struct ExeObject
 struct ExeImageData
 {
     Address64T imageBase = 0; // Default image base address if the ASLR is not enabled.
-    Address64T imageEnd = 0; // Image end address.
+    Address64T sectionsBegin = ~Address64T(0); // Begin address of first section within the executable.
+    Address64T sectionsEnd = 0; // End address of last section within the executable.
     uint32_t codeAlignment = sizeof(uint32_t);
     uint32_t dataAlignment = sizeof(uint32_t);
     uint8_t codePad = 0x90; // NOP

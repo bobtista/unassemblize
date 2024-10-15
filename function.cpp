@@ -76,20 +76,24 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
+    if (context->operand->imm.is_relative) {
+        address += func->executable().image_base();
+    }
     char hex_buff[32];
-    const ExeSymbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         return ZyanStringAppendFormat(string, "%s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address < func->section_end()) {
+    } else if (address >= func->executable().text_section_begin_from_image_base()
+        && address < func->executable().text_section_end_from_image_base()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -100,12 +104,13 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address < func->executable().end_address()) {
+    } else if (address >= func->executable().all_sections_begin_from_image_base()
+        && address < func->executable().all_sections_end_from_image_base()) {
         // Data is in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -129,20 +134,24 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
+    if (context->operand->imm.is_relative) {
+        address += func->executable().image_base();
+    }
     char hex_buff[32];
-    const ExeSymbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         return ZyanStringAppendFormat(string, "%s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address < func->section_end()) {
+    } else if (address >= func->executable().text_section_begin_from_image_base()
+        && address < func->executable().text_section_end_from_image_base()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -153,12 +162,13 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address < func->executable().end_address()) {
-        // Data if in another section?
+    } else if (address >= func->executable().all_sections_begin_from_image_base()
+        && address < func->executable().all_sections_end_from_image_base()) {
+        // Data is in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -181,20 +191,24 @@ static ZyanStatus UnasmFormatterPrintIMM(
 {
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->imm.value.u;
+    if (context->operand->imm.is_relative) {
+        address += func->executable().image_base();
+    }
     char hex_buff[32];
-    const ExeSymbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         return ZyanStringAppendFormat(string, "offset %s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address < func->section_end()) {
+    } else if (address >= func->executable().text_section_begin_from_image_base()
+        && address < func->executable().text_section_end_from_image_base()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -205,12 +219,13 @@ static ZyanStatus UnasmFormatterPrintIMM(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "offset sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address < (func->executable().end_address())) {
-        // Data if in another section?
+    } else if (address >= func->executable().all_sections_begin_from_image_base()
+        && address < (func->executable().all_sections_end_from_image_base())) {
+        // Data is in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -233,20 +248,24 @@ static ZyanStatus UnasmFormatterPrintDISP(
 {
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->mem.disp.value;
+    if (context->operand->imm.is_relative) {
+        address += func->executable().image_base();
+    }
     char hex_buff[32];
-    const ExeSymbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         return ZyanStringAppendFormat(string, "+%s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address < func->section_end()) {
+    } else if (address >= func->executable().text_section_begin_from_image_base()
+        && address < func->executable().text_section_end_from_image_base()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_nearest_symbol(address);
+        const ExeSymbol &symbol = func->get_nearest_symbol(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -263,12 +282,13 @@ static ZyanStatus UnasmFormatterPrintDISP(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "+sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address < (func->executable().end_address())) {
-        // Data if in another section?
+    } else if (address >= func->executable().all_sections_begin_from_image_base()
+        && address < (func->executable().all_sections_end_from_image_base())) {
+        // Data is in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_nearest_symbol(address);
+        const ExeSymbol &symbol = func->get_nearest_symbol(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -297,20 +317,24 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
 {
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->ptr.offset;
+    if (context->operand->imm.is_relative) {
+        address += func->executable().image_base();
+    }
     char hex_buff[32];
-    const ExeSymbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
 
     if (!symbol.name.empty()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         return ZyanStringAppendFormat(string, "%s", symbol.name.c_str());
-    } else if (address >= func->section_address() && address < func->section_end()) {
+    } else if (address >= func->executable().text_section_begin_from_image_base()
+        && address < func->executable().text_section_end_from_image_base()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -321,12 +345,13 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "sub_%" PRIx64, address);
-    } else if (address >= func->executable().base_address() && address < func->executable().end_address()) {
-        // Data if in another section?
+    } else if (address >= func->executable().all_sections_begin_from_image_base()
+        && address < func->executable().all_sections_end_from_image_base()) {
+        // Data is in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -349,8 +374,11 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
 {
     Function *func = static_cast<Function *>(context->user_data);
     uint64_t address = context->operand->mem.disp.value;
+    if (context->operand->imm.is_relative) {
+        address += func->executable().image_base();
+    }
     char hex_buff[32];
-    const ExeSymbol &symbol = func->get_symbol(address);
+    const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
 
     if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM) || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB)) {
         ZYAN_CHECK(formatter->func_print_typecast(formatter, buffer, context));
@@ -362,12 +390,13 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
         return ZyanStringAppendFormat(string, "[%s]", symbol.name.c_str());
-    } else if (address >= func->section_address() && address < func->section_end()) {
+    } else if (address >= func->executable().text_section_begin_from_image_base()
+        && address < func->executable().text_section_end_from_image_base()) {
         // Probably a function if the address is in the current section.
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -378,12 +407,13 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
         func->add_dependency(hex_buff);
 
         return ZyanStringAppendFormat(string, "[sub_%" PRIx64 "]", address);
-    } else if (address >= func->executable().base_address() && address < func->executable().end_address()) {
-        // Data if in another section?
+    } else if (address >= func->executable().all_sections_begin_from_image_base()
+        && address < func->executable().all_sections_end_from_image_base()) {
+        // Data is in another section?
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_symbol(address);
+        const ExeSymbol &symbol = func->get_symbol_from_image_base(address); // ??
 
         if (!symbol.name.empty()) {
             func->add_dependency(symbol.name);
@@ -516,15 +546,14 @@ std::string BuildInvalidInstructionString(
 
 void Function::disassemble(AsmFormat fmt)
 {
-    const uint64_t image_base = m_executable.do_add_base() ? m_executable.base_address() : 0;
-    const ExeSectionInfo *section_info = m_executable.find_section(image_base + m_startAddress);
+    const ExeSectionInfo *section_info = m_executable.find_section(m_startAddress);
 
     if (section_info == nullptr) {
         return;
     }
 
     uint64_t runtime_address = m_startAddress;
-    const uint64_t address_offset = section_info->address - image_base;
+    const uint64_t address_offset = section_info->address;
     ZyanUSize offset = m_startAddress - address_offset;
     const ZyanUSize end_offset = m_endAddress - address_offset;
 
@@ -532,6 +561,7 @@ void Function::disassemble(AsmFormat fmt)
         return;
     }
 
+    const uint64_t image_base = m_executable.image_base();
     const uint8_t *section_data = section_info->data;
 
     ZydisDisassembledInstruction instruction;
@@ -707,6 +737,17 @@ const ExeSymbol &Function::get_symbol(uint64_t addr) const
     }
 
     return m_executable.get_symbol(addr);
+}
+
+const ExeSymbol &Function::get_symbol_from_image_base(uint64_t addr) const
+{
+    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(addr - m_executable.image_base());
+
+    if (it != m_pseudoSymbolAddressToIndexMap.end()) {
+        return m_pseudoSymbols[it->second];
+    }
+
+    return m_executable.get_symbol_from_image_base(addr);
 }
 
 const ExeSymbol &Function::get_nearest_symbol(uint64_t addr) const
