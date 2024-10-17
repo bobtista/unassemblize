@@ -27,6 +27,48 @@ uint32_t get_le32(const uint8_t *data)
     return (data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0];
 }
 
+static bool IsShortJump(const ZydisDecodedInstruction *instruction, const ZydisDecodedOperand *operand)
+{
+    // Check if the instruction is a jump (JMP, conditional jump, etc.)
+    switch (instruction->mnemonic) {
+        case ZYDIS_MNEMONIC_JB:
+        case ZYDIS_MNEMONIC_JBE:
+        case ZYDIS_MNEMONIC_JCXZ:
+        case ZYDIS_MNEMONIC_JECXZ:
+        case ZYDIS_MNEMONIC_JKNZD:
+        case ZYDIS_MNEMONIC_JKZD:
+        case ZYDIS_MNEMONIC_JL:
+        case ZYDIS_MNEMONIC_JLE:
+        case ZYDIS_MNEMONIC_JMP:
+        case ZYDIS_MNEMONIC_JNB:
+        case ZYDIS_MNEMONIC_JNBE:
+        case ZYDIS_MNEMONIC_JNL:
+        case ZYDIS_MNEMONIC_JNLE:
+        case ZYDIS_MNEMONIC_JNO:
+        case ZYDIS_MNEMONIC_JNP:
+        case ZYDIS_MNEMONIC_JNS:
+        case ZYDIS_MNEMONIC_JNZ:
+        case ZYDIS_MNEMONIC_JO:
+        case ZYDIS_MNEMONIC_JP:
+        case ZYDIS_MNEMONIC_JRCXZ:
+        case ZYDIS_MNEMONIC_JS:
+        case ZYDIS_MNEMONIC_JZ:
+            break;
+        default:
+            return false; // Not a jump instruction.
+    }
+
+    // Check if the first operand is a relative immediate.
+    if (operand->type == ZYDIS_OPERAND_TYPE_IMMEDIATE && operand->imm.is_relative) {
+        // Short jumps have an 8-bit immediate value (1 byte)
+        if (operand->size == 8) {
+            return true; // This is a short jump.
+        }
+    }
+
+    return false; // Not a short jump.
+}
+
 // Copy of the disassemble function without any formatting.
 static ZyanStatus UnasmDisassembleNoFormat(ZydisMachineMode machine_mode, ZyanU64 runtime_address, const void *buffer,
     ZyanUSize length, ZydisDisassembledInstruction *instruction)
@@ -86,7 +128,17 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        return ZyanStringAppendFormat(string, "%s", symbol.name.c_str());
+        const bool isShortJump = IsShortJump(context->instruction, context->operand);
+        if (isShortJump) {
+            ZYAN_CHECK(ZyanStringAppendFormat(string, "short "));
+        }
+        ZYAN_CHECK(ZyanStringAppendFormat(string, "%s", symbol.name.c_str()));
+        if (isShortJump) {
+            const int64_t offset = context->operand->imm.value.s;
+            const char *sign_cstr = offset > 0 ? "+" : "";
+            ZYAN_CHECK(ZyanStringAppendFormat(string, " ; %s%lli bytes", sign_cstr, offset));
+        }
+        return ZYAN_STATUS_SUCCESS;
     } else if (address >= func->executable().text_section_begin_from_image_base()
         && address < func->executable().text_section_end_from_image_base()) {
         // Probably a function if the address is in the current section.
