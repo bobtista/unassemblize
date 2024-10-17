@@ -111,6 +111,11 @@ static ZyanStatus UnasmDisassembleNoFormat(ZydisMachineMode machine_mode, ZyanU6
 }
 
 ZydisFormatterFunc default_print_address_absolute;
+ZydisFormatterFunc default_print_address_relative;
+ZydisFormatterFunc default_print_immediate;
+ZydisFormatterFunc default_format_operand_mem;
+ZydisFormatterFunc default_format_operand_ptr;
+ZydisFormatterRegisterFunc default_print_register;
 
 static ZyanStatus UnasmFormatterPrintAddressAbsolute(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
@@ -178,8 +183,6 @@ static ZyanStatus UnasmFormatterPrintAddressAbsolute(
     return default_print_address_absolute(formatter, buffer, context);
 }
 
-ZydisFormatterFunc default_print_address_relative;
-
 static ZyanStatus UnasmFormatterPrintAddressRelative(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
@@ -236,8 +239,6 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
     return default_print_address_relative(formatter, buffer, context);
 }
 
-ZydisFormatterFunc default_print_immediate;
-
 static ZyanStatus UnasmFormatterPrintIMM(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
@@ -293,8 +294,6 @@ static ZyanStatus UnasmFormatterPrintIMM(
     return default_print_immediate(formatter, buffer, context);
 }
 
-ZydisFormatterFunc default_format_operand_ptr;
-
 static ZyanStatus UnasmFormatterFormatOperandPTR(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
@@ -349,8 +348,6 @@ static ZyanStatus UnasmFormatterFormatOperandPTR(
 
     return default_format_operand_ptr(formatter, buffer, context);
 }
-
-ZydisFormatterFunc default_format_operand_mem;
 
 static ZyanStatus UnasmFormatterFormatOperandMEM(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
@@ -419,9 +416,7 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
     return default_format_operand_mem(formatter, buffer, context);
 }
 
-ZydisFormatterRegisterFunc default_format_print_reg;
-
-static ZyanStatus UnasmFormatterFormatPrintRegister(
+static ZyanStatus UnasmFormatterPrintRegister(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context, ZydisRegister reg)
 {
     // Copied from internal FormatterBase.h
@@ -437,7 +432,7 @@ static ZyanStatus UnasmFormatterFormatPrintRegister(
         return ZyanStringAppendFormat(string, "st(%d)", reg - 69);
     }
 
-    return default_format_print_reg(formatter, buffer, context, reg);
+    return default_print_register(formatter, buffer, context, reg);
 }
 
 static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 runtime_address, const void *buffer,
@@ -481,27 +476,27 @@ static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 
     ZydisFormatter formatter;
     ZYAN_CHECK(ZydisFormatterInit(&formatter, style));
 
-    ZydisFormatterSetProperty(&formatter, ZYDIS_FORMATTER_PROP_FORCE_SIZE, ZYAN_TRUE);
+    ZYAN_CHECK(ZydisFormatterSetProperty(&formatter, ZYDIS_FORMATTER_PROP_FORCE_SIZE, ZYAN_TRUE));
 
-    default_print_address_absolute = (ZydisFormatterFunc)&UnasmFormatterPrintAddressAbsolute;
+    default_print_address_absolute = static_cast<ZydisFormatterFunc>(&UnasmFormatterPrintAddressAbsolute);
     ZydisFormatterSetHook(
         &formatter, ZYDIS_FORMATTER_FUNC_PRINT_ADDRESS_ABS, (const void **)&default_print_address_absolute);
 
-    default_print_immediate = (ZydisFormatterFunc)&UnasmFormatterPrintIMM;
-    ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_IMM, (const void **)&default_print_immediate);
-
-    default_print_address_relative = (ZydisFormatterFunc)&UnasmFormatterPrintAddressRelative;
+    default_print_address_relative = static_cast<ZydisFormatterFunc>(&UnasmFormatterPrintAddressRelative);
     ZydisFormatterSetHook(
         &formatter, ZYDIS_FORMATTER_FUNC_PRINT_ADDRESS_REL, (const void **)&default_print_address_relative);
 
-    default_format_operand_ptr = (ZydisFormatterFunc)&UnasmFormatterFormatOperandPTR;
+    default_print_immediate = static_cast<ZydisFormatterFunc>(&UnasmFormatterPrintIMM);
+    ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_IMM, (const void **)&default_print_immediate);
+
+    default_format_operand_ptr = static_cast<ZydisFormatterFunc>(&UnasmFormatterFormatOperandPTR);
     ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_FORMAT_OPERAND_PTR, (const void **)&default_format_operand_ptr);
 
-    default_format_operand_mem = (ZydisFormatterFunc)&UnasmFormatterFormatOperandMEM;
+    default_format_operand_mem = static_cast<ZydisFormatterFunc>(&UnasmFormatterFormatOperandMEM);
     ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_FORMAT_OPERAND_MEM, (const void **)&default_format_operand_mem);
 
-    default_format_print_reg = (ZydisFormatterRegisterFunc)&UnasmFormatterFormatPrintRegister;
-    ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_REGISTER, (const void **)&default_format_print_reg);
+    default_print_register = static_cast<ZydisFormatterRegisterFunc>(&UnasmFormatterPrintRegister);
+    ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_REGISTER, (const void **)&default_print_register);
 
     ZYAN_CHECK(ZydisFormatterFormatInstruction(&formatter,
         &instruction->info,
