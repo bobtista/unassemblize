@@ -458,7 +458,8 @@ static ZyanStatus UnasmFormatterFormatPrintRegister(
 }
 
 static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 runtime_address, const void *buffer,
-    ZyanUSize length, ZydisDisassembledInstruction *instruction, void *user_data, ZydisFormatterStyle style)
+    ZyanUSize length, ZydisDisassembledInstruction *instruction, std::string &instruction_buffer, void *user_data,
+    ZydisFormatterStyle style)
 {
     if (!buffer || !instruction) {
         return ZYAN_STATUS_INVALID_ARGUMENT;
@@ -526,8 +527,8 @@ static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 
         &instruction->info,
         instruction->operands,
         instruction->info.operand_count_visible,
-        instruction->text,
-        sizeof(instruction->text),
+        &instruction_buffer[0],
+        instruction_buffer.size(),
         runtime_address,
         user_data));
 
@@ -572,6 +573,8 @@ void Function::disassemble(AsmFormat fmt)
     const uint8_t *section_data = section_info->data;
 
     ZydisDisassembledInstruction instruction;
+    std::string instruction_buffer;
+    instruction_buffer.resize(1024);
 
     static bool in_jump_table;
     in_jump_table = false;
@@ -646,8 +649,14 @@ void Function::disassemble(AsmFormat fmt)
     }
 
     while (offset < end_offset) {
-        const ZyanStatus status = UnasmDisassembleCustom(
-            ZYDIS_MACHINE_MODE_LEGACY_32, runtime_address, section_data + offset, 96, &instruction, this, style);
+        const ZyanStatus status = UnasmDisassembleCustom(ZYDIS_MACHINE_MODE_LEGACY_32,
+            runtime_address,
+            section_data + offset,
+            96,
+            &instruction,
+            instruction_buffer,
+            this,
+            style);
 
         if (!ZYAN_SUCCESS(status)) {
             std::string str = BuildInvalidInstructionString(instruction, section_data + offset, runtime_address, image_base);
@@ -665,7 +674,7 @@ void Function::disassemble(AsmFormat fmt)
         }
 
         m_dissassembly += "    ";
-        m_dissassembly += instruction.text;
+        m_dissassembly += instruction_buffer.c_str();
         m_dissassembly += '\n';
         offset += instruction.info.length;
         runtime_address += instruction.info.length;
