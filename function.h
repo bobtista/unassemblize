@@ -40,8 +40,6 @@ public:
     }
     void disassemble(AsmFormat fmt = FORMAT_DEFAULT); // Run the disassembly of the function.
     const std::string &dissassembly() const { return m_dissassembly; }
-    const std::vector<std::string> &dependencies() const { return m_deps; }
-    void add_dependency(const std::string &dep) { return m_deps.push_back(dep); }
     const Executable &executable() const { return m_executable; }
     const ExeSymbol &get_symbol(uint64_t addr) const;
     const ExeSymbol &get_symbol_from_image_base(uint64_t addr) const;
@@ -57,7 +55,6 @@ private:
 
     ExeSymbols m_pseudoSymbols; // Symbols used in disassemble step.
     Address64ToIndexMap m_pseudoSymbolAddressToIndexMap;
-    std::vector<std::string> m_deps; // Symbols this function depends on.
     std::string m_dissassembly; // Disassembly buffer for this function.
 };
 } // namespace unassemblize
