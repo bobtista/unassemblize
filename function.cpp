@@ -380,12 +380,11 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
     char hex_buff[32];
     const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
 
-    if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM) || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB)) {
-        ZYAN_CHECK(formatter->func_print_typecast(formatter, buffer, context));
-    }
-    ZYAN_CHECK(formatter->func_print_segment(formatter, buffer, context));
-
     if (!symbol.name.empty()) {
+        if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM) || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB)) {
+            ZYAN_CHECK(formatter->func_print_typecast(formatter, buffer, context));
+        }
+        ZYAN_CHECK(formatter->func_print_segment(formatter, buffer, context));
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
@@ -393,6 +392,10 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
     } else if (address >= func->executable().text_section_begin_from_image_base()
         && address < func->executable().text_section_end_from_image_base()) {
         // Probably a function if the address is in the current section.
+        if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM) || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB)) {
+            ZYAN_CHECK(formatter->func_print_typecast(formatter, buffer, context));
+        }
+        ZYAN_CHECK(formatter->func_print_segment(formatter, buffer, context));
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
@@ -410,6 +413,10 @@ static ZyanStatus UnasmFormatterFormatOperandMEM(
     } else if (address >= func->executable().all_sections_begin_from_image_base()
         && address < func->executable().all_sections_end_from_image_base()) {
         // Data is in another section?
+        if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM) || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB)) {
+            ZYAN_CHECK(formatter->func_print_typecast(formatter, buffer, context));
+        }
+        ZYAN_CHECK(formatter->func_print_segment(formatter, buffer, context));
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
