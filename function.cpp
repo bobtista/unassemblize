@@ -293,75 +293,6 @@ static ZyanStatus UnasmFormatterPrintIMM(
     return default_print_immediate(formatter, buffer, context);
 }
 
-ZydisFormatterFunc default_print_displacement;
-
-static ZyanStatus UnasmFormatterPrintDISP(
-    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
-{
-    Function *func = static_cast<Function *>(context->user_data);
-    uint64_t address = context->operand->mem.disp.value;
-    if (context->operand->imm.is_relative) {
-        address += func->executable().image_base();
-    }
-    char hex_buff[32];
-    const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
-
-    if (!symbol.name.empty()) {
-        ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
-        ZyanString *string;
-        ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        return ZyanStringAppendFormat(string, "+%s", symbol.name.c_str());
-    } else if (address >= func->executable().text_section_begin_from_image_base()
-        && address < func->executable().text_section_end_from_image_base()) {
-        // Probably a function if the address is in the current section.
-        ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
-        ZyanString *string;
-        ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_nearest_symbol(address); // ??
-
-        if (!symbol.name.empty()) {
-            func->add_dependency(symbol.name);
-
-            if (symbol.address == address) {
-                return ZyanStringAppendFormat(string, "+%s", symbol.name.c_str());
-            } else {
-                uint64_t diff = address - symbol.address; // value should always be lower than requested address.
-                return ZyanStringAppendFormat(string, "+%s+0x%" PRIx64, symbol.name.c_str(), diff);
-            }
-        }
-
-        snprintf(hex_buff, sizeof(hex_buff), "sub_%" PRIx64, address);
-        func->add_dependency(hex_buff);
-
-        return ZyanStringAppendFormat(string, "+sub_%" PRIx64, address);
-    } else if (address >= func->executable().all_sections_begin_from_image_base()
-        && address < (func->executable().all_sections_end_from_image_base())) {
-        // Data is in another section?
-        ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
-        ZyanString *string;
-        ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const ExeSymbol &symbol = func->get_nearest_symbol(address); // ??
-
-        if (!symbol.name.empty()) {
-            func->add_dependency(symbol.name);
-
-            if (symbol.address == address) {
-                return ZyanStringAppendFormat(string, "+%s", symbol.name.c_str());
-            } else {
-                uint64_t diff = address - symbol.address; // value should always be lower than requested address.
-                return ZyanStringAppendFormat(string, "+%s+0x%" PRIx64, symbol.name.c_str(), diff);
-            }
-        }
-
-        snprintf(hex_buff, sizeof(hex_buff), "off_%" PRIx64, address);
-        func->add_dependency(hex_buff);
-
-        return ZyanStringAppendFormat(string, "+off_%" PRIx64, address);
-    }
-
-    return default_print_displacement(formatter, buffer, context);
-}
-
 ZydisFormatterFunc default_format_operand_ptr;
 
 static ZyanStatus UnasmFormatterFormatOperandPTR(
@@ -562,9 +493,6 @@ static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 
     default_print_address_relative = (ZydisFormatterFunc)&UnasmFormatterPrintAddressRelative;
     ZydisFormatterSetHook(
         &formatter, ZYDIS_FORMATTER_FUNC_PRINT_ADDRESS_REL, (const void **)&default_print_address_relative);
-
-    default_print_displacement = (ZydisFormatterFunc)&UnasmFormatterPrintDISP;
-    ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_DISP, (const void **)&default_print_displacement);
 
     default_format_operand_ptr = (ZydisFormatterFunc)&UnasmFormatterFormatOperandPTR;
     ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_FORMAT_OPERAND_PTR, (const void **)&default_format_operand_ptr);
