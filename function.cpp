@@ -142,6 +142,7 @@ static ZyanStatus UnasmDisassembleNoFormat(ZydisMachineMode machine_mode, ZyanU6
 
 ZydisFormatterFunc default_print_address_absolute;
 ZydisFormatterFunc default_print_address_relative;
+ZydisFormatterFunc default_print_displacement;
 ZydisFormatterFunc default_print_immediate;
 ZydisFormatterFunc default_format_operand_mem;
 ZydisFormatterFunc default_format_operand_ptr;
@@ -242,6 +243,53 @@ static ZyanStatus UnasmFormatterPrintAddressRelative(
     }
 
     return default_print_address_relative(formatter, buffer, context);
+}
+
+static ZyanStatus UnasmFormatterPrintDISP(
+    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
+{
+    Function *func = static_cast<Function *>(context->user_data);
+    uint64_t value = context->operand->mem.disp.value;
+
+    if (context->operand->imm.is_relative) {
+        value += func->executable().image_base();
+    }
+
+    // Does not look for symbol when address is in irrelevant segment, such as fs:[0]
+    if (!HasIrrelevantSegment(context->operand)) {
+        // Does not look for symbol when there is an operand with a register plus offset, such as [eax+0x400e00]
+        if (!HasBaseOrIndexRegister(context->operand)) {
+            const ExeSymbol &symbol = func->get_symbol_from_image_base(value);
+
+            if (!symbol.name.empty()) {
+                ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
+                ZyanString *string;
+                ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
+                ZYAN_CHECK(ZyanStringAppendFormat(string, "+%s", symbol.name.c_str()));
+                return ZYAN_STATUS_SUCCESS;
+            }
+        }
+
+        if (value >= func->executable().text_section_begin_from_image_base()
+            && value < func->executable().text_section_end_from_image_base()) {
+            ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
+            ZyanString *string;
+            ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
+            ZYAN_CHECK(ZyanStringAppendFormat(string, "+sub_%" PRIx64, value));
+            return ZYAN_STATUS_SUCCESS;
+        }
+
+        if (value >= func->executable().all_sections_begin_from_image_base()
+            && value < (func->executable().all_sections_end_from_image_base())) {
+            ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
+            ZyanString *string;
+            ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
+            ZYAN_CHECK(ZyanStringAppendFormat(string, "+off_%" PRIx64, value));
+            return ZYAN_STATUS_SUCCESS;
+        }
+    }
+
+    return default_print_displacement(formatter, buffer, context);
 }
 
 static ZyanStatus UnasmFormatterPrintIMM(
@@ -466,6 +514,9 @@ static ZyanStatus UnasmDisassembleCustom(ZydisMachineMode machine_mode, ZyanU64 
     default_print_address_relative = static_cast<ZydisFormatterFunc>(&UnasmFormatterPrintAddressRelative);
     ZydisFormatterSetHook(
         &formatter, ZYDIS_FORMATTER_FUNC_PRINT_ADDRESS_REL, (const void **)&default_print_address_relative);
+
+    default_print_displacement = (ZydisFormatterFunc)&UnasmFormatterPrintDISP;
+    ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_DISP, (const void **)&default_print_displacement);
 
     default_print_immediate = static_cast<ZydisFormatterFunc>(&UnasmFormatterPrintIMM);
     ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_IMM, (const void **)&default_print_immediate);
