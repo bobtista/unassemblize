@@ -99,23 +99,6 @@ bool HasIrrelevantSegment(const ZydisDecodedOperand *operand)
     }
 }
 
-// Copy of the disassemble function without any formatting.
-ZyanStatus UnasmDisassembleNoFormat(ZydisDecoder &decoder, ZyanU64 runtime_address, const void *buffer, ZyanUSize length,
-    ZydisDisassembledInstruction &instruction)
-{
-    assert(buffer != nullptr);
-
-    memset(&instruction, 0, sizeof(instruction));
-    instruction.runtime_address = runtime_address;
-
-    ZydisDecoderContext ctx;
-    ZYAN_CHECK(ZydisDecoderDecodeInstruction(&decoder, &ctx, buffer, length, &instruction.info));
-    ZYAN_CHECK(
-        ZydisDecoderDecodeOperands(&decoder, &ctx, &instruction.info, instruction.operands, instruction.info.operand_count));
-
-    return ZYAN_STATUS_SUCCESS;
-}
-
 bool GetStackWidth(ZydisStackWidth &stack_width, ZydisMachineMode machine_mode)
 {
     switch (machine_mode) {
@@ -458,6 +441,23 @@ ZyanStatus UnasmFormatterPrintRegister(
     }
 
     return default_print_register(formatter, buffer, context, reg);
+}
+
+// Copy of the disassemble function without any formatting.
+ZyanStatus UnasmDisassembleNoFormat(ZydisDecoder &decoder, ZyanU64 runtime_address, const void *buffer, ZyanUSize length,
+    ZydisDisassembledInstruction &instruction)
+{
+    assert(buffer != nullptr);
+
+    memset(&instruction, 0, sizeof(instruction));
+    instruction.runtime_address = runtime_address;
+
+    ZydisDecoderContext ctx;
+    ZYAN_CHECK(ZydisDecoderDecodeInstruction(&decoder, &ctx, buffer, length, &instruction.info));
+    ZYAN_CHECK(
+        ZydisDecoderDecodeOperands(&decoder, &ctx, &instruction.info, instruction.operands, instruction.info.operand_count));
+
+    return ZYAN_STATUS_SUCCESS;
 }
 
 ZyanStatus UnasmDisassembleCustom(const ZydisFormatter &formatter, ZydisDecoder &decoder, ZyanU64 runtime_address,
