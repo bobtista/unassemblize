@@ -27,7 +27,14 @@ uint32_t get_le32(const uint8_t *data)
     return (data[3] << 24) | (data[2] << 16) | (data[1] << 8) | data[0];
 }
 
-bool IsShortJump(const ZydisDecodedInstruction *instruction, const ZydisDecodedOperand *operand)
+enum class JumpType
+{
+    None,
+    Short,
+    Long,
+};
+
+JumpType IsJump(const ZydisDecodedInstruction *instruction, const ZydisDecodedOperand *operand)
 {
     // Check if the instruction is a jump (JMP, conditional jump, etc.)
     switch (instruction->mnemonic) {
@@ -55,18 +62,20 @@ bool IsShortJump(const ZydisDecodedInstruction *instruction, const ZydisDecodedO
         case ZYDIS_MNEMONIC_JZ:
             break;
         default:
-            return false; // Not a jump instruction.
+            return JumpType::None;
     }
 
     // Check if the first operand is a relative immediate.
     if (operand->type == ZYDIS_OPERAND_TYPE_IMMEDIATE && operand->imm.is_relative) {
         // Short jumps have an 8-bit immediate value (1 byte)
         if (operand->size == 8) {
-            return true; // This is a short jump.
+            return JumpType::Short;
+        } else {
+            return JumpType::Long;
         }
     }
 
-    return false; // Not a short jump.
+    return JumpType::None;
 }
 
 bool HasBaseRegister(const ZydisDecodedOperand *operand)
@@ -133,6 +142,7 @@ ZyanStatus UnasmFormatterPrintAddressAbsolute(
     Function *func = static_cast<Function *>(context->user_data);
     ZyanU64 address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
+    const ZyanU64 target_address = address;
 
     if (context->operand->imm.is_relative) {
         address += func->executable().image_base();
@@ -146,15 +156,23 @@ ZyanStatus UnasmFormatterPrintAddressAbsolute(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            const bool isShortJump = IsShortJump(context->instruction, context->operand);
-            if (isShortJump) {
+            const JumpType jump_type = IsJump(context->instruction, context->operand);
+            if (jump_type == JumpType::Short) {
                 ZYAN_CHECK(ZyanStringAppendFormat(string, "short "));
             }
             ZYAN_CHECK(ZyanStringAppendFormat(string, "%s", symbol.name.c_str()));
-            if (isShortJump) {
+            if (jump_type == JumpType::Short) {
                 const int64_t offset = context->operand->imm.value.s;
-                const char *sign_cstr = offset > 0 ? "+" : "";
-                ZYAN_CHECK(ZyanStringAppendFormat(string, " ; %s%lli bytes", sign_cstr, offset));
+                const char *sign_str = offset > 0 ? "+" : "";
+                ZYAN_CHECK(ZyanStringAppendFormat(string, " ; %s%lli bytes", sign_str, offset));
+            } else if (jump_type == JumpType::Long) {
+                // Is only stable when jumping within a single function.
+                if (target_address >= func->get_begin_address() && target_address < func->get_end_address()) {
+                    const int64_t offset = int64_t(target_address) - int64_t(context->runtime_address);
+                    // assert(std::abs(offset) < (1 << (sizeof(InstructionData::jumpLen) * 8)) / 2);
+                    const char *sign_str = offset > 0 ? "+" : "";
+                    ZYAN_CHECK(ZyanStringAppendFormat(string, " ; %s%lli bytes", sign_str, offset));
+                }
             }
             return ZYAN_STATUS_SUCCESS;
         }
@@ -571,17 +589,17 @@ FunctionSetup::FunctionSetup(const Executable &executable, AsmFormat format) : e
     assert(status == ZYAN_STATUS_SUCCESS);
 }
 
-void Function::disassemble(const FunctionSetup *setup, Address64T start_address, Address64T end_address)
+void Function::disassemble(const FunctionSetup *setup, Address64T begin_address, Address64T end_address)
 {
-    const ExeSectionInfo *section_info = setup->executable.find_section(start_address);
+    const ExeSectionInfo *section_info = setup->executable.find_section(begin_address);
 
     if (section_info == nullptr) {
         return;
     }
 
-    Address64T runtime_address = start_address;
+    Address64T runtime_address = begin_address;
     const Address64T address_offset = section_info->address;
-    Address64T offset = start_address - address_offset;
+    Address64T offset = begin_address - address_offset;
     const Address64T end_offset = end_address - address_offset;
 
     if (end_offset - offset > section_info->size) {
@@ -591,7 +609,8 @@ void Function::disassemble(const FunctionSetup *setup, Address64T start_address,
     assert(setup != nullptr);
 
     m_setup = setup;
-    m_startAddress = start_address;
+    m_beginAddress = begin_address;
+    m_endAddress = end_address;
 
     const Address64T image_base = setup->executable.image_base();
     const uint8_t *section_data = section_info->data;
@@ -622,7 +641,7 @@ void Function::disassemble(const FunctionSetup *setup, Address64T start_address,
         if (instruction.info.raw.imm->is_relative) {
             ZydisCalcAbsoluteAddress(&instruction.info, instruction.operands, runtime_address, &address);
 
-            if (address >= start_address && address < end_address) {
+            if (address >= begin_address && address < end_address) {
                 add_pseudo_symbol(address);
             }
         }
@@ -636,10 +655,10 @@ void Function::disassemble(const FunctionSetup *setup, Address64T start_address,
             bool in_jump_table = false;
 
             // Naive jump table detection attempt uint32_t representation happens to be in function address space.
-            while (next_int >= start_address && next_int < end_address) {
+            while (next_int >= begin_address && next_int < end_address) {
                 // If this is first entry of jump table, create label to jump to.
                 if (!in_jump_table) {
-                    if (runtime_address >= start_address && runtime_address < end_address) {
+                    if (runtime_address >= begin_address && runtime_address < end_address) {
                         add_pseudo_symbol(runtime_address);
                     }
 
@@ -655,8 +674,8 @@ void Function::disassemble(const FunctionSetup *setup, Address64T start_address,
         }
     }
 
-    offset = start_address - address_offset;
-    runtime_address = start_address;
+    offset = begin_address - address_offset;
+    runtime_address = begin_address;
     in_jump_table = false;
 
     while (offset < end_offset) {
@@ -696,7 +715,7 @@ void Function::disassemble(const FunctionSetup *setup, Address64T start_address,
             bool in_jump_table = false;
 
             // Naive jump table detection attempt uint32_t representation happens to be in function address space.
-            while (next_int >= start_address && next_int < end_address) {
+            while (next_int >= begin_address && next_int < end_address) {
                 // If this is first entry of jump table, create label to jump to.
 
                 if (!in_jump_table) {
@@ -805,9 +824,14 @@ const ExeSymbol &Function::get_nearest_symbol(Address64T address) const
     return m_setup->executable.get_nearest_symbol(address);
 }
 
-Address64T Function::get_address() const
+Address64T Function::get_begin_address() const
 {
-    return m_startAddress;
+    return m_beginAddress;
+}
+
+Address64T Function::get_end_address() const
+{
+    return m_endAddress;
 }
 
 } // namespace unassemblize

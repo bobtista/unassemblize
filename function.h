@@ -55,20 +55,22 @@ class Function
 public:
     Function() = default;
 
-    void disassemble(const FunctionSetup *setup, Address64T start_address, Address64T end_address);
+    void disassemble(const FunctionSetup *setup, Address64T begin_address, Address64T end_address);
     const std::string &dissassembly() const { return m_dissassembly; }
     const Executable &executable() const { return m_setup->executable; }
     const ExeSymbol &get_symbol(Address64T address) const;
     const ExeSymbol &get_symbol_from_image_base(Address64T address) const;
     const ExeSymbol &get_nearest_symbol(Address64T address) const; // TODO: investigate
-    Address64T get_address() const;
+    Address64T get_begin_address() const;
+    Address64T get_end_address() const;
 
 private:
     void add_pseudo_symbol(Address64T address);
 
 private:
-    const FunctionSetup *m_setup;
-    Address64T m_startAddress; // TODO: Perhaps is not necessary
+    const FunctionSetup *m_setup{};
+    Address64T m_beginAddress{};
+    Address64T m_endAddress{};
 
     // Symbols used within disassemble step. Is cleared at the end of it.
     ExeSymbols m_pseudoSymbols;
