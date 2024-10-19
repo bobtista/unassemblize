@@ -23,43 +23,57 @@
 
 namespace unassemblize
 {
+enum class AsmFormat
+{
+    DEFAULT,
+    IGAS,
+    AGAS,
+    MASM,
+};
+
+class Function;
+
+struct FunctionSetup
+{
+    friend class Function;
+
+    explicit FunctionSetup(const Executable &executable, AsmFormat format = AsmFormat::DEFAULT);
+
+private:
+    const Executable &executable;
+    const AsmFormat format;
+    ZydisStackWidth stackWidth;
+    ZydisFormatterStyle style;
+    ZydisDecoder decoder;
+    ZydisFormatter formatter;
+};
+
 class Function
 {
-    using Address64ToIndexMap = std::unordered_map<Address64T, IndexT>;
+    using Address64ToIndexMap = std::map<Address64T, IndexT>;
 
 public:
-    enum class AsmFormat
-    {
-        DEFAULT,
-        IGAS,
-        AGAS,
-        MASM,
-    };
+    Function() = default;
 
-public:
-    Function(const Executable &exe, AsmFormat format = AsmFormat::DEFAULT);
-
-    void disassemble(uint64_t start_address, uint64_t end_address);
+    void disassemble(const FunctionSetup *setup, uint64_t start_address, uint64_t end_address);
     const std::string &dissassembly() const { return m_dissassembly; }
-    const Executable &executable() const { return m_executable; }
+    const Executable &executable() const { return m_setup->executable; }
     const ExeSymbol &get_symbol(uint64_t addr) const;
     const ExeSymbol &get_symbol_from_image_base(uint64_t addr) const;
     const ExeSymbol &get_nearest_symbol(uint64_t addr) const; // TODO: investigate
+    Address64T get_address() const;
 
 private:
     void add_pseudo_symbol(uint64_t address);
 
 private:
-    const AsmFormat m_format;
-    const Executable &m_executable;
+    const FunctionSetup *m_setup;
+    Address64T m_startAddress; // TODO: Perhaps is not necessary
 
-    ZydisStackWidth m_stack_width;
-    ZydisFormatterStyle m_style;
-    ZydisDecoder m_decoder;
-    ZydisFormatter m_formatter;
-
-    ExeSymbols m_pseudoSymbols; // Symbols used in disassemble step.
+    // Symbols used within disassemble step. Is cleared at the end of it.
+    ExeSymbols m_pseudoSymbols;
     Address64ToIndexMap m_pseudoSymbolAddressToIndexMap;
+
     std::string m_dissassembly; // Disassembly text buffer for this function.
 };
 } // namespace unassemblize

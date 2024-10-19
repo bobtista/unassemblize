@@ -444,8 +444,8 @@ ZyanStatus UnasmFormatterPrintRegister(
 }
 
 // Copy of the disassemble function without any formatting.
-ZyanStatus UnasmDisassembleNoFormat(ZydisDecoder &decoder, ZyanU64 runtime_address, const void *buffer, ZyanUSize length,
-    ZydisDisassembledInstruction &instruction)
+ZyanStatus UnasmDisassembleNoFormat(const ZydisDecoder &decoder, ZyanU64 runtime_address, const void *buffer,
+    ZyanUSize length, ZydisDisassembledInstruction &instruction)
 {
     assert(buffer != nullptr);
 
@@ -460,7 +460,7 @@ ZyanStatus UnasmDisassembleNoFormat(ZydisDecoder &decoder, ZyanU64 runtime_addre
     return ZYAN_STATUS_SUCCESS;
 }
 
-ZyanStatus UnasmDisassembleCustom(const ZydisFormatter &formatter, ZydisDecoder &decoder, ZyanU64 runtime_address,
+ZyanStatus UnasmDisassembleCustom(const ZydisFormatter &formatter, const ZydisDecoder &decoder, ZyanU64 runtime_address,
     const void *buffer, ZyanUSize length, ZydisDisassembledInstruction &instruction, std::string &instruction_buffer,
     void *user_data)
 {
@@ -502,8 +502,8 @@ std::string BuildInvalidInstructionString(
     return stream.str();
 }
 
-ZyanStatus init_zydis_structures(ZydisStackWidth &stack_width, ZydisFormatterStyle &style, ZydisDecoder &decoder,
-    ZydisFormatter &formatter, Function::AsmFormat format)
+ZyanStatus InitializeZydisFormatter(ZydisStackWidth &stack_width, ZydisFormatterStyle &style, ZydisDecoder &decoder,
+    ZydisFormatter &formatter, AsmFormat format)
 {
     // Derive the stack width from the address width.
     constexpr ZydisMachineMode machine_mode = ZYDIS_MACHINE_MODE_LEGACY_32;
@@ -517,14 +517,14 @@ ZyanStatus init_zydis_structures(ZydisStackWidth &stack_width, ZydisFormatterSty
     }
 
     switch (format) {
-        case Function::AsmFormat::MASM:
+        case AsmFormat::MASM:
             style = ZYDIS_FORMATTER_STYLE_INTEL_MASM;
             break;
-        case Function::AsmFormat::AGAS:
+        case AsmFormat::AGAS:
             style = ZYDIS_FORMATTER_STYLE_ATT;
             break;
-        case Function::AsmFormat::IGAS:
-        case Function::AsmFormat::DEFAULT:
+        case AsmFormat::IGAS:
+        case AsmFormat::DEFAULT:
         default:
             style = ZYDIS_FORMATTER_STYLE_INTEL;
             break;
@@ -555,15 +555,15 @@ ZyanStatus init_zydis_structures(ZydisStackWidth &stack_width, ZydisFormatterSty
 }
 } // namespace
 
-Function::Function(const Executable &exe, AsmFormat format) : m_executable(exe), m_format(format)
+FunctionSetup::FunctionSetup(const Executable &executable, AsmFormat format) : executable(executable), format(format)
 {
-    ZyanStatus status = init_zydis_structures(m_stack_width, m_style, m_decoder, m_formatter, format);
+    ZyanStatus status = InitializeZydisFormatter(stackWidth, style, decoder, formatter, format);
     assert(status == ZYAN_STATUS_SUCCESS);
 }
 
-void Function::disassemble(uint64_t start_address, uint64_t end_address)
+void Function::disassemble(const FunctionSetup *setup, uint64_t start_address, uint64_t end_address)
 {
-    const ExeSectionInfo *section_info = m_executable.find_section(start_address);
+    const ExeSectionInfo *section_info = setup->executable.find_section(start_address);
 
     if (section_info == nullptr) {
         return;
@@ -578,7 +578,12 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
         return;
     }
 
-    const uint64_t image_base = m_executable.image_base();
+    assert(setup != nullptr);
+
+    m_setup = setup;
+    m_startAddress = start_address;
+
+    const uint64_t image_base = setup->executable.image_base();
     const uint8_t *section_data = section_info->data;
     const uint64_t section_size = section_info->size;
 
@@ -591,8 +596,8 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
 
     // Loop through function once to identify all jumps to local labels and create them.
     while (offset < end_offset) {
-        const ZyanStatus status =
-            UnasmDisassembleNoFormat(m_decoder, runtime_address, section_data + offset, section_size - offset, instruction);
+        const ZyanStatus status = UnasmDisassembleNoFormat(
+            setup->decoder, runtime_address, section_data + offset, section_size - offset, instruction);
 
         if (!ZYAN_SUCCESS(status)) {
             std::string str = BuildInvalidInstructionString(instruction, section_data + offset, runtime_address, image_base);
@@ -645,8 +650,8 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
     in_jump_table = false;
 
     while (offset < end_offset) {
-        const ZyanStatus status = UnasmDisassembleCustom(m_formatter,
-            m_decoder,
+        const ZyanStatus status = UnasmDisassembleCustom(setup->formatter,
+            setup->decoder,
             runtime_address,
             section_data + offset,
             section_size - offset,
@@ -685,7 +690,7 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
                 // If this is first entry of jump table, create label to jump to.
 
                 if (!in_jump_table) {
-                    const ExeSymbol &symbol = m_executable.get_symbol(runtime_address);
+                    const ExeSymbol &symbol = setup->executable.get_symbol(runtime_address);
 
                     if (!symbol.name.empty()) {
                         m_dissassembly += symbol.name;
@@ -695,10 +700,10 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
                     in_jump_table = true;
                 }
 
-                const ExeSymbol &symbol = m_executable.get_symbol(next_int);
+                const ExeSymbol &symbol = setup->executable.get_symbol(next_int);
 
                 if (!symbol.name.empty()) {
-                    if (m_format == AsmFormat::MASM) {
+                    if (setup->format == AsmFormat::MASM) {
                         m_dissassembly += "    DWORD ";
                     } else {
                         m_dissassembly += "    .int ";
@@ -713,12 +718,15 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
             }
         }
     }
+
+    m_pseudoSymbols.swap(ExeSymbols());
+    m_pseudoSymbolAddressToIndexMap.swap(Address64ToIndexMap());
 }
 
 void Function::add_pseudo_symbol(uint64_t address)
 {
     {
-        const ExeSymbol &symbol = m_executable.get_symbol(address);
+        const ExeSymbol &symbol = m_setup->executable.get_symbol(address);
         if (symbol.address != 0) {
             return;
         }
@@ -748,7 +756,7 @@ const ExeSymbol &Function::get_symbol(uint64_t addr) const
         return m_pseudoSymbols[it->second];
     }
 
-    return m_executable.get_symbol(addr);
+    return m_setup->executable.get_symbol(addr);
 }
 
 const ExeSymbol &Function::get_symbol_from_image_base(uint64_t addr) const
@@ -760,13 +768,13 @@ const ExeSymbol &Function::get_symbol_from_image_base(uint64_t addr) const
     }
 #endif
 
-    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(addr - m_executable.image_base());
+    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(addr - m_setup->executable.image_base());
 
     if (it != m_pseudoSymbolAddressToIndexMap.end()) {
         return m_pseudoSymbols[it->second];
     }
 
-    return m_executable.get_symbol_from_image_base(addr);
+    return m_setup->executable.get_symbol_from_image_base(addr);
 }
 
 const ExeSymbol &Function::get_nearest_symbol(uint64_t addr) const
@@ -783,7 +791,12 @@ const ExeSymbol &Function::get_nearest_symbol(uint64_t addr) const
         }
     }
 
-    return m_executable.get_nearest_symbol(addr);
+    return m_setup->executable.get_nearest_symbol(addr);
+}
+
+Address64T Function::get_address() const
+{
+    return m_startAddress;
 }
 
 } // namespace unassemblize

@@ -485,10 +485,11 @@ void Executable::dissassemble_function(FILE *fp, uint64_t start, uint64_t end)
 void Executable::dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end)
 {
     if (start != 0 && end != 0) {
-        Function::AsmFormat format = m_outputFormat == OUTPUT_IGAS ? Function::AsmFormat::IGAS : Function::AsmFormat::AGAS;
-        Function func(*this, format); // TODO: Optimize by creating just once
+        const AsmFormat format = m_outputFormat == OUTPUT_IGAS ? AsmFormat::IGAS : AsmFormat::AGAS;
+        const FunctionSetup setup(*this, format); // TODO: Optimize by creating just once
 
-        func.disassemble(start, end);
+        Function func;
+        func.disassemble(&setup, start, end);
 
         const std::string &sym = get_symbol(start).name;
 
