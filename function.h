@@ -55,16 +55,16 @@ class Function
 public:
     Function() = default;
 
-    void disassemble(const FunctionSetup *setup, uint64_t start_address, uint64_t end_address);
+    void disassemble(const FunctionSetup *setup, Address64T start_address, Address64T end_address);
     const std::string &dissassembly() const { return m_dissassembly; }
     const Executable &executable() const { return m_setup->executable; }
-    const ExeSymbol &get_symbol(uint64_t addr) const;
-    const ExeSymbol &get_symbol_from_image_base(uint64_t addr) const;
-    const ExeSymbol &get_nearest_symbol(uint64_t addr) const; // TODO: investigate
+    const ExeSymbol &get_symbol(Address64T address) const;
+    const ExeSymbol &get_symbol_from_image_base(Address64T address) const;
+    const ExeSymbol &get_nearest_symbol(Address64T address) const; // TODO: investigate
     Address64T get_address() const;
 
 private:
-    void add_pseudo_symbol(uint64_t address);
+    void add_pseudo_symbol(Address64T address);
 
 private:
     const FunctionSetup *m_setup;

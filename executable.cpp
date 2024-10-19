@@ -131,11 +131,11 @@ const ExeSectionMap &Executable::get_section_map() const
     return m_sectionMap;
 }
 
-const ExeSectionInfo *Executable::find_section(uint64_t addr) const
+const ExeSectionInfo *Executable::find_section(uint64_t address) const
 {
     for (const ExeSectionMap::value_type &pair : m_sectionMap) {
         const ExeSectionInfo &info = pair.second;
-        if (addr >= info.address && addr < info.address + info.size) {
+        if (address >= info.address && address < info.address + info.size) {
             return &info;
         }
     }
@@ -185,9 +185,9 @@ uint64_t Executable::all_sections_end_from_image_base() const
     return m_imageData.sectionsEnd + m_imageData.imageBase;
 }
 
-const ExeSymbol &Executable::get_symbol(uint64_t addr) const
+const ExeSymbol &Executable::get_symbol(uint64_t address) const
 {
-    Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.find(addr);
+    Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.find(address);
 
     if (it != m_symbolAddressToIndexMap.end()) {
         return m_symbols[it->second];
@@ -196,18 +196,18 @@ const ExeSymbol &Executable::get_symbol(uint64_t addr) const
     return s_emptySymbol;
 }
 
-const ExeSymbol &Executable::get_symbol_from_image_base(uint64_t addr) const
+const ExeSymbol &Executable::get_symbol_from_image_base(uint64_t address) const
 {
-    return get_symbol(addr - image_base());
+    return get_symbol(address - image_base());
 }
 
-const ExeSymbol &Executable::get_nearest_symbol(uint64_t addr) const
+const ExeSymbol &Executable::get_nearest_symbol(uint64_t address) const
 {
-    Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.lower_bound(addr);
+    Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.lower_bound(address);
 
     if (it != m_symbolAddressToIndexMap.end()) {
         const ExeSymbol &symbol = m_symbols[it->second];
-        if (symbol.address == addr) {
+        if (symbol.address == address) {
             return symbol;
         } else {
             const ExeSymbol &prevSymbol = m_symbols[std::prev(it)->second];

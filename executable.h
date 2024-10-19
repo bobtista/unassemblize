@@ -48,7 +48,7 @@ public:
     void save_config(const char *file_name);
 
     const ExeSectionMap &get_section_map() const;
-    const ExeSectionInfo *find_section(uint64_t addr) const;
+    const ExeSectionInfo *find_section(uint64_t address) const;
     const uint8_t *section_data(const char *name) const; // TODO: check how to improve this
     uint64_t section_address(const char *name) const; // TODO: check how to improve this
     uint64_t section_size(const char *name) const; // TODO: check how to improve this
@@ -57,9 +57,9 @@ public:
     uint64_t text_section_end_from_image_base() const; // End address of .text section plus image base.
     uint64_t all_sections_begin_from_image_base() const; // Begin address of first section plus image base.
     uint64_t all_sections_end_from_image_base() const; // End address of last section plus image base.
-    const ExeSymbol &get_symbol(uint64_t addr) const;
-    const ExeSymbol &get_symbol_from_image_base(uint64_t addr) const; // Adds the image base before symbol lookup.
-    const ExeSymbol &get_nearest_symbol(uint64_t addr) const; // TODO: investigate
+    const ExeSymbol &get_symbol(uint64_t address) const;
+    const ExeSymbol &get_symbol_from_image_base(uint64_t address) const; // Adds the image base before symbol lookup.
+    const ExeSymbol &get_nearest_symbol(uint64_t address) const; // TODO: investigate
     const ExeSymbols &get_symbols() const;
 
     /*

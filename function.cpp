@@ -131,7 +131,7 @@ ZyanStatus UnasmFormatterPrintAddressAbsolute(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
-    uint64_t address;
+    ZyanU64 address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
 
     if (context->operand->imm.is_relative) {
@@ -186,7 +186,7 @@ ZyanStatus UnasmFormatterPrintAddressRelative(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
-    uint64_t address;
+    ZyanU64 address;
     ZYAN_CHECK(ZydisCalcAbsoluteAddress(context->instruction, context->operand, context->runtime_address, &address));
 
     if (context->operand->imm.is_relative) {
@@ -228,7 +228,12 @@ ZyanStatus UnasmFormatterPrintDISP(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
-    uint64_t value = context->operand->mem.disp.value;
+
+    if (context->operand->mem.disp.value < 0) {
+        return default_print_displacement(formatter, buffer, context);
+    }
+
+    ZyanU64 value = static_cast<ZyanU64>(context->operand->mem.disp.value);
 
     if (context->operand->imm.is_relative) {
         value += func->executable().image_base();
@@ -275,7 +280,7 @@ ZyanStatus UnasmFormatterPrintIMM(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
-    uint64_t value = context->operand->imm.value.u;
+    ZyanU64 value = context->operand->imm.value.u;
 
     if (context->operand->imm.is_relative) {
         value += func->executable().image_base();
@@ -324,7 +329,7 @@ ZyanStatus UnasmFormatterFormatOperandPTR(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
-    uint64_t offset = context->operand->ptr.offset;
+    ZyanU64 offset = context->operand->ptr.offset;
 
     if (context->operand->imm.is_relative) {
         offset += func->executable().image_base();
@@ -365,7 +370,12 @@ ZyanStatus UnasmFormatterFormatOperandMEM(
     const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
-    uint64_t value = context->operand->mem.disp.value;
+
+    if (context->operand->mem.disp.value < 0) {
+        return default_format_operand_mem(formatter, buffer, context);
+    }
+
+    ZyanU64 value = static_cast<ZyanU64>(context->operand->mem.disp.value);
 
     if (context->operand->imm.is_relative) {
         value += func->executable().image_base();
@@ -487,7 +497,7 @@ ZyanStatus UnasmDisassembleCustom(const ZydisFormatter &formatter, const ZydisDe
 }
 
 std::string BuildInvalidInstructionString(
-    const ZydisDisassembledInstruction &ins, const uint8_t *ins_data, uint64_t runtime_address, uint64_t image_base)
+    const ZydisDisassembledInstruction &ins, const uint8_t *ins_data, Address64T runtime_address, Address64T image_base)
 {
     std::stringstream stream;
     stream.fill('0');
@@ -561,7 +571,7 @@ FunctionSetup::FunctionSetup(const Executable &executable, AsmFormat format) : e
     assert(status == ZYAN_STATUS_SUCCESS);
 }
 
-void Function::disassemble(const FunctionSetup *setup, uint64_t start_address, uint64_t end_address)
+void Function::disassemble(const FunctionSetup *setup, Address64T start_address, Address64T end_address)
 {
     const ExeSectionInfo *section_info = setup->executable.find_section(start_address);
 
@@ -569,10 +579,10 @@ void Function::disassemble(const FunctionSetup *setup, uint64_t start_address, u
         return;
     }
 
-    uint64_t runtime_address = start_address;
-    const uint64_t address_offset = section_info->address;
-    uint64_t offset = start_address - address_offset;
-    const uint64_t end_offset = end_address - address_offset;
+    Address64T runtime_address = start_address;
+    const Address64T address_offset = section_info->address;
+    Address64T offset = start_address - address_offset;
+    const Address64T end_offset = end_address - address_offset;
 
     if (end_offset - offset > section_info->size) {
         return;
@@ -583,9 +593,9 @@ void Function::disassemble(const FunctionSetup *setup, uint64_t start_address, u
     m_setup = setup;
     m_startAddress = start_address;
 
-    const uint64_t image_base = setup->executable.image_base();
+    const Address64T image_base = setup->executable.image_base();
     const uint8_t *section_data = section_info->data;
-    const uint64_t section_size = section_info->size;
+    const Address64T section_size = section_info->size;
 
     ZydisDisassembledInstruction instruction;
     std::string instruction_buffer;
@@ -607,7 +617,7 @@ void Function::disassemble(const FunctionSetup *setup, uint64_t start_address, u
             continue;
         }
 
-        uint64_t address;
+        Address64T address;
 
         if (instruction.info.raw.imm->is_relative) {
             ZydisCalcAbsoluteAddress(&instruction.info, instruction.operands, runtime_address, &address);
@@ -723,7 +733,7 @@ void Function::disassemble(const FunctionSetup *setup, uint64_t start_address, u
     m_pseudoSymbolAddressToIndexMap.swap(Address64ToIndexMap());
 }
 
-void Function::add_pseudo_symbol(uint64_t address)
+void Function::add_pseudo_symbol(Address64T address)
 {
     {
         const ExeSymbol &symbol = m_setup->executable.get_symbol(address);
@@ -748,18 +758,18 @@ void Function::add_pseudo_symbol(uint64_t address)
     }
 }
 
-const ExeSymbol &Function::get_symbol(uint64_t addr) const
+const ExeSymbol &Function::get_symbol(Address64T address) const
 {
-    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(addr);
+    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(address);
 
     if (it != m_pseudoSymbolAddressToIndexMap.end()) {
         return m_pseudoSymbols[it->second];
     }
 
-    return m_setup->executable.get_symbol(addr);
+    return m_setup->executable.get_symbol(address);
 }
 
-const ExeSymbol &Function::get_symbol_from_image_base(uint64_t addr) const
+const ExeSymbol &Function::get_symbol_from_image_base(Address64T address) const
 {
 #if 0 // Cannot put assert here as long as there are symbol lookup guesses left.
     if (!(addr >= m_executable.all_sections_begin_from_image_base()
@@ -768,22 +778,23 @@ const ExeSymbol &Function::get_symbol_from_image_base(uint64_t addr) const
     }
 #endif
 
-    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(addr - m_setup->executable.image_base());
+    Address64ToIndexMap::const_iterator it =
+        m_pseudoSymbolAddressToIndexMap.find(address - m_setup->executable.image_base());
 
     if (it != m_pseudoSymbolAddressToIndexMap.end()) {
         return m_pseudoSymbols[it->second];
     }
 
-    return m_setup->executable.get_symbol_from_image_base(addr);
+    return m_setup->executable.get_symbol_from_image_base(address);
 }
 
-const ExeSymbol &Function::get_nearest_symbol(uint64_t addr) const
+const ExeSymbol &Function::get_nearest_symbol(Address64T address) const
 {
-    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.lower_bound(addr);
+    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.lower_bound(address);
 
     if (it != m_pseudoSymbolAddressToIndexMap.end()) {
         const ExeSymbol &symbol = m_pseudoSymbols[it->second];
-        if (symbol.address == addr) {
+        if (symbol.address == address) {
             return symbol;
         } else {
             const ExeSymbol &prevSymbol = m_pseudoSymbols[std::prev(it)->second];
@@ -791,7 +802,7 @@ const ExeSymbol &Function::get_nearest_symbol(uint64_t addr) const
         }
     }
 
-    return m_setup->executable.get_nearest_symbol(addr);
+    return m_setup->executable.get_nearest_symbol(address);
 }
 
 Address64T Function::get_address() const
