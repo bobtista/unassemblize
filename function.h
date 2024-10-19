@@ -13,6 +13,9 @@
 #pragma once
 
 #include "executable.h"
+#include <Zydis/Decoder.h>
+#include <Zydis/Formatter.h>
+#include <Zydis/SharedTypes.h>
 #include <map>
 #include <stdint.h>
 #include <string>
@@ -25,20 +28,18 @@ class Function
     using Address64ToIndexMap = std::unordered_map<Address64T, IndexT>;
 
 public:
-    enum AsmFormat
+    enum class AsmFormat
     {
-        FORMAT_DEFAULT,
-        FORMAT_IGAS,
-        FORMAT_AGAS,
-        FORMAT_MASM,
+        DEFAULT,
+        IGAS,
+        AGAS,
+        MASM,
     };
 
 public:
-    Function(const Executable &exe, uint64_t start, uint64_t end) :
-        m_executable(exe), m_startAddress(start), m_endAddress(end)
-    {
-    }
-    void disassemble(AsmFormat fmt = FORMAT_DEFAULT); // Run the disassembly of the function.
+    Function(const Executable &exe, AsmFormat format = AsmFormat::DEFAULT);
+
+    void disassemble(uint64_t start_address, uint64_t end_address);
     const std::string &dissassembly() const { return m_dissassembly; }
     const Executable &executable() const { return m_executable; }
     const ExeSymbol &get_symbol(uint64_t addr) const;
@@ -49,12 +50,16 @@ private:
     void add_pseudo_symbol(uint64_t address);
 
 private:
+    const AsmFormat m_format;
     const Executable &m_executable;
-    const uint64_t m_startAddress; // Runtime start address of the function.
-    const uint64_t m_endAddress; // Runtime end address of the function.
+
+    ZydisStackWidth m_stack_width;
+    ZydisFormatterStyle m_style;
+    ZydisDecoder m_decoder;
+    ZydisFormatter m_formatter;
 
     ExeSymbols m_pseudoSymbols; // Symbols used in disassemble step.
     Address64ToIndexMap m_pseudoSymbolAddressToIndexMap;
-    std::string m_dissassembly; // Disassembly buffer for this function.
+    std::string m_dissassembly; // Disassembly text buffer for this function.
 };
 } // namespace unassemblize
