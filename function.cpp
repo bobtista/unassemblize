@@ -571,8 +571,8 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
 
     uint64_t runtime_address = start_address;
     const uint64_t address_offset = section_info->address;
-    ZyanUSize offset = start_address - address_offset;
-    const ZyanUSize end_offset = end_address - address_offset;
+    uint64_t offset = start_address - address_offset;
+    const uint64_t end_offset = end_address - address_offset;
 
     if (end_offset - offset > section_info->size) {
         return;
@@ -580,6 +580,7 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
 
     const uint64_t image_base = m_executable.image_base();
     const uint8_t *section_data = section_info->data;
+    const uint64_t section_size = section_info->size;
 
     ZydisDisassembledInstruction instruction;
     std::string instruction_buffer;
@@ -591,7 +592,7 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
     // Loop through function once to identify all jumps to local labels and create them.
     while (offset < end_offset) {
         const ZyanStatus status =
-            UnasmDisassembleNoFormat(m_decoder, runtime_address, section_data + offset, 96, instruction);
+            UnasmDisassembleNoFormat(m_decoder, runtime_address, section_data + offset, section_size - offset, instruction);
 
         if (!ZYAN_SUCCESS(status)) {
             std::string str = BuildInvalidInstructionString(instruction, section_data + offset, runtime_address, image_base);
@@ -644,8 +645,14 @@ void Function::disassemble(uint64_t start_address, uint64_t end_address)
     in_jump_table = false;
 
     while (offset < end_offset) {
-        const ZyanStatus status = UnasmDisassembleCustom(
-            m_formatter, m_decoder, runtime_address, section_data + offset, 96, instruction, instruction_buffer, this);
+        const ZyanStatus status = UnasmDisassembleCustom(m_formatter,
+            m_decoder,
+            runtime_address,
+            section_data + offset,
+            section_size - offset,
+            instruction,
+            instruction_buffer,
+            this);
 
         if (!ZYAN_SUCCESS(status)) {
             std::string str = BuildInvalidInstructionString(instruction, section_data + offset, runtime_address, image_base);
