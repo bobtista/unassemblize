@@ -88,13 +88,28 @@ private:
 };
 
 /*
+ * Data used within function disassemble step. Is cleared at the end of it.
+ */
+class FunctionIntermediate
+{
+public:
+    using Address64ToIndexMap = std::map<Address64T, IndexT>;
+
+    explicit FunctionIntermediate(const FunctionSetup &setup) : m_setup(setup) {}
+
+    const FunctionSetup &m_setup;
+    ExeSymbols m_pseudoSymbols;
+    Address64ToIndexMap m_pseudoSymbolAddressToIndexMap;
+};
+
+/*
  * Function disassemble class.
  */
 class Function
 {
     friend class FunctionSetup;
 
-    using Address64ToIndexMap = std::map<Address64T, IndexT>;
+    using Address64ToIndexMap = FunctionIntermediate::Address64ToIndexMap;
 
 public:
     Function() = default;
@@ -103,13 +118,14 @@ public:
      * Disassemble a function from begin to end with the given setup. The address range is free to choose, but it is best
      * used for a single function only. When complete, instruction data will be available.
      */
-    void disassemble(const FunctionSetup *setup, Address64T begin_address, Address64T end_address);
+    void disassemble(const FunctionSetup &setup, Address64T begin_address, Address64T end_address);
 
     const InstructionDataVector &get_instructions() const;
     Address64T get_begin_address() const;
     Address64T get_end_address() const;
 
 private:
+    const FunctionSetup &get_setup() const;
     const Executable &get_executable() const;
     ZydisFormatterFunc get_default_print_address_absolute() const;
     ZydisFormatterFunc get_default_print_address_relative() const;
@@ -147,14 +163,10 @@ private:
         std::string &instruction_buffer, void *user_data);
 
 private:
-    const FunctionSetup *m_setup = nullptr;
+    FunctionIntermediate *m_intermediate = nullptr;
     Address64T m_beginAddress = 0;
     Address64T m_endAddress = 0;
-
-    // Symbols used within disassemble step. Is cleared at the end of it.
-    ExeSymbols m_pseudoSymbols;
-    Address64ToIndexMap m_pseudoSymbolAddressToIndexMap;
-
     InstructionDataVector m_instructions;
 };
+
 } // namespace unassemblize

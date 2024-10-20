@@ -491,7 +491,7 @@ void Executable::dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end)
         std::string str;
         {
             Function func;
-            func.disassemble(&setup, start, end);
+            func.disassemble(setup, start, end);
             const InstructionDataVector &instructions = func.get_instructions();
             str.reserve(instructions.size() * 32);
             append_as_text(str, instructions);

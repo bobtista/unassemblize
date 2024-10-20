@@ -577,9 +577,9 @@ ZyanStatus Function::UnasmDisassembleCustom(const ZydisFormatter &formatter, con
     return ZYAN_STATUS_SUCCESS;
 }
 
-void Function::disassemble(const FunctionSetup *setup, Address64T begin_address, Address64T end_address)
+void Function::disassemble(const FunctionSetup &setup, Address64T begin_address, Address64T end_address)
 {
-    const ExeSectionInfo *section_info = setup->m_executable.find_section(begin_address);
+    const ExeSectionInfo *section_info = setup.m_executable.find_section(begin_address);
 
     if (section_info == nullptr) {
         return;
@@ -594,14 +594,14 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
         return;
     }
 
-    assert(setup != nullptr);
+    FunctionIntermediate intermediate(setup);
+    m_intermediate = &intermediate;
 
     m_instructions.clear();
-    m_setup = setup;
     m_beginAddress = begin_address;
     m_endAddress = end_address;
 
-    const Address64T image_base = setup->m_executable.image_base();
+    const Address64T image_base = setup.m_executable.image_base();
     const uint8_t *section_data = section_info->data;
     const Address64T section_size = section_info->size;
 
@@ -616,7 +616,7 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
         const Address64T instruction_address = runtime_address;
         const Address64T instruction_section_offset = section_offset;
 
-        const ZyanStatus status = UnasmDisassembleNoFormat(setup->m_decoder,
+        const ZyanStatus status = UnasmDisassembleNoFormat(setup.m_decoder,
             instruction_address,
             section_data + instruction_section_offset,
             section_size - instruction_section_offset,
@@ -652,8 +652,8 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
         const Address64T instruction_section_offset = section_offset;
         instruction_data.address = runtime_address;
 
-        const ZyanStatus status = UnasmDisassembleCustom(setup->m_formatter,
-            setup->m_decoder,
+        const ZyanStatus status = UnasmDisassembleCustom(setup.m_formatter,
+            setup.m_decoder,
             instruction_address,
             section_data + instruction_section_offset,
             section_size - instruction_section_offset,
@@ -708,30 +708,32 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
 
     assert(instruction_index == instruction_count);
 
-    m_pseudoSymbols.swap(ExeSymbols());
-    m_pseudoSymbolAddressToIndexMap.swap(Address64ToIndexMap());
+    m_intermediate = nullptr;
 }
 
 void Function::add_pseudo_symbol(Address64T address)
 {
     {
-        const ExeSymbol &symbol = m_setup->m_executable.get_symbol(address);
+        const ExeSymbol &symbol = get_executable().get_symbol(address);
         if (symbol.address != 0) {
             return;
         }
     }
 
-    Address64ToIndexMap::iterator it = m_pseudoSymbolAddressToIndexMap.find(address);
+    auto &pseudoSymbolVec = m_intermediate->m_pseudoSymbols;
+    auto &pseudoSymbolMap = m_intermediate->m_pseudoSymbolAddressToIndexMap;
 
-    if (it == m_pseudoSymbolAddressToIndexMap.end()) {
+    Address64ToIndexMap::iterator it = pseudoSymbolMap.find(address);
+
+    if (it == pseudoSymbolMap.end()) {
         ExeSymbol symbol;
         symbol.name = fmt::format("loc_{:X}", address);
         symbol.address = address;
         symbol.size = 0;
 
-        const uint32_t index = static_cast<uint32_t>(m_pseudoSymbols.size());
-        m_pseudoSymbols.push_back(symbol);
-        m_pseudoSymbolAddressToIndexMap[symbol.address] = index;
+        const uint32_t index = static_cast<uint32_t>(pseudoSymbolVec.size());
+        pseudoSymbolVec.emplace_back(std::move(symbol));
+        pseudoSymbolMap[address] = index;
     }
 }
 
@@ -740,91 +742,104 @@ const InstructionDataVector &Function::get_instructions() const
     return m_instructions;
 }
 
+const FunctionSetup &Function::get_setup() const
+{
+    return m_intermediate->m_setup;
+}
+
 const Executable &Function::get_executable() const
 {
-    return m_setup->m_executable;
+    return get_setup().m_executable;
 }
 
 ZydisFormatterFunc Function::get_default_print_address_absolute() const
 {
-    return m_setup->m_default_print_address_absolute;
+    return get_setup().m_default_print_address_absolute;
 }
 
 ZydisFormatterFunc Function::get_default_print_address_relative() const
 {
-    return m_setup->m_default_print_address_relative;
+    return get_setup().m_default_print_address_relative;
 }
 
 ZydisFormatterFunc Function::get_default_print_displacement() const
 {
-    return m_setup->m_default_print_displacement;
+    return get_setup().m_default_print_displacement;
 }
 
 ZydisFormatterFunc Function::get_default_print_immediate() const
 {
-    return m_setup->m_default_print_immediate;
+    return get_setup().m_default_print_immediate;
 }
 
 ZydisFormatterFunc Function::get_default_format_operand_mem() const
 {
-    return m_setup->m_default_format_operand_mem;
+    return get_setup().m_default_format_operand_mem;
 }
 
 ZydisFormatterFunc Function::get_default_format_operand_ptr() const
 {
-    return m_setup->m_default_format_operand_ptr;
+    return get_setup().m_default_format_operand_ptr;
 }
 
 ZydisFormatterRegisterFunc Function::get_default_print_register() const
 {
-    return m_setup->m_default_print_register;
+    return get_setup().m_default_print_register;
 }
 
 const ExeSymbol &Function::get_symbol(Address64T address) const
 {
-    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.find(address);
+    const auto &pseudoSymbolVec = m_intermediate->m_pseudoSymbols;
+    const auto &pseudoSymbolMap = m_intermediate->m_pseudoSymbolAddressToIndexMap;
 
-    if (it != m_pseudoSymbolAddressToIndexMap.end()) {
-        return m_pseudoSymbols[it->second];
+    Address64ToIndexMap::const_iterator it = pseudoSymbolMap.find(address);
+
+    if (it != pseudoSymbolMap.end()) {
+        return pseudoSymbolVec[it->second];
     }
 
-    return m_setup->m_executable.get_symbol(address);
+    return get_executable().get_symbol(address);
 }
 
 const ExeSymbol &Function::get_symbol_from_image_base(Address64T address) const
 {
 #if 0 // Cannot put assert here as long as there are symbol lookup guesses left.
-    if (!(addr >= m_executable.all_sections_begin_from_image_base()
-            && addr < m_executable.all_sections_end_from_image_base())) {
+    if (!(addr >= get_executable().all_sections_begin_from_image_base()
+            && addr < get_executable().all_sections_end_from_image_base())) {
         __debugbreak();
     }
 #endif
 
-    Address64ToIndexMap::const_iterator it =
-        m_pseudoSymbolAddressToIndexMap.find(address - m_setup->m_executable.image_base());
+    const auto &pseudoSymbolVec = m_intermediate->m_pseudoSymbols;
+    const auto &pseudoSymbolMap = m_intermediate->m_pseudoSymbolAddressToIndexMap;
 
-    if (it != m_pseudoSymbolAddressToIndexMap.end()) {
-        return m_pseudoSymbols[it->second];
+    Address64ToIndexMap::const_iterator it = pseudoSymbolMap.find(address - get_executable().image_base());
+
+    if (it != pseudoSymbolMap.end()) {
+        return pseudoSymbolVec[it->second];
     }
 
-    return m_setup->m_executable.get_symbol_from_image_base(address);
+    return get_executable().get_symbol_from_image_base(address);
 }
 
 const ExeSymbol &Function::get_nearest_symbol(Address64T address) const
 {
-    Address64ToIndexMap::const_iterator it = m_pseudoSymbolAddressToIndexMap.lower_bound(address);
+    const auto &pseudoSymbolVec = m_intermediate->m_pseudoSymbols;
+    const auto &pseudoSymbolMap = m_intermediate->m_pseudoSymbolAddressToIndexMap;
 
-    if (it != m_pseudoSymbolAddressToIndexMap.end()) {
-        const ExeSymbol &symbol = m_pseudoSymbols[it->second];
+    Address64ToIndexMap::const_iterator it = pseudoSymbolMap.lower_bound(address);
+
+    if (it != pseudoSymbolMap.end()) {
+        const ExeSymbol &symbol = pseudoSymbolVec[it->second];
         if (symbol.address == address) {
             return symbol;
         } else {
-            const ExeSymbol &prevSymbol = m_pseudoSymbols[std::prev(it)->second];
+            const ExeSymbol &prevSymbol = pseudoSymbolVec[std::prev(it)->second];
             return prevSymbol;
         }
     }
 
-    return m_setup->m_executable.get_nearest_symbol(address);
+    return get_executable().get_nearest_symbol(address);
 }
 
 Address64T Function::get_begin_address() const
