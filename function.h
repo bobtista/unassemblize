@@ -71,20 +71,20 @@ public:
 private:
     ZyanStatus initialize();
 
-    const Executable &executable;
-    const AsmFormat format;
-    ZydisStackWidth stack_width;
-    ZydisFormatterStyle style;
-    ZydisDecoder decoder;
-    ZydisFormatter formatter;
+    const Executable &m_executable;
+    const AsmFormat m_format;
+    ZydisStackWidth m_stackWidth;
+    ZydisFormatterStyle m_style;
+    ZydisDecoder m_decoder;
+    ZydisFormatter m_formatter;
 
-    ZydisFormatterFunc default_print_address_absolute;
-    ZydisFormatterFunc default_print_address_relative;
-    ZydisFormatterFunc default_print_displacement;
-    ZydisFormatterFunc default_print_immediate;
-    ZydisFormatterFunc default_format_operand_mem;
-    ZydisFormatterFunc default_format_operand_ptr;
-    ZydisFormatterRegisterFunc default_print_register;
+    ZydisFormatterFunc m_default_print_address_absolute;
+    ZydisFormatterFunc m_default_print_address_relative;
+    ZydisFormatterFunc m_default_print_displacement;
+    ZydisFormatterFunc m_default_print_immediate;
+    ZydisFormatterFunc m_default_format_operand_mem;
+    ZydisFormatterFunc m_default_format_operand_ptr;
+    ZydisFormatterRegisterFunc m_default_print_register;
 };
 
 /*

@@ -155,7 +155,7 @@ void append_as_text(std::string &str, const InstructionDataVector &instructions)
     }
 }
 
-FunctionSetup::FunctionSetup(const Executable &executable, AsmFormat format) : executable(executable), format(format)
+FunctionSetup::FunctionSetup(const Executable &executable, AsmFormat format) : m_executable(executable), m_format(format)
 {
     ZyanStatus status = initialize();
     assert(status == ZYAN_STATUS_SUCCESS);
@@ -166,47 +166,47 @@ ZyanStatus FunctionSetup::initialize()
     // Derive the stack width from the address width.
     constexpr ZydisMachineMode machine_mode = ZYDIS_MACHINE_MODE_LEGACY_32;
 
-    if (!GetStackWidth(stack_width, machine_mode)) {
+    if (!GetStackWidth(m_stackWidth, machine_mode)) {
         return false;
     }
 
-    if (ZYAN_FAILED(ZydisDecoderInit(&decoder, machine_mode, stack_width))) {
+    if (ZYAN_FAILED(ZydisDecoderInit(&m_decoder, machine_mode, m_stackWidth))) {
         return false;
     }
 
-    switch (format) {
+    switch (m_format) {
         case AsmFormat::MASM:
-            style = ZYDIS_FORMATTER_STYLE_INTEL_MASM;
+            m_style = ZYDIS_FORMATTER_STYLE_INTEL_MASM;
             break;
         case AsmFormat::AGAS:
-            style = ZYDIS_FORMATTER_STYLE_ATT;
+            m_style = ZYDIS_FORMATTER_STYLE_ATT;
             break;
         case AsmFormat::IGAS:
         case AsmFormat::DEFAULT:
         default:
-            style = ZYDIS_FORMATTER_STYLE_INTEL;
+            m_style = ZYDIS_FORMATTER_STYLE_INTEL;
             break;
     }
 
-    ZYAN_CHECK(ZydisFormatterInit(&formatter, style));
-    ZYAN_CHECK(ZydisFormatterSetProperty(&formatter, ZYDIS_FORMATTER_PROP_FORCE_SIZE, ZYAN_TRUE));
+    ZYAN_CHECK(ZydisFormatterInit(&m_formatter, m_style));
+    ZYAN_CHECK(ZydisFormatterSetProperty(&m_formatter, ZYDIS_FORMATTER_PROP_FORCE_SIZE, ZYAN_TRUE));
 
-    default_print_address_absolute = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterPrintAddressAbsolute);
-    default_print_address_relative = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterPrintAddressRelative);
-    default_print_displacement = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterPrintDISP);
-    default_print_immediate = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterPrintIMM);
-    default_format_operand_ptr = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterFormatOperandPTR);
-    default_format_operand_mem = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterFormatOperandMEM);
-    default_print_register = static_cast<ZydisFormatterRegisterFunc>(&Function::UnasmFormatterPrintRegister);
+    m_default_print_address_absolute = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterPrintAddressAbsolute);
+    m_default_print_address_relative = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterPrintAddressRelative);
+    m_default_print_displacement = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterPrintDISP);
+    m_default_print_immediate = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterPrintIMM);
+    m_default_format_operand_ptr = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterFormatOperandPTR);
+    m_default_format_operand_mem = static_cast<ZydisFormatterFunc>(&Function::UnasmFormatterFormatOperandMEM);
+    m_default_print_register = static_cast<ZydisFormatterRegisterFunc>(&Function::UnasmFormatterPrintRegister);
 
     // clang-format off
-    ZYAN_CHECK(ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_ADDRESS_ABS, (const void **)&default_print_address_absolute));
-    ZYAN_CHECK(ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_ADDRESS_REL, (const void **)&default_print_address_relative));
-    ZYAN_CHECK(ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_DISP, (const void **)&default_print_displacement));
-    ZYAN_CHECK(ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_IMM, (const void **)&default_print_immediate));
-    ZYAN_CHECK(ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_FORMAT_OPERAND_PTR, (const void **)&default_format_operand_ptr));
-    ZYAN_CHECK(ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_FORMAT_OPERAND_MEM, (const void **)&default_format_operand_mem));
-    ZYAN_CHECK(ZydisFormatterSetHook(&formatter, ZYDIS_FORMATTER_FUNC_PRINT_REGISTER, (const void **)&default_print_register));
+    ZYAN_CHECK(ZydisFormatterSetHook(&m_formatter, ZYDIS_FORMATTER_FUNC_PRINT_ADDRESS_ABS, (const void **)&m_default_print_address_absolute));
+    ZYAN_CHECK(ZydisFormatterSetHook(&m_formatter, ZYDIS_FORMATTER_FUNC_PRINT_ADDRESS_REL, (const void **)&m_default_print_address_relative));
+    ZYAN_CHECK(ZydisFormatterSetHook(&m_formatter, ZYDIS_FORMATTER_FUNC_PRINT_DISP, (const void **)&m_default_print_displacement));
+    ZYAN_CHECK(ZydisFormatterSetHook(&m_formatter, ZYDIS_FORMATTER_FUNC_PRINT_IMM, (const void **)&m_default_print_immediate));
+    ZYAN_CHECK(ZydisFormatterSetHook(&m_formatter, ZYDIS_FORMATTER_FUNC_FORMAT_OPERAND_PTR, (const void **)&m_default_format_operand_ptr));
+    ZYAN_CHECK(ZydisFormatterSetHook(&m_formatter, ZYDIS_FORMATTER_FUNC_FORMAT_OPERAND_MEM, (const void **)&m_default_format_operand_mem));
+    ZYAN_CHECK(ZydisFormatterSetHook(&m_formatter, ZYDIS_FORMATTER_FUNC_PRINT_REGISTER, (const void **)&m_default_print_register));
     // clang-format on
 
     return ZYAN_STATUS_SUCCESS;
@@ -579,7 +579,7 @@ ZyanStatus Function::UnasmDisassembleCustom(const ZydisFormatter &formatter, con
 
 void Function::disassemble(const FunctionSetup *setup, Address64T begin_address, Address64T end_address)
 {
-    const ExeSectionInfo *section_info = setup->executable.find_section(begin_address);
+    const ExeSectionInfo *section_info = setup->m_executable.find_section(begin_address);
 
     if (section_info == nullptr) {
         return;
@@ -601,7 +601,7 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
     m_beginAddress = begin_address;
     m_endAddress = end_address;
 
-    const Address64T image_base = setup->executable.image_base();
+    const Address64T image_base = setup->m_executable.image_base();
     const uint8_t *section_data = section_info->data;
     const Address64T section_size = section_info->size;
 
@@ -616,7 +616,7 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
         const Address64T instruction_address = runtime_address;
         const Address64T instruction_section_offset = section_offset;
 
-        const ZyanStatus status = UnasmDisassembleNoFormat(setup->decoder,
+        const ZyanStatus status = UnasmDisassembleNoFormat(setup->m_decoder,
             instruction_address,
             section_data + instruction_section_offset,
             section_size - instruction_section_offset,
@@ -652,8 +652,8 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
         const Address64T instruction_section_offset = section_offset;
         instruction_data.address = runtime_address;
 
-        const ZyanStatus status = UnasmDisassembleCustom(setup->formatter,
-            setup->decoder,
+        const ZyanStatus status = UnasmDisassembleCustom(setup->m_formatter,
+            setup->m_decoder,
             instruction_address,
             section_data + instruction_section_offset,
             section_size - instruction_section_offset,
@@ -715,7 +715,7 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
 void Function::add_pseudo_symbol(Address64T address)
 {
     {
-        const ExeSymbol &symbol = m_setup->executable.get_symbol(address);
+        const ExeSymbol &symbol = m_setup->m_executable.get_symbol(address);
         if (symbol.address != 0) {
             return;
         }
@@ -742,42 +742,42 @@ const InstructionDataVector &Function::get_instructions() const
 
 const Executable &Function::get_executable() const
 {
-    return m_setup->executable;
+    return m_setup->m_executable;
 }
 
 ZydisFormatterFunc Function::get_default_print_address_absolute() const
 {
-    return m_setup->default_print_address_absolute;
+    return m_setup->m_default_print_address_absolute;
 }
 
 ZydisFormatterFunc Function::get_default_print_address_relative() const
 {
-    return m_setup->default_print_address_relative;
+    return m_setup->m_default_print_address_relative;
 }
 
 ZydisFormatterFunc Function::get_default_print_displacement() const
 {
-    return m_setup->default_print_displacement;
+    return m_setup->m_default_print_displacement;
 }
 
 ZydisFormatterFunc Function::get_default_print_immediate() const
 {
-    return m_setup->default_print_immediate;
+    return m_setup->m_default_print_immediate;
 }
 
 ZydisFormatterFunc Function::get_default_format_operand_mem() const
 {
-    return m_setup->default_format_operand_mem;
+    return m_setup->m_default_format_operand_mem;
 }
 
 ZydisFormatterFunc Function::get_default_format_operand_ptr() const
 {
-    return m_setup->default_format_operand_ptr;
+    return m_setup->m_default_format_operand_ptr;
 }
 
 ZydisFormatterRegisterFunc Function::get_default_print_register() const
 {
-    return m_setup->default_print_register;
+    return m_setup->m_default_print_register;
 }
 
 const ExeSymbol &Function::get_symbol(Address64T address) const
@@ -788,7 +788,7 @@ const ExeSymbol &Function::get_symbol(Address64T address) const
         return m_pseudoSymbols[it->second];
     }
 
-    return m_setup->executable.get_symbol(address);
+    return m_setup->m_executable.get_symbol(address);
 }
 
 const ExeSymbol &Function::get_symbol_from_image_base(Address64T address) const
@@ -801,13 +801,13 @@ const ExeSymbol &Function::get_symbol_from_image_base(Address64T address) const
 #endif
 
     Address64ToIndexMap::const_iterator it =
-        m_pseudoSymbolAddressToIndexMap.find(address - m_setup->executable.image_base());
+        m_pseudoSymbolAddressToIndexMap.find(address - m_setup->m_executable.image_base());
 
     if (it != m_pseudoSymbolAddressToIndexMap.end()) {
         return m_pseudoSymbols[it->second];
     }
 
-    return m_setup->executable.get_symbol_from_image_base(address);
+    return m_setup->m_executable.get_symbol_from_image_base(address);
 }
 
 const ExeSymbol &Function::get_nearest_symbol(Address64T address) const
@@ -824,7 +824,7 @@ const ExeSymbol &Function::get_nearest_symbol(Address64T address) const
         }
     }
 
-    return m_setup->executable.get_nearest_symbol(address);
+    return m_setup->m_executable.get_nearest_symbol(address);
 }
 
 Address64T Function::get_begin_address() const
