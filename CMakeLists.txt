@@ -83,6 +83,8 @@ target_sources(unassemblize PRIVATE
     pdbreader.h
     pdbreadertypes.cpp
     pdbreadertypes.h
+    runner.cpp
+    runner.h
     util.cpp
     util.h
 )

@@ -164,8 +164,8 @@ private:
 
 private:
     FunctionIntermediate *m_intermediate = nullptr;
-    Address64T m_beginAddress = 0;
-    Address64T m_endAddress = 0;
+    Address64T m_beginAddress = 0; // TODO: Move to FunctionIntermediate if not needed here.
+    Address64T m_endAddress = 0; // TODO: Remove if not needed at all.
     InstructionDataVector m_instructions;
 };
 

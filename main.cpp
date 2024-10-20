@@ -10,14 +10,11 @@
  *            A full copy of the GNU General Public License can be found in
  *            LICENSE
  */
-#include "executable.h"
-#include "function.h"
 #include "gitinfo.h"
-#include "pdbreader.h"
+#include "runner.h"
 #include "util.h"
 #include <assert.h>
 #include <getopt.h>
-#include <inttypes.h>
 #include <stdio.h>
 #include <strings.h>
 
@@ -62,151 +59,6 @@ enum class InputType
     Unknown,
     Exe,
     Pdb,
-};
-
-struct ExeOptions
-{
-    std::string input_file;
-    std::string config_file = "config.json";
-    std::string output_file;
-    std::string format_str;
-    uint64_t start_addr = 0;
-    uint64_t end_addr = 0;
-    bool print_secs = false;
-    bool dump_syms = false;
-    bool verbose = false;
-};
-
-struct PdbOptions
-{
-    std::string input_file;
-    std::string config_file = "config.json";
-    bool print_secs = false;
-    bool dump_syms = false;
-    bool verbose = false;
-};
-
-class Runner
-{
-public:
-    void print_sections(unassemblize::Executable &exe)
-    {
-        const unassemblize::ExeSectionMap &map = exe.get_section_map();
-        for (auto it = map.begin(); it != map.end(); ++it) {
-            printf("Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n",
-                it->first.c_str(),
-                it->second.address,
-                it->second.size);
-        }
-    }
-
-    void dump_function_to_file(const std::string &file_name, unassemblize::Executable &exe, uint64_t start, uint64_t end)
-    {
-        if (!file_name.empty()) {
-            FILE *fp = fopen(file_name.c_str(), "w+");
-            if (fp != nullptr) {
-                exe.dissassemble_function(fp, start, end);
-                fclose(fp);
-            }
-        } else {
-            exe.dissassemble_function(nullptr, start, end);
-        }
-    }
-
-    bool process_exe(const ExeOptions &o)
-    {
-        if (o.verbose) {
-            printf("Parsing exe file '%s'...\n", o.input_file.c_str());
-        }
-
-        // TODO implement default value where exe object decides internally what to do.
-        unassemblize::Executable::OutputFormat format = unassemblize::Executable::OUTPUT_IGAS;
-
-        if (!o.format_str.empty()) {
-            if (0 == strcasecmp(o.format_str.c_str(), "igas")) {
-                format = unassemblize::Executable::OUTPUT_IGAS;
-            } else if (0 == strcasecmp(o.format_str.c_str(), "masm")) {
-                format = unassemblize::Executable::OUTPUT_MASM;
-            }
-        }
-
-        m_executable.set_output_format(format);
-        m_executable.set_verbose(o.verbose);
-
-        if (!m_executable.read(o.input_file)) {
-            return false;
-        }
-
-        if (o.print_secs) {
-            print_sections(m_executable);
-            return true;
-        }
-
-        constexpr bool pdb_symbols_overwrite_exe_symbols = true;
-        constexpr bool cfg_symbols_overwrite_exe_pdb_symbols = true;
-
-        const unassemblize::PdbSymbolInfoVector &pdb_symbols = m_pdbReader.get_symbols();
-
-        if (!pdb_symbols.empty()) {
-            m_executable.add_symbols(pdb_symbols, pdb_symbols_overwrite_exe_symbols);
-        }
-
-        if (o.dump_syms) {
-            m_executable.save_config(o.config_file.c_str());
-            return true;
-        }
-
-        m_executable.load_config(o.config_file.c_str(), cfg_symbols_overwrite_exe_pdb_symbols);
-
-        if (o.start_addr == 0 && o.end_addr == 0) {
-            for (const unassemblize::ExeSymbol &symbol : m_executable.get_symbols()) {
-                std::string sanitized_symbol_name = symbol.name;
-#if defined(WIN32)
-                util::remove_characters_inplace(sanitized_symbol_name, "\\/:*?\"<>|");
-#endif
-                std::string file_name;
-                if (!o.output_file.empty()) {
-                    // program.symbol.S
-                    file_name = util::get_file_name_without_ext(o.output_file) + "." + sanitized_symbol_name + ".S";
-                }
-                dump_function_to_file(file_name, m_executable, symbol.address, symbol.address + symbol.size);
-            }
-        } else {
-            dump_function_to_file(o.output_file, m_executable, o.start_addr, o.end_addr);
-        }
-
-        return true;
-    }
-
-    bool process_pdb(const PdbOptions &o)
-    {
-        m_pdbReader.set_verbose(o.verbose);
-
-        // Currently does not read back config file here.
-
-        if (!m_pdbReader.read(o.input_file)) {
-            return false;
-        }
-
-        if (o.dump_syms) {
-            m_pdbReader.save_config(o.config_file);
-        }
-
-        return true;
-    }
-
-    std::string get_pdb_exe_file_name()
-    {
-        unassemblize::PdbExeInfo exe_info = m_pdbReader.get_exe_info();
-        assert(!exe_info.exeFileName.empty());
-        assert(!exe_info.pdbFilePath.empty());
-
-        return util::get_file_path(exe_info.pdbFilePath) + "/" + exe_info.exeFileName + ".exe";
-    }
-
-private:
-    unassemblize::Executable m_executable;
-    unassemblize::PdbReader m_pdbReader;
 };
 
 std::string get_config_file_name(const std::string &input_file, const std::string &config_file)
@@ -347,8 +199,8 @@ int main(int argc, char **argv)
     const InputType type = get_input_type(input_file, input_type);
 
     if (InputType::Exe == type) {
-        Runner runner;
-        ExeOptions o;
+        unassemblize::Runner runner;
+        unassemblize::ExeOptions o;
         o.input_file = input_file;
         o.config_file = get_config_file_name(o.input_file, config_file);
         o.output_file = get_output_file_name(o.input_file, output_file);
@@ -360,10 +212,10 @@ int main(int argc, char **argv)
         o.verbose = verbose;
         return runner.process_exe(o) ? 0 : 1;
     } else if (InputType::Pdb == type) {
-        Runner runner;
+        unassemblize::Runner runner;
         bool success;
         {
-            PdbOptions o;
+            unassemblize::PdbOptions o;
             o.input_file = input_file;
             o.config_file = get_config_file_name(o.input_file, config_file);
             o.print_secs = print_secs;
@@ -372,7 +224,7 @@ int main(int argc, char **argv)
             success = runner.process_pdb(o);
         }
         if (success) {
-            ExeOptions o;
+            unassemblize::ExeOptions o;
             o.input_file = runner.get_pdb_exe_file_name();
             o.config_file = get_config_file_name(o.input_file, config_file);
             o.output_file = get_output_file_name(o.input_file, output_file);
