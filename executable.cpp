@@ -488,17 +488,23 @@ void Executable::dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end)
         const AsmFormat format = m_outputFormat == OUTPUT_IGAS ? AsmFormat::IGAS : AsmFormat::AGAS;
         const FunctionSetup setup(*this, format); // TODO: Optimize by creating just once
 
-        Function func;
-        func.disassemble(&setup, start, end);
+        std::string str;
+        {
+            Function func;
+            func.disassemble(&setup, start, end);
+            const InstructionDataVector &instructions = func.get_instructions();
+            str.reserve(instructions.size() * 32);
+            append_as_text(str, instructions);
+        }
 
         const std::string &sym = get_symbol(start).name;
 
         if (fp != nullptr) {
             fprintf(fp, ".intel_syntax noprefix\n\n");
             if (!sym.empty()) {
-                fprintf(fp, ".globl %s\n%s", sym.c_str(), func.dissassembly().c_str());
+                fprintf(fp, ".globl %s\n%s", sym.c_str(), str.c_str());
             } else {
-                fprintf(fp, ".globl sub_%" PRIx64 "\n%s", start, func.dissassembly().c_str());
+                fprintf(fp, ".globl sub_%" PRIx64 "\n%s", start, str.c_str());
             }
         }
     }

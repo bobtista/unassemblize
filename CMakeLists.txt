@@ -57,6 +57,12 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(json)
 
+FetchContent_Declare(fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+  GIT_TAG        0c9fce2ffefecfdce794e1859584e25877b7b592
+)
+FetchContent_MakeAvailable(fmt)
+
 set(GIT_PRE_CONFIGURE_FILE "gitinfo.cpp.in")
 set(GIT_POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp")
 include(GitWatcher)
@@ -80,7 +86,7 @@ target_sources(unassemblize PRIVATE
     util.cpp
     util.h
 )
-target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json ${DIASDK_LIBRARIES})
+target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json fmt::fmt ${DIASDK_LIBRARIES})
 target_include_directories(unassemblize PRIVATE . ${DIASDK_INCLUDE_DIRS})
 
 if(WINDOWS)
