@@ -142,9 +142,10 @@ public:
             return true;
         }
 
-        unassemblize::ExeSymbols pdb_exe_symbols = m_pdbReader.build_exe_symbols();
-        if (!pdb_exe_symbols.empty()) {
-            m_executable.add_symbols(pdb_exe_symbols);
+        const unassemblize::PdbSymbolInfoVector &pdb_symbols = m_pdbReader.get_symbols();
+
+        if (!pdb_symbols.empty()) {
+            m_executable.add_symbols(pdb_symbols);
         }
 
         if (o.dump_syms) {

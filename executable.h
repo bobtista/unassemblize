@@ -13,6 +13,7 @@
 #pragma once
 
 #include "executabletypes.h"
+#include "pdbreadertypes.h"
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
 #include <stdio.h>
@@ -66,6 +67,7 @@ public:
      * Adds series of new symbols if not already present.
      */
     void add_symbols(const ExeSymbols &symbols);
+    void add_symbols(const PdbSymbolInfoVector &symbols);
 
     /*
      * Adds new symbol if not already present.

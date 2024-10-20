@@ -35,8 +35,7 @@ public:
 
     bool read(const std::string &pdb_file);
 
-    ExeSymbols build_exe_symbols() const;
-
+    const PdbSymbolInfoVector &get_symbols() const;
     const PdbExeInfo &get_exe_info() const;
 
     void load_json(const nlohmann::json &js);
@@ -94,7 +93,7 @@ private:
     std::vector<PdbSourceFileInfo> m_sourceFiles;
     std::vector<PdbFunctionInfo> m_functions;
     // Symbols contains every public and global symbol, including functions.
-    std::vector<PdbSymbolInfo> m_symbols;
+    PdbSymbolInfoVector m_symbols;
     PdbExeInfo m_exe;
 
     StringToIndexMapT m_sourceFileNameToIndexMap;

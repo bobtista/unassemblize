@@ -234,6 +234,27 @@ void Executable::add_symbols(const ExeSymbols &symbols)
     }
 }
 
+void Executable::add_symbols(const PdbSymbolInfoVector &symbols)
+{
+    const size_t size = m_symbols.size() + symbols.size();
+    m_symbols.reserve(size);
+    m_symbolAddressToIndexMap.reserve(size);
+
+    for (const PdbSymbolInfo &pdbSymbol : symbols) {
+        ExeSymbol exeSymbol;
+        if (!pdbSymbol.decoratedName.empty()) {
+            exeSymbol.name = pdbSymbol.decoratedName;
+        } else if (!pdbSymbol.globalName.empty()) {
+            exeSymbol.name = pdbSymbol.globalName;
+        } else {
+            exeSymbol.name = pdbSymbol.undecoratedName;
+        }
+        exeSymbol.address = pdbSymbol.address.absVirtual;
+        exeSymbol.size = pdbSymbol.length;
+        add_symbol(exeSymbol);
+    }
+}
+
 void Executable::add_symbol(const ExeSymbol &symbol)
 {
     Address64ToIndexMap::iterator it = m_symbolAddressToIndexMap.find(symbol.address);

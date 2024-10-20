@@ -89,6 +89,7 @@ struct PdbSymbolInfo
     std::string undecoratedName;
     std::string globalName;
 };
+using PdbSymbolInfoVector = std::vector<PdbSymbolInfo>;
 
 struct PdbFunctionInfo
 {

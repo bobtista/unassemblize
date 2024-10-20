@@ -39,24 +39,9 @@ bool PdbReader::read(const std::string &pdb_file)
     return success;
 }
 
-ExeSymbols PdbReader::build_exe_symbols() const
+const PdbSymbolInfoVector &PdbReader::get_symbols() const
 {
-    ExeSymbols symbols;
-    symbols.reserve(m_functions.size());
-    for (const PdbSymbolInfo &pdbSymbol : m_symbols) {
-        ExeSymbol exeSymbol;
-        if (!pdbSymbol.decoratedName.empty()) {
-            exeSymbol.name = pdbSymbol.decoratedName;
-        } else if (!pdbSymbol.globalName.empty()) {
-            exeSymbol.name = pdbSymbol.globalName;
-        } else {
-            exeSymbol.name = pdbSymbol.undecoratedName;
-        }
-        exeSymbol.address = pdbSymbol.address.absVirtual;
-        exeSymbol.size = pdbSymbol.length;
-        symbols.emplace_back(std::move(exeSymbol));
-    }
-    return symbols;
+    return m_symbols;
 }
 
 const PdbExeInfo &PdbReader::get_exe_info() const
