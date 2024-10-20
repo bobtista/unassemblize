@@ -14,11 +14,12 @@
 #include "runner.h"
 #include "util.h"
 #include <assert.h>
-#include <getopt.h>
+#include <cxxopts.hpp>
+#include <iostream>
 #include <stdio.h>
 #include <strings.h>
 
-void print_help()
+void print_version()
 {
     char revision[12] = {0};
     const char *version = GitTag[0] == 'v' ? GitTag : GitShortSHA1;
@@ -27,29 +28,7 @@ void print_help()
         snprintf(revision, sizeof(revision), "r%d ", GitRevision);
     }
 
-    printf(
-        "\nunassemblize %s%s%s\n"
-        "    x86 Unassembly tool\n\n"
-        "Usage:\n"
-        "  unassemblize [OPTIONS] [INPUT]\n"
-        "Options:\n"
-        "  -o --output     Filename for single file output. Default is 'auto'\n"
-        "  -f --format     Assembly output format.\n"
-        "  -c --config     Configuration file describing how to disassemble the input. Default is 'auto'\n"
-        "                  file and containing extra symbol info. Default: config.json\n"
-        "  -s --start      Starting address of a single function to disassemble in\n"
-        "                  hexadecimal notation.\n"
-        "  -e --end        Ending address of a single function to disassemble in\n"
-        "                  hexadecimal notation.\n"
-        "  -v --verbose    Verbose output on current state of the program.\n"
-        "  --section       Section to target for dissassembly, defaults to '.text'.\n"
-        "  --listsections  Prints a list of sections in the exe then exits.\n"
-        "  -d --dumpsyms   Dumps symbols stored in a executable or pdb to the config file.\n"
-        "                  then exits.\n"
-        "  -h --help       Displays this help.\n\n",
-        revision,
-        GitUncommittedChanges ? "~" : "",
-        version);
+    printf("unassemblize %s%s%s by The Assembly Armada\n", revision, GitUncommittedChanges ? "~" : "", version);
 }
 
 const char *const auto_str = "auto"; // When output is set to "auto", then output name is chosen for input file name.
@@ -101,97 +80,93 @@ InputType get_input_type(const std::string &input_file, const std::string &input
 
 int main(int argc, char **argv)
 {
-    if (argc <= 1) {
-        print_help();
-        return -1;
+    print_version();
+
+    cxxopts::Options options("unassemblize", "x86 Unassembly tool");
+
+#define OPT_INPUT "input"
+#define OPT_INPUTTYPE "input-type"
+#define OPT_OUTPUT "output"
+#define OPT_FORMAT "format"
+#define OPT_CONFIG "config"
+#define OPT_START "start"
+#define OPT_END "end"
+#define OPT_LISTSECTIONS "list-sections"
+#define OPT_DUMPSYMS "dumpsyms"
+#define OPT_VERBOSE "verbose"
+#define OPT_HELP "help"
+
+    // clang-format off
+    options.add_options("main", {
+        cxxopts::Option{"i," OPT_INPUT, "Input file", cxxopts::value<std::string>()},
+        cxxopts::Option{OPT_INPUTTYPE, "Input file type. Default is 'auto'", cxxopts::value<std::string>()},
+        cxxopts::Option{"o," OPT_OUTPUT, "Filename for single file output. Default is 'auto'", cxxopts::value<std::string>()},
+        cxxopts::Option{"f," OPT_FORMAT, "Assembly output format. Default is 'auto'", cxxopts::value<std::string>()},
+        cxxopts::Option{"c," OPT_CONFIG, "Configuration file describing how to disassemble the input file and containing extra symbol info. Default is 'auto'", cxxopts::value<std::string>()},
+        cxxopts::Option{"s," OPT_START, "Starting address of a single function to disassemble in hexadecimal notation.", cxxopts::value<std::string>()},
+        cxxopts::Option{"e," OPT_END, "Ending address of a single function to disassemble in hexadecimal notation.", cxxopts::value<std::string>()},
+        cxxopts::Option{OPT_LISTSECTIONS, "Prints a list of sections in the executable then exits."},
+        cxxopts::Option{"d," OPT_DUMPSYMS, "Dumps symbols stored in a executable or pdb to the config file."},
+        cxxopts::Option{"v," OPT_VERBOSE, "Verbose output on current state of the program."},
+        cxxopts::Option{"h," OPT_HELP, "Displays this help."},
+        });
+    // clang-format on
+
+    options.parse_positional({"input"});
+
+    cxxopts::ParseResult result;
+    try {
+        result = options.parse(argc, argv);
+    } catch (const std::exception &e) {
+        std::cerr << "Error parsing options: " << e.what() << std::endl;
+        return 1;
     }
 
+    if (result.count("help") != 0) {
+        std::cout << options.help() << std::endl;
+        return 0;
+    }
+
+    std::string input_file;
     // When input_file_type is set to "auto", then input file type is chosen by file extension.
-    const char *input_type = auto_str;
+    std::string input_type = auto_str;
     // When output_file is set to "auto", then output file name is chosen for input file name.
-    const char *output_file = auto_str;
+    std::string output_file = auto_str;
+    std::string format_string = auto_str;
     // When config file is set to "auto", then config file name is chosen for input file name.
-    const char *config_file = auto_str;
-    const char *format_string = auto_str;
-    uint64_t start_addr = 0;
-    uint64_t end_addr = 0;
+    std::string config_file = auto_str;
+    uint64_t start_addr = 0x00000000;
+    uint64_t end_addr = 0x00000000;
     bool print_secs = false;
     bool dump_syms = false;
     bool verbose = false;
 
-    while (true) {
-        static struct option long_options[] = {
-            {"input-type", required_argument, nullptr, 3},
-            {"output", required_argument, nullptr, 'o'},
-            {"format", required_argument, nullptr, 'f'},
-            {"start", required_argument, nullptr, 's'},
-            {"end", required_argument, nullptr, 'e'},
-            {"config", required_argument, nullptr, 'c'},
-            {"listsections", no_argument, nullptr, 2},
-            {"dumpsyms", no_argument, nullptr, 'd'},
-            {"verbose", no_argument, nullptr, 'v'},
-            {"help", no_argument, nullptr, 'h'},
-            {nullptr, no_argument, nullptr, 0},
-        };
-
-        int option_index = 0;
-
-        int c = getopt_long(argc, argv, "+dhv?o:f:s:e:c:", long_options, &option_index);
-
-        if (c == -1) {
-            break;
-        }
-
-        switch (c) {
-            case 1:
-                // unused
-                break;
-            case 2:
-                print_secs = true;
-                break;
-            case 3:
-                input_type = optarg;
-                break;
-            case 'd':
-                dump_syms = true;
-                break;
-            case 'o':
-                output_file = optarg;
-                break;
-            case 'f':
-                format_string = optarg;
-                break;
-            case 's':
-                start_addr = strtoull(optarg, nullptr, 16);
-                break;
-            case 'e':
-                end_addr = strtoull(optarg, nullptr, 16);
-                break;
-            case 'c':
-                config_file = optarg;
-                break;
-            case 'v':
-                verbose = true;
-                break;
-            case '?':
-                printf("\nOption %d not recognized.\n", optopt);
-                print_help();
-                return 0;
-            case ':':
-                printf("\nAn option is missing arguments.\n");
-                print_help();
-                return 0;
-            case 'h':
-                print_help();
-                break;
-            default:
-                break;
+    for (const cxxopts::KeyValue &kv : result.arguments()) {
+        const std::string &v = kv.key();
+        if (v == OPT_INPUT) {
+            input_file = kv.value();
+        } else if (v == OPT_INPUTTYPE) {
+            input_type = kv.value();
+        } else if (v == OPT_OUTPUT) {
+            output_file = kv.value();
+        } else if (v == OPT_FORMAT) {
+            format_string = kv.value();
+        } else if (v == OPT_CONFIG) {
+            config_file = kv.value();
+        } else if (v == OPT_START) {
+            start_addr = strtoull(kv.value().c_str(), nullptr, 16);
+        } else if (v == OPT_END) {
+            end_addr = strtoull(kv.value().c_str(), nullptr, 16);
+        } else if (v == OPT_LISTSECTIONS) {
+            print_secs = kv.as<bool>();
+        } else if (v == OPT_DUMPSYMS) {
+            dump_syms = kv.as<bool>();
+        } else if (v == OPT_VERBOSE) {
+            verbose = kv.as<bool>();
         }
     }
 
-    const char *input_file = argv[optind];
-
-    if (input_file == nullptr || input_file[0] == '\0') {
+    if (input_file.empty()) {
         printf("Missing input file command line argument. Exiting...\n");
         return 1;
     }
@@ -238,7 +213,7 @@ int main(int argc, char **argv)
         }
         return success ? 0 : 1;
     } else {
-        printf("Unrecognized input file type '%s'. Exiting...\n", input_type);
+        printf("Unrecognized input file type '%s'. Exiting...\n", input_type.c_str());
         return 1;
     }
 }

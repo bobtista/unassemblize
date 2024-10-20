@@ -18,6 +18,7 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 project(unassemblize LANGUAGES C CXX)
+set(CMAKE_CXX_STANDARD 17)
 
 # Set up a format target to do automated clang format checking.
 find_package(ClangFormat)
@@ -63,6 +64,12 @@ FetchContent_Declare(fmt
 )
 FetchContent_MakeAvailable(fmt)
 
+FetchContent_Declare(cxxopts
+  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+  GIT_TAG        3bf268481da8208d171d8908e6491459de3651d7
+)
+FetchContent_MakeAvailable(cxxopts)
+
 set(GIT_PRE_CONFIGURE_FILE "gitinfo.cpp.in")
 set(GIT_POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp")
 include(GitWatcher)
@@ -88,10 +95,10 @@ target_sources(unassemblize PRIVATE
     util.cpp
     util.h
 )
-target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json fmt::fmt ${DIASDK_LIBRARIES})
+target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json fmt::fmt cxxopts::cxxopts ${DIASDK_LIBRARIES})
 target_include_directories(unassemblize PRIVATE . ${DIASDK_INCLUDE_DIRS})
 
 if(WINDOWS)
-    target_sources(unassemblize PRIVATE wincompat/getopt.c wincompat/getopt.h wincompat/strings.h)
+    target_sources(unassemblize PRIVATE wincompat/strings.h)
     target_include_directories(unassemblize PRIVATE wincompat)
 endif()
