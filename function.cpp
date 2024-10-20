@@ -620,9 +620,6 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
     std::string instruction_buffer;
     instruction_buffer.resize(1024);
 
-    static bool in_jump_table;
-    in_jump_table = false;
-
     // Loop through function once to identify all jumps to local labels and create them.
     while (offset < end_offset) {
         const ZyanStatus status = UnasmDisassembleNoFormat(
@@ -648,35 +645,10 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
 
         offset += instruction.info.length;
         runtime_address += instruction.info.length;
-
-        // If instruction is a nop or jmp, could be at an inline jump table.
-        if (instruction.info.mnemonic == ZYDIS_MNEMONIC_NOP || instruction.info.mnemonic == ZYDIS_MNEMONIC_JMP) {
-            uint64_t next_int = get_le32(section_data + offset);
-            bool in_jump_table = false;
-
-            // Naive jump table detection attempt uint32_t representation happens to be in function address space.
-            while (next_int >= begin_address && next_int < end_address) {
-                // If this is first entry of jump table, create label to jump to.
-                if (!in_jump_table) {
-                    if (runtime_address >= begin_address && runtime_address < end_address) {
-                        add_pseudo_symbol(runtime_address);
-                    }
-
-                    in_jump_table = true;
-                }
-
-                add_pseudo_symbol(next_int);
-
-                offset += sizeof(uint32_t);
-                runtime_address += sizeof(uint32_t);
-                next_int = get_le32(section_data + offset);
-            }
-        }
     }
 
     offset = begin_address - address_offset;
     runtime_address = begin_address;
-    in_jump_table = false;
 
     while (offset < end_offset) {
         const ZyanStatus status = UnasmDisassembleCustom(setup->formatter,
@@ -708,44 +680,6 @@ void Function::disassemble(const FunctionSetup *setup, Address64T begin_address,
         m_dissassembly += '\n';
         offset += instruction.info.length;
         runtime_address += instruction.info.length;
-
-        // If instruction is a nop or jmp, could be at an inline jump table.
-        if (instruction.info.mnemonic == ZYDIS_MNEMONIC_NOP || instruction.info.mnemonic == ZYDIS_MNEMONIC_JMP) {
-            uint64_t next_int = get_le32(section_data + offset);
-            bool in_jump_table = false;
-
-            // Naive jump table detection attempt uint32_t representation happens to be in function address space.
-            while (next_int >= begin_address && next_int < end_address) {
-                // If this is first entry of jump table, create label to jump to.
-
-                if (!in_jump_table) {
-                    const ExeSymbol &symbol = setup->executable.get_symbol(runtime_address);
-
-                    if (!symbol.name.empty()) {
-                        m_dissassembly += symbol.name;
-                        m_dissassembly += ":\n";
-                    }
-
-                    in_jump_table = true;
-                }
-
-                const ExeSymbol &symbol = setup->executable.get_symbol(next_int);
-
-                if (!symbol.name.empty()) {
-                    if (setup->format == AsmFormat::MASM) {
-                        m_dissassembly += "    DWORD ";
-                    } else {
-                        m_dissassembly += "    .int ";
-                    }
-                    m_dissassembly += symbol.name;
-                    m_dissassembly += "\n";
-                }
-
-                offset += sizeof(uint32_t);
-                runtime_address += sizeof(uint32_t);
-                next_int = get_le32(section_data + offset);
-            }
-        }
     }
 
     m_pseudoSymbols.swap(ExeSymbols());
