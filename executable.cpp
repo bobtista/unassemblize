@@ -223,18 +223,18 @@ const ExeSymbols &Executable::get_symbols() const
     return m_symbols;
 }
 
-void Executable::add_symbols(const ExeSymbols &symbols)
+void Executable::add_symbols(const ExeSymbols &symbols, bool overwrite)
 {
     const size_t size = m_symbols.size() + symbols.size();
     m_symbols.reserve(size);
     m_symbolAddressToIndexMap.reserve(size);
 
     for (const ExeSymbol &symbol : symbols) {
-        add_symbol(symbol);
+        add_symbol(symbol, overwrite);
     }
 }
 
-void Executable::add_symbols(const PdbSymbolInfoVector &symbols)
+void Executable::add_symbols(const PdbSymbolInfoVector &symbols, bool overwrite)
 {
     const size_t size = m_symbols.size() + symbols.size();
     m_symbols.reserve(size);
@@ -251,11 +251,11 @@ void Executable::add_symbols(const PdbSymbolInfoVector &symbols)
         }
         exeSymbol.address = pdbSymbol.address.absVirtual;
         exeSymbol.size = pdbSymbol.length;
-        add_symbol(exeSymbol);
+        add_symbol(exeSymbol, overwrite);
     }
 }
 
-void Executable::add_symbol(const ExeSymbol &symbol)
+void Executable::add_symbol(const ExeSymbol &symbol, bool overwrite)
 {
     Address64ToIndexMap::iterator it = m_symbolAddressToIndexMap.find(symbol.address);
 
@@ -263,10 +263,12 @@ void Executable::add_symbol(const ExeSymbol &symbol)
         const uint32_t index = static_cast<uint32_t>(m_symbols.size());
         m_symbols.push_back(symbol);
         m_symbolAddressToIndexMap[symbol.address] = index;
+    } else if (overwrite) {
+        m_symbols[it->second] = symbol;
     }
 }
 
-void Executable::load_config(const char *file_name)
+void Executable::load_config(const char *file_name, bool overwrite_symbols)
 {
     if (m_verbose) {
         printf("Loading config file '%s'...\n", file_name);
@@ -289,7 +291,7 @@ void Executable::load_config(const char *file_name)
     }
 
     if (j.find(s_symbolSection) != j.end()) {
-        load_symbols(j.at(s_symbolSection));
+        load_symbols(j.at(s_symbolSection), overwrite_symbols);
     }
 
     if (j.find(s_sectionsSection) != j.end()) {
@@ -348,7 +350,7 @@ void Executable::save_config(const char *file_name)
     fs << std::setw(4) << j << std::endl;
 }
 
-void Executable::load_symbols(nlohmann::json &js)
+void Executable::load_symbols(nlohmann::json &js, bool overwrite_symbols)
 {
     if (m_verbose) {
         printf("Loading external symbols...\n");
@@ -373,7 +375,7 @@ void Executable::load_symbols(nlohmann::json &js)
 
         it->at("size").get_to(symbol.size);
 
-        add_symbol(symbol);
+        add_symbol(symbol, overwrite_symbols);
     }
 }
 

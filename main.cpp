@@ -142,10 +142,13 @@ public:
             return true;
         }
 
+        constexpr bool pdb_symbols_overwrite_exe_symbols = true;
+        constexpr bool cfg_symbols_overwrite_exe_pdb_symbols = true;
+
         const unassemblize::PdbSymbolInfoVector &pdb_symbols = m_pdbReader.get_symbols();
 
         if (!pdb_symbols.empty()) {
-            m_executable.add_symbols(pdb_symbols);
+            m_executable.add_symbols(pdb_symbols, pdb_symbols_overwrite_exe_symbols);
         }
 
         if (o.dump_syms) {
@@ -153,7 +156,7 @@ public:
             return true;
         }
 
-        m_executable.load_config(o.config_file.c_str());
+        m_executable.load_config(o.config_file.c_str(), cfg_symbols_overwrite_exe_pdb_symbols);
 
         if (o.start_addr == 0 && o.end_addr == 0) {
             for (const unassemblize::ExeSymbol &symbol : m_executable.get_symbols()) {

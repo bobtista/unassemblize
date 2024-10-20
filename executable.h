@@ -45,7 +45,7 @@ public:
 
     bool read(const std::string &exe_file);
 
-    void load_config(const char *file_name);
+    void load_config(const char *file_name, bool overwrite_symbols = false);
     void save_config(const char *file_name);
 
     const ExeSectionMap &get_section_map() const;
@@ -66,13 +66,13 @@ public:
     /*
      * Adds series of new symbols if not already present.
      */
-    void add_symbols(const ExeSymbols &symbols);
-    void add_symbols(const PdbSymbolInfoVector &symbols);
+    void add_symbols(const ExeSymbols &symbols, bool overwrite = false);
+    void add_symbols(const PdbSymbolInfoVector &symbols, bool overwrite = false);
 
     /*
      * Adds new symbol if not already present.
      */
-    void add_symbol(const ExeSymbol &symbol);
+    void add_symbol(const ExeSymbol &symbol, bool overwrite = false);
 
     /**
      * Disassembles a range of bytes and outputs the format as though it were a single function.
@@ -83,7 +83,7 @@ public:
 private:
     void dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end);
 
-    void load_symbols(nlohmann::json &js);
+    void load_symbols(nlohmann::json &js, bool overwrite_symbols);
     void dump_symbols(nlohmann::json &js) const;
 
     void load_sections(nlohmann::json &js);
