@@ -22,7 +22,6 @@ std::wstring to_utf16(const char *utf8);
 std::wstring to_utf16(const std::string &utf8);
 void remove_characters_inplace(std::string &s, const std::string &chars);
 std::string get_file_name_without_ext(const std::string &file_name);
-std::string get_file_path(const std::string &file_path);
 std::string get_file_ext(const std::string &file_name);
 
 } // namespace util

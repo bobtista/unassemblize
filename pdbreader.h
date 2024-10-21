@@ -80,6 +80,11 @@ private:
     bool add_or_update_symbol(PdbSymbolInfo &&symbolInfo);
 
 private:
+    /*
+     * Intermediate structures used during Pdb read.
+     */
+    StringToIndexMapT m_sourceFileNameToIndexMap;
+    Address64ToIndexMapT m_addressToSymbolsMap;
     IDiaDataSource *m_pDiaSource = nullptr;
     IDiaSession *m_pDiaSession = nullptr;
     IDiaSymbol *m_pDiaSymbol = nullptr;
@@ -87,6 +92,9 @@ private:
     bool m_coInitialized = false;
     bool m_verbose = false;
 
+    /*
+     * Persistent structures created after Pdb read.
+     */
     // Compilands indices match DIA2 indices.
     std::vector<PdbCompilandInfo> m_compilands;
     // Source Files indices do not match DIA2 indices (aka "unique id").
@@ -95,9 +103,6 @@ private:
     // Symbols contains every public and global symbol, including functions.
     PdbSymbolInfoVector m_symbols;
     PdbExeInfo m_exe;
-
-    StringToIndexMapT m_sourceFileNameToIndexMap;
-    Address64ToIndexMapT m_addressToSymbolsMap;
 };
 
 } // namespace unassemblize

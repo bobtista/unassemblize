@@ -43,6 +43,12 @@ bool Executable::read(const std::string &exe_file)
         return false;
     }
 
+    m_exeFilename = exe_file;
+    m_sectionMap.clear();
+    m_symbols.clear();
+    m_symbolAddressToIndexMap.clear();
+    m_targetObjects.clear();
+    m_imageData = ExeImageData();
     m_imageData.imageBase = m_binary->imagebase();
 
     bool checked_image_base = false;
@@ -124,6 +130,11 @@ bool Executable::read(const std::string &exe_file)
     }
 
     return true;
+}
+
+const std::string &Executable::get_filename() const
+{
+    return m_exeFilename;
 }
 
 const ExeSectionMap &Executable::get_section_map() const

@@ -48,6 +48,7 @@ public:
     void load_config(const char *file_name, bool overwrite_symbols = false);
     void save_config(const char *file_name);
 
+    const std::string &get_filename() const;
     const ExeSectionMap &get_section_map() const;
     const ExeSectionInfo *find_section(uint64_t address) const;
     const uint8_t *section_data(const char *name) const; // TODO: check how to improve this
@@ -93,6 +94,7 @@ private:
     void dump_objects(nlohmann::json &js) const;
 
 private:
+    std::string m_exeFilename;
     OutputFormat m_outputFormat = OUTPUT_IGAS;
     bool m_verbose = false;
 

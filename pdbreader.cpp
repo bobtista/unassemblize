@@ -220,6 +220,8 @@ bool PdbReader::read_symbols()
     m_compilands.clear();
     m_sourceFiles.clear();
     m_functions.clear();
+    m_symbols.clear();
+    m_exe = PdbExeInfo();
 
     m_functions.reserve(1024 * 100);
 

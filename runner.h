@@ -17,29 +17,33 @@
 
 namespace unassemblize
 {
-struct ExeOptions
+inline constexpr size_t MAX_INPUT_FILES = 2;
+
+struct ExeSaveLoadOptions
 {
     std::string input_file;
-    std::string config_file = "config.json";
+    std::string config_file;
+    bool print_secs = false;
+    bool dump_syms = false;
+    bool verbose = false;
+};
+
+struct PdbSaveLoadOptions
+{
+    std::string input_file;
+    std::string config_file;
+    bool dump_syms = false;
+    bool verbose = false;
+};
+
+struct DisassembleOptions
+{
     std::string output_file;
     std::string format_str;
     uint64_t start_addr = 0;
     uint64_t end_addr = 0;
-    bool print_secs = false;
-    bool dump_syms = false;
-    bool verbose = false;
 };
 
-struct PdbOptions
-{
-    std::string input_file;
-    std::string config_file = "config.json";
-    bool print_secs = false;
-    bool dump_syms = false;
-    bool verbose = false;
-};
-
-// TODO: Functionality to have 2 exe sources
 // TODO: Functionality to discover and organize (*1) same functions on 2 sources
 // TODO: Facility function asm matching (class AsmMatcher)
 
@@ -59,17 +63,19 @@ struct PdbOptions
 class Runner
 {
 public:
+    bool process_exe(const ExeSaveLoadOptions &o, size_t file_idx = 0);
+    bool process_pdb(const PdbSaveLoadOptions &o, size_t file_idx = 0);
+    bool process_disassemble(const DisassembleOptions &o);
+
+    const std::string &get_exe_filename(size_t file_idx = 0);
+    std::string get_exe_file_name_from_pdb(size_t file_idx = 0);
+
+private:
     void print_sections(Executable &exe);
     void dump_function_to_file(const std::string &file_name, Executable &exe, uint64_t start, uint64_t end);
 
-    // TODO: split into 2 functions, load exe, disassemble functions
-    bool process_exe(const ExeOptions &o);
-    bool process_pdb(const PdbOptions &o);
-
-    std::string get_pdb_exe_file_name();
-
 private:
-    Executable m_executable;
-    PdbReader m_pdbReader;
+    Executable m_executable[MAX_INPUT_FILES];
+    PdbReader m_pdbReader[MAX_INPUT_FILES];
 };
 } // namespace unassemblize
