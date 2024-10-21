@@ -28,6 +28,7 @@ namespace unassemblize
 class Executable
 {
     using Address64ToIndexMap = std::unordered_map<Address64T, IndexT>;
+    using StringToIndexMap = std::unordered_map<std::string, IndexT>;
 
 public:
     enum OutputFormat
@@ -60,6 +61,7 @@ public:
     uint64_t all_sections_begin_from_image_base() const; // Begin address of first section plus image base.
     uint64_t all_sections_end_from_image_base() const; // End address of last section plus image base.
     const ExeSymbol &get_symbol(uint64_t address) const;
+    const ExeSymbol &get_symbol(const std::string &name) const;
     const ExeSymbol &get_symbol_from_image_base(uint64_t address) const; // Adds the image base before symbol lookup.
     const ExeSymbol &get_nearest_symbol(uint64_t address) const; // #TODO: investigate
     const ExeSymbols &get_symbols() const;
@@ -102,6 +104,7 @@ private:
     ExeSectionMap m_sectionMap;
     ExeSymbols m_symbols;
     Address64ToIndexMap m_symbolAddressToIndexMap;
+    StringToIndexMap m_symbolNameToIndexMap;
     ExeObjects m_targetObjects;
     ExeImageData m_imageData;
 

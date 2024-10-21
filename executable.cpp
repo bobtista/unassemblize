@@ -47,6 +47,7 @@ bool Executable::read(const std::string &exe_file)
     m_sectionMap.clear();
     m_symbols.clear();
     m_symbolAddressToIndexMap.clear();
+    m_symbolNameToIndexMap.clear();
     m_targetObjects.clear();
     m_imageData = ExeImageData();
     m_imageData.imageBase = m_binary->imagebase();
@@ -81,38 +82,32 @@ bool Executable::read(const std::string &exe_file)
         printf("Indexing embedded symbols...\n");
     }
 
-    {
-        auto exe_syms = m_binary->symbols();
+    auto exe_syms = m_binary->symbols();
+    auto exe_imports = m_binary->imported_functions();
 
-        const size_t newSize = m_symbols.size() + exe_syms.size();
+    {
+        const size_t newSize = m_symbols.size() + exe_syms.size() + exe_imports.size();
         m_symbols.reserve(newSize);
         m_symbolAddressToIndexMap.reserve(newSize);
-
-        for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it) {
-            ExeSymbol symbol;
-            symbol.name = it->name();
-            symbol.address = it->value();
-            symbol.size = it->size();
-
-            add_symbol(symbol);
-        }
+        m_symbolNameToIndexMap.reserve(newSize);
     }
 
-    {
-        auto exe_imports = m_binary->imported_functions();
+    for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it) {
+        ExeSymbol symbol;
+        symbol.name = it->name();
+        symbol.address = it->value();
+        symbol.size = it->size();
 
-        const size_t newSize = m_symbols.size() + exe_imports.size();
-        m_symbols.reserve(newSize);
-        m_symbolAddressToIndexMap.reserve(newSize);
+        add_symbol(symbol);
+    }
 
-        for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it) {
-            ExeSymbol symbol;
-            symbol.name = it->name();
-            symbol.address = it->value();
-            symbol.size = it->size();
+    for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it) {
+        ExeSymbol symbol;
+        symbol.name = it->name();
+        symbol.address = it->value();
+        symbol.size = it->size();
 
-            add_symbol(symbol);
-        }
+        add_symbol(symbol);
     }
 
     if (m_targetObjects.empty()) {
@@ -203,7 +198,16 @@ const ExeSymbol &Executable::get_symbol(uint64_t address) const
     if (it != m_symbolAddressToIndexMap.end()) {
         return m_symbols[it->second];
     }
+    return s_emptySymbol;
+}
 
+const ExeSymbol &Executable::get_symbol(const std::string &name) const
+{
+    StringToIndexMap::const_iterator it = m_symbolNameToIndexMap.find(name);
+
+    if (it != m_symbolNameToIndexMap.end()) {
+        return m_symbols[it->second];
+    }
     return s_emptySymbol;
 }
 
@@ -239,6 +243,7 @@ void Executable::add_symbols(const ExeSymbols &symbols, bool overwrite)
     const size_t size = m_symbols.size() + symbols.size();
     m_symbols.reserve(size);
     m_symbolAddressToIndexMap.reserve(size);
+    m_symbolNameToIndexMap.reserve(size);
 
     for (const ExeSymbol &symbol : symbols) {
         add_symbol(symbol, overwrite);
@@ -250,6 +255,7 @@ void Executable::add_symbols(const PdbSymbolInfoVector &symbols, bool overwrite)
     const size_t size = m_symbols.size() + symbols.size();
     m_symbols.reserve(size);
     m_symbolAddressToIndexMap.reserve(size);
+    m_symbolNameToIndexMap.reserve(size);
 
     for (const PdbSymbolInfo &pdbSymbol : symbols) {
         ExeSymbol exeSymbol;
@@ -274,6 +280,7 @@ void Executable::add_symbol(const ExeSymbol &symbol, bool overwrite)
         const uint32_t index = static_cast<uint32_t>(m_symbols.size());
         m_symbols.push_back(symbol);
         m_symbolAddressToIndexMap[symbol.address] = index;
+        m_symbolNameToIndexMap[symbol.name] = index;
     } else if (overwrite) {
         m_symbols[it->second] = symbol;
     }
@@ -370,6 +377,7 @@ void Executable::load_symbols(nlohmann::json &js, bool overwrite_symbols)
     size_t newSize = m_symbols.size() + js.size();
     m_symbols.reserve(newSize);
     m_symbolAddressToIndexMap.reserve(newSize);
+    m_symbolNameToIndexMap.reserve(newSize);
 
     for (auto it = js.begin(); it != js.end(); ++it) {
         ExeSymbol symbol;
