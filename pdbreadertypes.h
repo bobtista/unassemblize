@@ -80,6 +80,7 @@ struct PdbSourceLineInfo
     uint32_t length = 0; // Length of asm bytes
 };
 
+// #TODO: Use just one name string?
 struct PdbSymbolInfo
 {
     PdbAddress address;
@@ -91,6 +92,7 @@ struct PdbSymbolInfo
 };
 using PdbSymbolInfoVector = std::vector<PdbSymbolInfo>;
 
+// #TODO: Use just one name string?
 struct PdbFunctionInfo
 {
     bool has_valid_source_file_id() const { return sourceFileId != -1; }

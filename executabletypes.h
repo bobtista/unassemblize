@@ -55,7 +55,7 @@ struct ExeObjectSection
 struct ExeObject
 {
     std::string name;
-    std::list<ExeObjectSection> sections; // TODO: vector
+    std::list<ExeObjectSection> sections; // #TODO: vector
 };
 
 struct ExeImageData
@@ -69,8 +69,8 @@ struct ExeImageData
     uint8_t dataPad = 0x00;
 };
 
-using ExeSectionMap = std::map<std::string, ExeSectionInfo>; // TODO: unordered_map maybe
+using ExeSectionMap = std::map<std::string, ExeSectionInfo>; // #TODO: unordered_map maybe
 using ExeSymbols = std::vector<ExeSymbol>;
-using ExeObjects = std::list<ExeObject>; // TODO: vector
+using ExeObjects = std::list<ExeObject>; // #TODO: vector
 
 } // namespace unassemblize

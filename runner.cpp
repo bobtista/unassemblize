@@ -41,7 +41,7 @@ void Runner::dump_function_to_file(const std::string &file_name, Executable &exe
     }
 }
 
-// TODO: split into 2 functions, load exe, disassemble functions
+// #TODO: split into 2 functions, load exe, disassemble functions
 bool Runner::process_exe(const ExeSaveLoadOptions &o, size_t file_idx)
 {
     assert(file_idx < MAX_INPUT_FILES);
@@ -102,7 +102,7 @@ bool Runner::process_pdb(const PdbSaveLoadOptions &o, size_t file_idx)
 
 bool Runner::process_disassemble(const DisassembleOptions &o)
 {
-    // TODO: implement default value where exe object decides internally what to do.
+    // #TODO: implement default value where exe object decides internally what to do.
     Executable::OutputFormat format = Executable::OUTPUT_IGAS;
 
     if (!o.format_str.empty()) {

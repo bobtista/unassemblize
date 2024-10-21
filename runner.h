@@ -44,8 +44,8 @@ struct DisassembleOptions
     uint64_t end_addr = 0;
 };
 
-// TODO: Functionality to discover and organize (*1) same functions on 2 sources
-// TODO: Facility function asm matching (class AsmMatcher)
+// #TODO: Functionality to discover and organize (*1) same functions on 2 sources
+// #TODO: Facility function asm matching (class AsmMatcher)
 
 //(*1)
 // struct FunctionMatch // finds matching function addresses from 2 sources

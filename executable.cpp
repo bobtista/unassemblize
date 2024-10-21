@@ -59,7 +59,7 @@ bool Executable::read(const std::string &exe_file)
             section.data = it->content().data();
 
             // For PE format virtual_address appears to be an offset, in ELF/Mach-O it appears to be absolute.
-            // TODO: Check if ELF/Mach-O works correctly with this code - if necessary.
+            // #TODO: Check if ELF/Mach-O works correctly with this code - if necessary.
             section.address = it->virtual_address();
             section.size = it->size();
 
@@ -520,7 +520,7 @@ void Executable::dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end)
 {
     if (start != 0 && end != 0) {
         const AsmFormat format = m_outputFormat == OUTPUT_IGAS ? AsmFormat::IGAS : AsmFormat::AGAS;
-        const FunctionSetup setup(*this, format); // TODO: Optimize by creating just once
+        const FunctionSetup setup(*this, format); // #TODO: Optimize by creating just once
 
         std::string str;
         {

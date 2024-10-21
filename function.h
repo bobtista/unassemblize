@@ -29,6 +29,8 @@ namespace unassemblize
 /*
  * Intermediate instruction data between Zydis disassemble and final text generation.
  */
+// #TODO: Think about how to improve instruction string/data to preserve a little bit more information of how the instruction
+// is composed (symbol address, operands, etc).
 struct InstructionData
 {
     Address64T address; // Position of the instruction within the executable.
@@ -138,7 +140,7 @@ private:
     void add_pseudo_symbol(Address64T address);
     const ExeSymbol &get_symbol(Address64T address) const;
     const ExeSymbol &get_symbol_from_image_base(Address64T address) const;
-    const ExeSymbol &get_nearest_symbol(Address64T address) const; // TODO: investigate
+    const ExeSymbol &get_nearest_symbol(Address64T address) const; // #TODO: investigate
 
     // Zydis formatter callbacks
     static ZyanStatus UnasmFormatterPrintAddressAbsolute(
@@ -164,8 +166,8 @@ private:
 
 private:
     FunctionIntermediate *m_intermediate = nullptr;
-    Address64T m_beginAddress = 0; // TODO: Move to FunctionIntermediate if not needed here.
-    Address64T m_endAddress = 0; // TODO: Remove if not needed at all.
+    Address64T m_beginAddress = 0; // #TODO: Move to FunctionIntermediate if not needed here.
+    Address64T m_endAddress = 0; // #TODO: Remove if not needed at all.
     InstructionDataVector m_instructions;
 };
 
