@@ -36,6 +36,7 @@ public:
     bool read(const std::string &pdb_file);
 
     const PdbSymbolInfoVector &get_symbols() const;
+    const PdbFunctionInfoVector &get_functions() const;
     const PdbExeInfo &get_exe_info() const;
 
     void load_json(const nlohmann::json &js);
@@ -99,7 +100,7 @@ private:
     std::vector<PdbCompilandInfo> m_compilands;
     // Source Files indices do not match DIA2 indices (aka "unique id").
     std::vector<PdbSourceFileInfo> m_sourceFiles;
-    std::vector<PdbFunctionInfo> m_functions;
+    PdbFunctionInfoVector m_functions;
     // Symbols contains every public and global symbol, including functions.
     PdbSymbolInfoVector m_symbols;
     PdbExeInfo m_exe;

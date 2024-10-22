@@ -13,7 +13,9 @@
 #pragma once
 
 #include "executable.h"
+#include "function.h"
 #include "pdbreader.h"
+#include <array>
 
 namespace unassemblize
 {
@@ -36,46 +38,53 @@ struct PdbSaveLoadOptions
     bool verbose = false;
 };
 
-struct DisassembleOptions
+struct AsmOutputOptions
 {
     std::string output_file;
-    std::string format_str;
+    AsmFormat format;
     uint64_t start_addr = 0;
     uint64_t end_addr = 0;
 };
 
-// #TODO: Functionality to discover and organize (*1) same functions on 2 sources
-// #TODO: Facility function asm matching (class AsmMatcher)
+struct AsmCompareOptions
+{
+    AsmFormat format;
+};
 
-//(*1)
-// struct FunctionMatch // finds matching function addresses from 2 sources
-// {
-//     Address64T address_left;
-//     Address64T address_right;
-//     Function function_left;
-//     Function function_right;
-// };
-// struct FunctionBundleMatch // combines functions from same compiland or cpp
-// {
-//     std::vector<FunctionMatch> functions;
-// };
+// #TODO: Functionality to discover and organize same functions on 2 sources
+// #TODO: Facilitate function asm matching (class AsmMatcher)
+
+/*
+ * A function symbol match from multiple sources.
+ */
+struct FunctionMatch
+{
+    std::string name;
+    std::array<Function, MAX_INPUT_FILES> functions;
+};
+using FunctionMatches = std::vector<FunctionMatch>;
 
 class Runner
 {
 public:
     bool process_exe(const ExeSaveLoadOptions &o, size_t file_idx = 0);
     bool process_pdb(const PdbSaveLoadOptions &o, size_t file_idx = 0);
-    bool process_disassemble(const DisassembleOptions &o);
+    bool process_asm_output(const AsmOutputOptions &o);
+    bool process_asm_compare(const AsmCompareOptions &o);
 
+    bool asm_compare_ready() const;
     const std::string &get_exe_filename(size_t file_idx = 0);
     std::string get_exe_file_name_from_pdb(size_t file_idx = 0);
 
 private:
     void print_sections(Executable &exe);
-    void dump_function_to_file(const std::string &file_name, Executable &exe, uint64_t start, uint64_t end);
+    void dump_function_to_file(
+        const std::string &file_name, Executable &exe, uint64_t start, uint64_t end, AsmFormat format);
 
 private:
-    Executable m_executable[MAX_INPUT_FILES];
-    PdbReader m_pdbReader[MAX_INPUT_FILES];
+    std::array<Executable, MAX_INPUT_FILES> m_executables;
+    std::array<PdbReader, MAX_INPUT_FILES> m_pdbReaders;
+
+    FunctionMatches m_matches;
 };
 } // namespace unassemblize

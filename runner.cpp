@@ -11,7 +11,6 @@
  *            LICENSE
  */
 #include "runner.h"
-#include "function.h"
 #include "util.h"
 #include <filesystem>
 #include <inttypes.h>
@@ -28,16 +27,17 @@ void Runner::print_sections(Executable &exe)
     }
 }
 
-void Runner::dump_function_to_file(const std::string &file_name, Executable &exe, uint64_t start, uint64_t end)
+void Runner::dump_function_to_file(
+    const std::string &file_name, Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
 {
     if (!file_name.empty()) {
         FILE *fp = fopen(file_name.c_str(), "w+");
         if (fp != nullptr) {
-            exe.dissassemble_function(fp, start, end);
+            exe.dissassemble_function(fp, start, end, format);
             fclose(fp);
         }
     } else {
-        exe.dissassemble_function(nullptr, start, end);
+        exe.dissassemble_function(nullptr, start, end, format);
     }
 }
 
@@ -45,7 +45,7 @@ void Runner::dump_function_to_file(const std::string &file_name, Executable &exe
 bool Runner::process_exe(const ExeSaveLoadOptions &o, size_t file_idx)
 {
     assert(file_idx < MAX_INPUT_FILES);
-    Executable &executable = m_executable[file_idx];
+    Executable &executable = m_executables[file_idx];
 
     if (o.verbose) {
         printf("Parsing exe file '%s'...\n", o.input_file.c_str());
@@ -64,7 +64,7 @@ bool Runner::process_exe(const ExeSaveLoadOptions &o, size_t file_idx)
     constexpr bool pdb_symbols_overwrite_exe_symbols = true;
     constexpr bool cfg_symbols_overwrite_exe_pdb_symbols = true;
 
-    const PdbReader &pdbReader = m_pdbReader[file_idx];
+    const PdbReader &pdbReader = m_pdbReaders[file_idx];
     const PdbSymbolInfoVector &pdb_symbols = pdbReader.get_symbols();
 
     if (!pdb_symbols.empty()) {
@@ -83,7 +83,7 @@ bool Runner::process_exe(const ExeSaveLoadOptions &o, size_t file_idx)
 bool Runner::process_pdb(const PdbSaveLoadOptions &o, size_t file_idx)
 {
     assert(file_idx < MAX_INPUT_FILES);
-    PdbReader &pdbReader = m_pdbReader[file_idx];
+    PdbReader &pdbReader = m_pdbReaders[file_idx];
 
     pdbReader.set_verbose(o.verbose);
 
@@ -100,22 +100,11 @@ bool Runner::process_pdb(const PdbSaveLoadOptions &o, size_t file_idx)
     return true;
 }
 
-bool Runner::process_disassemble(const DisassembleOptions &o)
+bool Runner::process_asm_output(const AsmOutputOptions &o)
 {
-    // #TODO: implement default value where exe object decides internally what to do.
-    Executable::OutputFormat format = Executable::OUTPUT_IGAS;
+    Executable &executable = m_executables[0];
 
-    if (!o.format_str.empty()) {
-        if (0 == strcasecmp(o.format_str.c_str(), "igas")) {
-            format = Executable::OUTPUT_IGAS;
-        } else if (0 == strcasecmp(o.format_str.c_str(), "masm")) {
-            format = Executable::OUTPUT_MASM;
-        }
-    }
-
-    Executable &executable = m_executable[0];
-    executable.set_output_format(format);
-
+    // #TODO: Cleanup
     if (o.start_addr == 0 && o.end_addr == 0) {
         for (const ExeSymbol &symbol : executable.get_symbols()) {
             std::string sanitized_symbol_name = symbol.name;
@@ -127,25 +116,80 @@ bool Runner::process_disassemble(const DisassembleOptions &o)
                 // program.symbol.S
                 file_name = util::get_file_name_without_ext(o.output_file) + "." + sanitized_symbol_name + ".S";
             }
-            dump_function_to_file(file_name, executable, symbol.address, symbol.address + symbol.size);
+            dump_function_to_file(file_name, executable, symbol.address, symbol.address + symbol.size, o.format);
         }
     } else {
-        dump_function_to_file(o.output_file, executable, o.start_addr, o.end_addr);
+        dump_function_to_file(o.output_file, executable, o.start_addr, o.end_addr, o.format);
     }
 
     return true;
 }
 
+bool Runner::process_asm_compare(const AsmCompareOptions &o)
+{
+    if (!asm_compare_ready())
+        return false;
+
+    // The Executable class currently has no function symbol classification.
+    // Therefore, take the function symbols from the Pdb reader if applicable.
+
+    std::array<ExeSymbols, 2> pdb_function_symbols;
+
+    for (size_t i = 0; i < pdb_function_symbols.size(); ++i) {
+        const auto &pdb_functions = m_pdbReaders[i].get_functions();
+        pdb_function_symbols[i] = std::move(to_exe_symbols(pdb_functions.begin(), pdb_functions.end()));
+    }
+
+    std::array<const ExeSymbols *, 2> function_symbols;
+
+    for (size_t i = 0; i < function_symbols.size(); ++i) {
+        if (!pdb_function_symbols[i].empty()) {
+            function_symbols[i] = &pdb_function_symbols[i];
+        } else {
+            function_symbols[i] = &m_executables[i].get_symbols();
+        }
+    }
+
+    const size_t less_idx = function_symbols[0]->size() < function_symbols[1]->size() ? 0 : 1;
+    const size_t more_idx = less_idx == 0 ? 1 : 0;
+    const FunctionSetup less_setup(m_executables[less_idx], o.format);
+    const FunctionSetup more_setup(m_executables[more_idx], o.format);
+    const ExeSymbols &less_symbols = *function_symbols[less_idx];
+    m_matches.reserve(less_symbols.size());
+
+    for (const ExeSymbol &less_symbol : less_symbols) {
+        const ExeSymbol &more_symbol = m_executables[more_idx].get_symbol(less_symbol.name);
+        if (!more_symbol.name.empty()) {
+            m_matches.emplace_back();
+            FunctionMatch &match = m_matches.back();
+            match.name = less_symbol.name;
+            match.functions[less_idx].disassemble(less_setup, less_symbol.address, less_symbol.address + less_symbol.size);
+            match.functions[more_idx].disassemble(more_setup, more_symbol.address, more_symbol.address + more_symbol.size);
+        }
+    }
+
+    // ...
+
+    return true;
+}
+
+bool Runner::asm_compare_ready() const
+{
+    static_assert(MAX_INPUT_FILES >= 2, "Expects at least two input files to work with");
+
+    return m_executables[0].is_ready() && m_executables[1].is_ready();
+}
+
 const std::string &Runner::get_exe_filename(size_t file_idx)
 {
     assert(file_idx < MAX_INPUT_FILES);
-    return m_executable[file_idx].get_filename();
+    return m_executables[file_idx].get_filename();
 }
 
 std::string Runner::get_exe_file_name_from_pdb(size_t file_idx)
 {
     assert(file_idx < MAX_INPUT_FILES);
-    const PdbExeInfo &exe_info = m_pdbReader[file_idx].get_exe_info();
+    const PdbExeInfo &exe_info = m_pdbReaders[file_idx].get_exe_info();
     assert(!exe_info.exeFileName.empty());
     assert(!exe_info.pdbFilePath.empty());
 

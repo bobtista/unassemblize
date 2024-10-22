@@ -13,6 +13,7 @@
 #pragma once
 
 #include "executabletypes.h"
+#include "functiontypes.h"
 #include "pdbreadertypes.h"
 #include <memory>
 #include <nlohmann/json_fwd.hpp>
@@ -31,17 +32,9 @@ class Executable
     using StringToIndexMap = std::unordered_map<std::string, IndexT>;
 
 public:
-    enum OutputFormat
-    {
-        OUTPUT_IGAS,
-        OUTPUT_MASM,
-    };
-
-public:
     Executable();
     ~Executable();
 
-    void set_output_format(OutputFormat format) { m_outputFormat = format; }
     void set_verbose(bool verbose) { m_verbose = verbose; }
 
     bool read(const std::string &exe_file);
@@ -49,6 +42,7 @@ public:
     void load_config(const char *file_name, bool overwrite_symbols = false);
     void save_config(const char *file_name);
 
+    bool is_ready() const;
     const std::string &get_filename() const;
     const ExeSectionMap &get_section_map() const;
     const ExeSectionInfo *find_section(uint64_t address) const;
@@ -81,10 +75,10 @@ public:
      * Disassembles a range of bytes and outputs the format as though it were a single function.
      * Addresses should be the absolute addresses when the binary is loaded at its preferred base address.
      */
-    void dissassemble_function(FILE *fp, uint64_t start, uint64_t end);
+    void dissassemble_function(FILE *fp, uint64_t start, uint64_t end, AsmFormat format);
 
 private:
-    void dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end);
+    void dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end, AsmFormat format);
 
     void load_symbols(nlohmann::json &js, bool overwrite_symbols);
     void dump_symbols(nlohmann::json &js) const;
@@ -97,7 +91,6 @@ private:
 
 private:
     std::string m_exeFilename;
-    OutputFormat m_outputFormat = OUTPUT_IGAS;
     bool m_verbose = false;
 
     std::unique_ptr<LIEF::Binary> m_binary;

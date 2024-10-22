@@ -85,6 +85,8 @@ target_sources(unassemblize PRIVATE
     executabletypes.h
     function.cpp
     function.h
+    functiontypes.cpp
+    functiontypes.h
     main.cpp
     pdbreader.cpp
     pdbreader.h

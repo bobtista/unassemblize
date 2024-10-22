@@ -44,6 +44,11 @@ const PdbSymbolInfoVector &PdbReader::get_symbols() const
     return m_symbols;
 }
 
+const PdbFunctionInfoVector &PdbReader::get_functions() const
+{
+    return m_functions;
+}
+
 const PdbExeInfo &PdbReader::get_exe_info() const
 {
     return m_exe;

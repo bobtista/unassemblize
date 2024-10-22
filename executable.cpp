@@ -127,6 +127,11 @@ bool Executable::read(const std::string &exe_file)
     return true;
 }
 
+bool Executable::is_ready() const
+{
+    return m_binary.get() != nullptr;
+}
+
 const std::string &Executable::get_filename() const
 {
     return m_exeFilename;
@@ -258,17 +263,7 @@ void Executable::add_symbols(const PdbSymbolInfoVector &symbols, bool overwrite)
     m_symbolNameToIndexMap.reserve(size);
 
     for (const PdbSymbolInfo &pdbSymbol : symbols) {
-        ExeSymbol exeSymbol;
-        if (!pdbSymbol.decoratedName.empty()) {
-            exeSymbol.name = pdbSymbol.decoratedName;
-        } else if (!pdbSymbol.globalName.empty()) {
-            exeSymbol.name = pdbSymbol.globalName;
-        } else {
-            exeSymbol.name = pdbSymbol.undecoratedName;
-        }
-        exeSymbol.address = pdbSymbol.address.absVirtual;
-        exeSymbol.size = pdbSymbol.length;
-        add_symbol(exeSymbol, overwrite);
+        add_symbol(to_exe_symbol(pdbSymbol), overwrite);
     }
 }
 
@@ -517,17 +512,16 @@ void Executable::dump_objects(nlohmann::json &js) const
     }
 }
 
-void Executable::dissassemble_function(FILE *fp, uint64_t start, uint64_t end)
+void Executable::dissassemble_function(FILE *fp, uint64_t start, uint64_t end, AsmFormat format)
 {
-    if (m_outputFormat != OUTPUT_MASM) {
-        dissassemble_gas_func(fp, start, end);
+    if (format != AsmFormat::MASM) {
+        dissassemble_gas_func(fp, start, end, format);
     }
 }
 
-void Executable::dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end)
+void Executable::dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end, AsmFormat format)
 {
     if (start != 0 && end != 0) {
-        const AsmFormat format = m_outputFormat == OUTPUT_IGAS ? AsmFormat::IGAS : AsmFormat::AGAS;
         const FunctionSetup setup(*this, format); // #TODO: Optimize by creating just once
 
         std::string str;

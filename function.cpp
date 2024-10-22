@@ -15,9 +15,6 @@
 #include <Zydis/Zydis.h>
 #include <fmt/core.h>
 #include <inttypes.h>
-#include <iomanip>
-#include <sstream>
-#include <string.h>
 
 namespace unassemblize
 {

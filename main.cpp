@@ -35,7 +35,7 @@ const char *const auto_str = "auto"; // When output is set to "auto", then outpu
 
 enum class InputType
 {
-    Unknown,
+    None,
     Exe,
     Pdb,
 };
@@ -60,7 +60,7 @@ std::string get_output_file_name(const std::string &input_file, const std::strin
 
 InputType get_input_type(const std::string &input_file, const std::string &input_type)
 {
-    InputType type = InputType::Unknown;
+    InputType type = InputType::None;
 
     if (0 == strcasecmp(input_type.c_str(), auto_str)) {
         std::string input_file_ext = util::get_file_ext(input_file);
@@ -106,7 +106,7 @@ int main(int argc, char **argv)
         cxxopts::Option{OPT_INPUTTYPE, "Input file type. Default is 'auto'", cxxopts::value<std::string>()},
         cxxopts::Option{OPT_INPUTTYPE_2, "Input file 2 type. Default is 'auto'", cxxopts::value<std::string>()},
         cxxopts::Option{"o," OPT_OUTPUT, "Filename for single file output. Default is 'auto'", cxxopts::value<std::string>()},
-        cxxopts::Option{"f," OPT_FORMAT, "Assembly output format. Default is 'auto'", cxxopts::value<std::string>()},
+        cxxopts::Option{"f," OPT_FORMAT, "Assembly output format. Default is 'igas'", cxxopts::value<std::string>()},
         cxxopts::Option{"c," OPT_CONFIG, "Configuration file describing how to disassemble the input file and containing extra symbol info. Default is 'auto'", cxxopts::value<std::string>()},
         cxxopts::Option{OPT_CONFIG_2, "Configuration file describing how to disassemble the input file and containing extra symbol info. Default is 'auto'", cxxopts::value<std::string>()},
         cxxopts::Option{"s," OPT_START, "Starting address of a single function to disassemble in hexadecimal notation.", cxxopts::value<std::string>()},
@@ -141,7 +141,7 @@ int main(int argc, char **argv)
     std::fill_n(input_type, MAX_INPUT_FILES, auto_str);
     // When output_file is set to "auto", then output file name is chosen for input file name.
     std::string output_file = auto_str;
-    std::string format_string = auto_str;
+    std::string format_string = "igas";
     // When config file is set to "auto", then config file name is chosen for input file name.
     std::string config_file[MAX_INPUT_FILES];
     std::fill_n(config_file, MAX_INPUT_FILES, auto_str);
@@ -189,6 +189,7 @@ int main(int argc, char **argv)
 
     bool ok = true;
     unassemblize::Runner runner;
+    unassemblize::AsmFormat format = unassemblize::to_asm_format(format_string.c_str());
 
     for (size_t file_idx = 0; file_idx < MAX_INPUT_FILES && ok; ++file_idx) {
         const InputType type = get_input_type(input_file[file_idx], input_type[file_idx]);
@@ -226,12 +227,20 @@ int main(int argc, char **argv)
     }
 
     if (ok) {
-        unassemblize::DisassembleOptions o;
-        o.output_file = get_output_file_name(runner.get_exe_filename(), output_file);
-        o.format_str = format_string;
-        o.start_addr = start_addr;
-        o.end_addr = end_addr;
-        ok &= runner.process_disassemble(o);
+        {
+            unassemblize::AsmOutputOptions o;
+            o.output_file = get_output_file_name(runner.get_exe_filename(), output_file);
+            o.format = format;
+            o.start_addr = start_addr;
+            o.end_addr = end_addr;
+            ok &= runner.process_asm_output(o);
+        }
+
+        if (runner.asm_compare_ready()) {
+            unassemblize::AsmCompareOptions o;
+            o.format = format;
+            ok &= runner.process_asm_compare(o);
+        }
     }
     return ok ? 0 : 1;
 }

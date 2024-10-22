@@ -112,6 +112,7 @@ struct PdbFunctionInfo
 
     std::vector<PdbSourceLineInfo> sourceLines;
 };
+using PdbFunctionInfoVector = std::vector<PdbFunctionInfo>;
 
 struct PdbSourceFileInfo
 {
@@ -152,5 +153,34 @@ void from_json(const nlohmann::json &js, PdbFunctionInfo &d);
 
 void to_json(nlohmann::json &js, const PdbExeInfo &d);
 void from_json(const nlohmann::json &js, PdbExeInfo &d);
+
+// Can pass PdbSymbolInfo or PdbFunctionInfo
+template<class T>
+ExeSymbol to_exe_symbol(const T &pdb_symbol)
+{
+    ExeSymbol exe_symbol;
+    if (!pdb_symbol.decoratedName.empty()) {
+        exe_symbol.name = pdb_symbol.decoratedName;
+    } else if (!pdb_symbol.globalName.empty()) {
+        exe_symbol.name = pdb_symbol.globalName;
+    } else {
+        exe_symbol.name = pdb_symbol.undecoratedName;
+    }
+    exe_symbol.address = pdb_symbol.address.absVirtual;
+    exe_symbol.size = pdb_symbol.length;
+    return exe_symbol;
+}
+
+template<class Iterator>
+ExeSymbols to_exe_symbols(Iterator begin, Iterator end)
+{
+    const size_t size = std::distance(begin, end);
+    ExeSymbols symbols;
+    symbols.reserve(size);
+    for (; begin != end; ++begin) {
+        symbols.emplace_back(std::move(to_exe_symbol(*begin)));
+    }
+    return symbols;
+}
 
 } // namespace unassemblize
