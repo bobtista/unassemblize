@@ -236,8 +236,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
             return ZYAN_STATUS_SUCCESS;
         }
 
-        if (address >= func->get_executable().text_section_begin_from_image_base()
-            && address < func->get_executable().text_section_end_from_image_base()) {
+        if (address >= func->get_executable().code_section_begin_from_image_base()
+            && address < func->get_executable().code_section_end_from_image_base()) {
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
@@ -280,8 +280,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressRelative(
         return ZYAN_STATUS_SUCCESS;
     }
 
-    if (address >= func->get_executable().text_section_begin_from_image_base()
-        && address < func->get_executable().text_section_end_from_image_base()) {
+    if (address >= func->get_executable().code_section_begin_from_image_base()
+        && address < func->get_executable().code_section_end_from_image_base()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
@@ -331,8 +331,8 @@ ZyanStatus Function::UnasmFormatterPrintDISP(
             }
         }
 
-        if (value >= func->get_executable().text_section_begin_from_image_base()
-            && value < func->get_executable().text_section_end_from_image_base()) {
+        if (value >= func->get_executable().code_section_begin_from_image_base()
+            && value < func->get_executable().code_section_end_from_image_base()) {
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
@@ -380,8 +380,8 @@ ZyanStatus Function::UnasmFormatterPrintIMM(
             }
         }
 
-        if (value >= func->get_executable().text_section_begin_from_image_base()
-            && value < func->get_executable().text_section_end_from_image_base()) {
+        if (value >= func->get_executable().code_section_begin_from_image_base()
+            && value < func->get_executable().code_section_end_from_image_base()) {
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
@@ -422,8 +422,8 @@ ZyanStatus Function::UnasmFormatterFormatOperandPTR(
         return ZYAN_STATUS_SUCCESS;
     }
 
-    if (offset >= func->get_executable().text_section_begin_from_image_base()
-        && offset < func->get_executable().text_section_end_from_image_base()) {
+    if (offset >= func->get_executable().code_section_begin_from_image_base()
+        && offset < func->get_executable().code_section_end_from_image_base()) {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
@@ -478,8 +478,8 @@ ZyanStatus Function::UnasmFormatterFormatOperandMEM(
             }
         }
 
-        if (value >= func->get_executable().text_section_begin_from_image_base()
-            && value < func->get_executable().text_section_end_from_image_base()) {
+        if (value >= func->get_executable().code_section_begin_from_image_base()
+            && value < func->get_executable().code_section_end_from_image_base()) {
             if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM)
                 || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB)) {
                 ZYAN_CHECK(formatter->func_print_typecast(formatter, buffer, context));

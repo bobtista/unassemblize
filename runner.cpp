@@ -20,10 +20,9 @@ namespace unassemblize
 {
 void Runner::print_sections(Executable &exe)
 {
-    const ExeSectionMap &map = exe.get_section_map();
-    for (auto it = map.begin(); it != map.end(); ++it) {
-        printf(
-            "Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n", it->first.c_str(), it->second.address, it->second.size);
+    const ExeSections &sections = exe.get_sections();
+    for (const ExeSectionInfo &section : sections) {
+        printf("Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n", section.name.c_str(), section.address, section.size);
     }
 }
 

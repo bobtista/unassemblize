@@ -44,14 +44,12 @@ public:
 
     bool is_ready() const;
     const std::string &get_filename() const;
-    const ExeSectionMap &get_section_map() const;
+    const ExeSections &get_sections() const;
     const ExeSectionInfo *find_section(uint64_t address) const;
-    const uint8_t *section_data(const char *name) const; // #TODO: check how to improve this
-    uint64_t section_address(const char *name) const; // #TODO: check how to improve this
-    uint64_t section_size(const char *name) const; // #TODO: check how to improve this
+    const ExeSectionInfo *find_section(const std::string &name) const;
     uint64_t image_base() const; // Default image base address if the ASLR is not enabled.
-    uint64_t text_section_begin_from_image_base() const; // Begin address of .text section plus image base.
-    uint64_t text_section_end_from_image_base() const; // End address of .text section plus image base.
+    uint64_t code_section_begin_from_image_base() const; // Begin address of .text section plus image base.
+    uint64_t code_section_end_from_image_base() const; // End address of .text section plus image base.
     uint64_t all_sections_begin_from_image_base() const; // Begin address of first section plus image base.
     uint64_t all_sections_end_from_image_base() const; // End address of last section plus image base.
     const ExeSymbol &get_symbol(uint64_t address) const;
@@ -94,11 +92,17 @@ private:
     bool m_verbose = false;
 
     std::unique_ptr<LIEF::Binary> m_binary;
-    ExeSectionMap m_sectionMap;
+
+    ExeSections m_sections;
+    StringToIndexMap m_sectionNameToIndexMap;
+    IndexT m_codeSectionIdx = ~IndexT(0);
+
     ExeSymbols m_symbols;
     Address64ToIndexMap m_symbolAddressToIndexMap;
     StringToIndexMap m_symbolNameToIndexMap;
+
     ExeObjects m_targetObjects;
+
     ExeImageData m_imageData;
 
     static ExeSymbol s_emptySymbol;

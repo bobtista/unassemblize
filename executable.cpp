@@ -44,7 +44,9 @@ bool Executable::read(const std::string &exe_file)
     }
 
     m_exeFilename = exe_file;
-    m_sectionMap.clear();
+    m_sections.clear();
+    m_sectionNameToIndexMap.clear();
+    m_codeSectionIdx = ~IndexT(0);
     m_symbols.clear();
     m_symbolAddressToIndexMap.clear();
     m_symbolNameToIndexMap.clear();
@@ -56,7 +58,13 @@ bool Executable::read(const std::string &exe_file)
 
     for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
         if (!it->name().empty() && it->size() != 0) {
-            ExeSectionInfo &section = m_sectionMap[it->name()];
+            const IndexT section_idx = m_sections.size();
+            m_sections.emplace_back();
+            ExeSectionInfo &section = m_sections.back();
+
+            section.name = it->name();
+            m_symbolNameToIndexMap[section.name] = section_idx;
+
             section.data = it->content().data();
 
             // For PE format virtual_address appears to be an offset, in ELF/Mach-O it appears to be absolute.
@@ -71,9 +79,11 @@ bool Executable::read(const std::string &exe_file)
             // Needs to be refined by providing a config file with section types specified.
             const uint64_t entrypoint = m_binary->entrypoint() - m_binary->imagebase();
             if (section.address < entrypoint && section.address + section.size >= entrypoint) {
-                section.type = SECTION_CODE;
+                section.type = ExeSectionType::Code;
+                assert(m_codeSectionIdx == ~IndexT(0));
+                m_codeSectionIdx = section_idx;
             } else {
-                section.type = SECTION_DATA;
+                section.type = ExeSectionType::Data;
             }
         }
     }
@@ -137,38 +147,29 @@ const std::string &Executable::get_filename() const
     return m_exeFilename;
 }
 
-const ExeSectionMap &Executable::get_section_map() const
+const ExeSections &Executable::get_sections() const
 {
-    return m_sectionMap;
+    return m_sections;
 }
 
 const ExeSectionInfo *Executable::find_section(uint64_t address) const
 {
-    for (const ExeSectionMap::value_type &pair : m_sectionMap) {
-        const ExeSectionInfo &info = pair.second;
-        if (address >= info.address && address < info.address + info.size) {
-            return &info;
+    for (const ExeSectionInfo &section : m_sections) {
+        if (address >= section.address && address < section.address + section.size) {
+            return &section;
         }
     }
     return nullptr;
 }
 
-const uint8_t *Executable::section_data(const char *name) const
+const ExeSectionInfo *Executable::find_section(const std::string &name) const
 {
-    ExeSectionMap::const_iterator it = m_sectionMap.find(name);
-    return it != m_sectionMap.end() ? it->second.data : nullptr;
-}
+    StringToIndexMap::const_iterator it = m_sectionNameToIndexMap.find(name);
 
-uint64_t Executable::section_address(const char *name) const
-{
-    ExeSectionMap::const_iterator it = m_sectionMap.find(name);
-    return it != m_sectionMap.end() ? it->second.address : UINT64_MAX;
-}
-
-uint64_t Executable::section_size(const char *name) const
-{
-    ExeSectionMap::const_iterator it = m_sectionMap.find(name);
-    return it != m_sectionMap.end() ? it->second.size : 0;
+    if (it != m_sectionNameToIndexMap.end()) {
+        return &m_sections[it->second];
+    }
+    return nullptr;
 }
 
 uint64_t Executable::image_base() const
@@ -176,14 +177,18 @@ uint64_t Executable::image_base() const
     return m_imageData.imageBase;
 }
 
-uint64_t Executable::text_section_begin_from_image_base() const
+uint64_t Executable::code_section_begin_from_image_base() const
 {
-    return section_address(".text") + m_imageData.imageBase; // Slow
+    assert(m_codeSectionIdx < m_sections.size());
+
+    return m_sections[m_codeSectionIdx].address + m_imageData.imageBase;
 }
 
-uint64_t Executable::text_section_end_from_image_base() const
+uint64_t Executable::code_section_end_from_image_base() const
 {
-    return section_address(".text") + m_imageData.imageBase; // Slow
+    assert(m_codeSectionIdx < m_sections.size());
+
+    return m_sections[m_codeSectionIdx].address + m_sections[m_codeSectionIdx].size + m_imageData.imageBase;
 }
 
 uint64_t Executable::all_sections_begin_from_image_base() const
@@ -416,31 +421,34 @@ void Executable::load_sections(nlohmann::json &js)
 
         // Don't try and load an empty section.
         if (!name.empty()) {
-            ExeSectionMap::iterator section = m_sectionMap.find(name);
+            StringToIndexMap::const_iterator itSection = m_sectionNameToIndexMap.find(name);
 
-            if (section == m_sectionMap.end() && m_verbose) {
-                printf("Tried to load section info for section not present in this binary!\n");
-                printf("Section '%s' info was ignored.\n", name.c_str());
+            if (itSection == m_sectionNameToIndexMap.end()) {
+                if (m_verbose) {
+                    printf("Tried to load section info for section not present in this binary!\n");
+                    printf("Section '%s' info was ignored.\n", name.c_str());
+                }
+                continue;
             }
+
+            ExeSectionInfo &section = m_sections[itSection->second];
 
             std::string type;
             it->at("type").get_to(type);
 
-            if (strcasecmp(type.c_str(), "code") == 0) {
-                section->second.type = SECTION_CODE;
-            } else if (strcasecmp(type.c_str(), "data") == 0) {
-                section->second.type = SECTION_DATA;
-            } else if (m_verbose) {
+            section.type = to_section_type(type.c_str());
+
+            if (section.type == ExeSectionType::Unknown && m_verbose) {
                 printf("Incorrect type specified for section '%s'.\n", name.c_str());
             }
 
             auto it_address = it->find("address");
             if (it_address != it->end()) {
-                it_address->get_to(section->second.address);
+                it_address->get_to(section.address);
             }
             auto it_size = it->find("size");
             if (it_size != it->end()) {
-                it_size->get_to(section->second.size);
+                it_size->get_to(section.size);
             }
         }
     }
@@ -452,9 +460,9 @@ void Executable::dump_sections(nlohmann::json &js) const
         printf("Saving section info...\n");
     }
 
-    for (ExeSectionMap::const_iterator it = m_sectionMap.begin(); it != m_sectionMap.end(); ++it) {
-        const char *type_str = it->second.type == SECTION_CODE ? "code" : "data";
-        js.push_back({{"name", it->first}, {"type", type_str}, {"address", it->second.address}, {"size", it->second.size}});
+    for (const ExeSectionInfo &section : m_sections) {
+        const char *type_str = to_string(section.type);
+        js.push_back({{"name", section.name}, {"type", type_str}, {"address", section.address}, {"size", section.size}});
     }
 }
 

@@ -82,6 +82,7 @@ target_sources(unassemblize PRIVATE
     gitinfo.h
     executable.cpp
     executable.h
+    executabletypes.cpp
     executabletypes.h
     function.cpp
     function.h

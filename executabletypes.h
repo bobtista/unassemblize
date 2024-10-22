@@ -24,14 +24,20 @@ using Address64T = uint64_t;
 using Address32T = uint32_t;
 using IndexT = uint32_t;
 
-enum ExeSectionType
+enum class ExeSectionType
 {
-    SECTION_DATA,
-    SECTION_CODE,
+    Code,
+    Data,
+
+    Unknown,
 };
+
+ExeSectionType to_section_type(const char *str);
+const char *to_string(ExeSectionType type);
 
 struct ExeSectionInfo
 {
+    std::string name;
     const uint8_t *data;
     Address64T address; // Position of the section within the executable.
     uint64_t size;
@@ -69,7 +75,7 @@ struct ExeImageData
     uint8_t dataPad = 0x00;
 };
 
-using ExeSectionMap = std::map<std::string, ExeSectionInfo>; // #TODO: unordered_map maybe
+using ExeSections = std::vector<ExeSectionInfo>;
 using ExeSymbols = std::vector<ExeSymbol>;
 using ExeObjects = std::list<ExeObject>; // #TODO: vector
 
