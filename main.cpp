@@ -238,7 +238,7 @@ int main(int argc, char **argv)
     }
 
     if (ok) {
-        {
+        if (!output_file.empty()) {
             unassemblize::AsmOutputOptions o;
             o.output_file = get_output_file_name(runner.get_exe_filename(), output_file);
             o.format = format;

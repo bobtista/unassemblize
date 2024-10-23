@@ -90,27 +90,15 @@ bool Runner::process_pdb(const PdbSaveLoadOptions &o, size_t file_idx)
 
 bool Runner::process_asm_output(const AsmOutputOptions &o)
 {
-    Executable &executable = m_executables[0];
-
-    // #TODO: Cleanup
-    if (o.start_addr == 0 && o.end_addr == 0) {
-        for (const ExeSymbol &symbol : executable.get_symbols()) {
-            std::string sanitized_symbol_name = symbol.name;
-#if defined(WIN32)
-            util::remove_characters_inplace(sanitized_symbol_name, "\\/:*?\"<>|");
-#endif
-            std::string file_name;
-            if (!o.output_file.empty()) {
-                // program.symbol.S
-                file_name = util::get_file_name_without_ext(o.output_file) + "." + sanitized_symbol_name + ".S";
-            }
-            dump_function_to_file(file_name, executable, symbol.address, symbol.address + symbol.size, o.format);
-        }
-    } else {
-        dump_function_to_file(o.output_file, executable, o.start_addr, o.end_addr, o.format);
+    FILE *fp = fopen(o.output_file.c_str(), "w+");
+    if (fp != nullptr) {
+        const Executable &executable = m_executables[0];
+        dissassemble_function(fp, executable, o.start_addr, o.end_addr, o.format);
+        fclose(fp);
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 namespace
@@ -226,13 +214,13 @@ bool Runner::asm_compare_ready() const
     return m_executables[0].is_ready() && m_executables[1].is_ready();
 }
 
-const std::string &Runner::get_exe_filename(size_t file_idx)
+const std::string &Runner::get_exe_filename(size_t file_idx) const
 {
     assert(file_idx < MAX_INPUT_FILES);
     return m_executables[file_idx].get_filename();
 }
 
-std::string Runner::get_exe_file_name_from_pdb(size_t file_idx)
+std::string Runner::get_exe_file_name_from_pdb(size_t file_idx) const
 {
     assert(file_idx < MAX_INPUT_FILES);
     const PdbExeInfo &exe_info = m_pdbReaders[file_idx].get_exe_info();
@@ -252,20 +240,6 @@ void Runner::print_sections(Executable &exe)
     const ExeSections &sections = exe.get_sections();
     for (const ExeSectionInfo &section : sections) {
         printf("Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n", section.name.c_str(), section.address, section.size);
-    }
-}
-
-void Runner::dump_function_to_file(
-    const std::string &file_name, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
-{
-    if (!file_name.empty()) {
-        FILE *fp = fopen(file_name.c_str(), "w+");
-        if (fp != nullptr) {
-            dissassemble_function(fp, exe, start, end, format);
-            fclose(fp);
-        }
-    } else {
-        dissassemble_function(nullptr, exe, start, end, format);
     }
 }
 

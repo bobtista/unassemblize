@@ -93,8 +93,8 @@ public:
     bool process_asm_compare(const AsmCompareOptions &o);
 
     bool asm_compare_ready() const;
-    const std::string &get_exe_filename(size_t file_idx = 0);
-    std::string get_exe_file_name_from_pdb(size_t file_idx = 0);
+    const std::string &get_exe_filename(size_t file_idx = 0) const;
+    std::string get_exe_file_name_from_pdb(size_t file_idx = 0) const;
 
 private:
     static void print_sections(Executable &exe);
@@ -102,8 +102,6 @@ private:
      * Disassembles a range of bytes and outputs the format as though it were a single function.
      * Addresses should be the absolute addresses when the binary is loaded at its preferred base address.
      */
-    static void dump_function_to_file(
-        const std::string &file_name, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format);
     static void dissassemble_function(FILE *fp, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format);
     static void dissassemble_gas_func(FILE *fp, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format);
 
