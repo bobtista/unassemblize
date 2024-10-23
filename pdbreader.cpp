@@ -39,21 +39,6 @@ bool PdbReader::read(const std::string &pdb_file)
     return success;
 }
 
-const PdbSymbolInfoVector &PdbReader::get_symbols() const
-{
-    return m_symbols;
-}
-
-const PdbFunctionInfoVector &PdbReader::get_functions() const
-{
-    return m_functions;
-}
-
-const PdbExeInfo &PdbReader::get_exe_info() const
-{
-    return m_exe;
-}
-
 void PdbReader::load_json(const nlohmann::json &js)
 {
     js.at(s_compilands).get_to(m_compilands);

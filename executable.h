@@ -47,6 +47,7 @@ public:
     const ExeSections &get_sections() const;
     const ExeSectionInfo *find_section(uint64_t address) const;
     const ExeSectionInfo *find_section(const std::string &name) const;
+    const ExeSectionInfo *get_code_section() const;
     uint64_t image_base() const; // Default image base address if the ASLR is not enabled.
     uint64_t code_section_begin_from_image_base() const; // Begin address of .text section plus image base.
     uint64_t code_section_end_from_image_base() const; // End address of .text section plus image base.

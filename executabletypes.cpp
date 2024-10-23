@@ -24,6 +24,7 @@ ExeSectionType to_section_type(const char *str)
     } else {
         return ExeSectionType::Unknown;
     }
+    static_assert(size_t(ExeSectionType::Unknown) == 2, "Enum was changed. Update conditions.");
 }
 
 const char *to_string(ExeSectionType type)

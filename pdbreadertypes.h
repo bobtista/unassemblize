@@ -122,6 +122,7 @@ struct PdbSourceFileInfo
     std::vector<IndexT> compilandIds; // Synonymous for indices
     std::vector<IndexT> functionIds; // Synonymous for indices
 };
+using PdbSourceFileInfoVector = std::vector<PdbSourceFileInfo>;
 
 struct PdbCompilandInfo
 {
@@ -129,6 +130,7 @@ struct PdbCompilandInfo
     std::vector<IndexT> sourceFileIds; // Synonymous for indices
     std::vector<IndexT> functionIds; // Synonymous for indices
 };
+using PdbCompilandInfoVector = std::vector<PdbCompilandInfo>;
 
 struct PdbExeInfo
 {

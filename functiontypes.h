@@ -17,10 +17,11 @@ namespace unassemblize
 // #TODO: implement default value where exe object decides internally what to do.
 enum class AsmFormat
 {
-    DEFAULT,
     IGAS,
     AGAS,
     MASM,
+
+    DEFAULT,
 };
 
 AsmFormat to_asm_format(const char *str);

@@ -41,28 +41,48 @@ struct PdbSaveLoadOptions
 struct AsmOutputOptions
 {
     std::string output_file;
-    AsmFormat format;
+    AsmFormat format = AsmFormat::IGAS;
     uint64_t start_addr = 0;
     uint64_t end_addr = 0;
 };
 
-struct AsmCompareOptions
+enum class MatchBundleType
 {
-    AsmFormat format;
+    Compiland, // Functions will be bundled by the compilands they belong to.
+    SourceFile, // Functions will be bundled by the source files they belong to (.h .cpp).
+    None, // Functions will be bundled into one.
 };
 
-// #TODO: Functionality to discover and organize same functions on 2 sources
+MatchBundleType to_match_bundle_type(const char *str);
+
+struct AsmCompareOptions
+{
+    AsmFormat format = AsmFormat::IGAS;
+    size_t bundle_file_idx = 0; // The executable file that will be used to group symbols with.
+    MatchBundleType bundle_type = MatchBundleType::None; // The method to group symbols with.
+};
+
 // #TODO: Facilitate function asm matching (class AsmMatcher)
 
 /*
- * A function symbol match from multiple sources.
+ * Pairs a function from 2 executables.
  */
 struct FunctionMatch
 {
     std::string name;
-    std::array<Function, MAX_INPUT_FILES> functions;
+    std::array<Function, 2> functions;
 };
 using FunctionMatches = std::vector<FunctionMatch>;
+
+/*
+ * Groups function matches of the same compiland or source file together.
+ */
+struct FunctionMatchBundle
+{
+    std::string name; // Compiland or source file name.
+    std::vector<IndexT> matches;
+};
+using FunctionMatchBundles = std::vector<FunctionMatchBundle>;
 
 class Runner
 {
@@ -86,5 +106,6 @@ private:
     std::array<PdbReader, MAX_INPUT_FILES> m_pdbReaders;
 
     FunctionMatches m_matches;
+    FunctionMatchBundles m_matchBundles;
 };
 } // namespace unassemblize

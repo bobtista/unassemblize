@@ -18,6 +18,18 @@
 
 namespace unassemblize
 {
+MatchBundleType to_match_bundle_type(const char *str)
+{
+    if (0 == strcasecmp(str, "compiland")) {
+        return MatchBundleType::Compiland;
+    } else if (0 == strcasecmp(str, "sourcefile")) {
+        return MatchBundleType::SourceFile;
+    } else {
+        return MatchBundleType::None;
+    }
+    static_assert(size_t(MatchBundleType::None) == 2, "Enum was changed. Update conditions.");
+}
+
 void Runner::print_sections(Executable &exe)
 {
     const ExeSections &sections = exe.get_sections();
@@ -124,50 +136,108 @@ bool Runner::process_asm_output(const AsmOutputOptions &o)
     return true;
 }
 
+namespace
+{
+using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
+
+template<class SourceInfoVectorT>
+void build_bundles(FunctionMatchBundles &bundles, const PdbFunctionInfoVector &functions, const SourceInfoVectorT &sources,
+    const StringToIndexMapT &function_name_to_index)
+{
+    if (!sources.empty()) {
+        const IndexT sources_count = sources.size();
+        bundles.resize(sources_count);
+
+        for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx) {
+            const typename SourceInfoVectorT::value_type &source = sources[source_idx];
+            FunctionMatchBundle &bundle = bundles[source_idx];
+            const IndexT function_count = source.functionIds.size();
+            bundle.name = source.name;
+            bundle.matches.reserve(function_count);
+
+            for (IndexT function_idx = 0; function_idx < function_count; ++function_idx) {
+                const PdbFunctionInfo &functionInfo = functions[source.functionIds[function_idx]];
+                StringToIndexMapT::const_iterator it = function_name_to_index.find(functionInfo.decoratedName);
+                if (it != function_name_to_index.end()) {
+                    bundle.matches.push_back(it->second);
+                } else {
+                    // Can track unmatched functions here ...
+                }
+            }
+        }
+    }
+}
+
+} // namespace
+
 bool Runner::process_asm_compare(const AsmCompareOptions &o)
 {
     if (!asm_compare_ready())
         return false;
 
-    // The Executable class currently has no function symbol classification.
-    // Therefore, take the function symbols from the Pdb reader if applicable.
-
-    std::array<ExeSymbols, 2> pdb_function_symbols;
-
-    for (size_t i = 0; i < pdb_function_symbols.size(); ++i) {
-        const auto &pdb_functions = m_pdbReaders[i].get_functions();
-        pdb_function_symbols[i] = std::move(to_exe_symbols(pdb_functions.begin(), pdb_functions.end()));
-    }
-
-    std::array<const ExeSymbols *, 2> function_symbols;
-
-    for (size_t i = 0; i < function_symbols.size(); ++i) {
-        if (!pdb_function_symbols[i].empty()) {
-            function_symbols[i] = &pdb_function_symbols[i];
-        } else {
-            function_symbols[i] = &m_executables[i].get_symbols();
-        }
-    }
-
-    const size_t less_idx = function_symbols[0]->size() < function_symbols[1]->size() ? 0 : 1;
+    const size_t less_idx = m_executables[0].get_symbols().size() < m_executables[1].get_symbols().size() ? 0 : 1;
     const size_t more_idx = less_idx == 0 ? 1 : 0;
     const FunctionSetup less_setup(m_executables[less_idx], o.format);
     const FunctionSetup more_setup(m_executables[more_idx], o.format);
-    const ExeSymbols &less_symbols = *function_symbols[less_idx];
-    m_matches.reserve(less_symbols.size());
+    const ExeSymbols &less_symbols = m_executables[less_idx].get_symbols();
+
+    auto in_code_section = [&](size_t idx, const ExeSymbol &symbol) -> bool {
+        const ExeSectionInfo *code_section = m_executables[idx].get_code_section();
+        return symbol.address >= code_section->address && symbol.address < code_section->address + code_section->size;
+    };
+
+    using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
+    StringToIndexMapT function_name_to_index;
+    m_matches.reserve(512);
+    function_name_to_index.reserve(512);
 
     for (const ExeSymbol &less_symbol : less_symbols) {
+        if (!in_code_section(less_idx, less_symbol)) {
+            continue;
+        }
         const ExeSymbol &more_symbol = m_executables[more_idx].get_symbol(less_symbol.name);
-        if (!more_symbol.name.empty()) {
-            m_matches.emplace_back();
-            FunctionMatch &match = m_matches.back();
-            match.name = less_symbol.name;
-            match.functions[less_idx].disassemble(less_setup, less_symbol.address, less_symbol.address + less_symbol.size);
-            match.functions[more_idx].disassemble(more_setup, more_symbol.address, more_symbol.address + more_symbol.size);
+        if (more_symbol.name.empty() || !in_code_section(more_idx, more_symbol)) {
+            continue;
+        }
+        IndexT index = m_matches.size();
+        m_matches.emplace_back();
+        FunctionMatch &match = m_matches.back();
+        match.name = less_symbol.name;
+        match.functions[less_idx].disassemble(less_setup, less_symbol.address, less_symbol.address + less_symbol.size);
+        match.functions[more_idx].disassemble(more_setup, more_symbol.address, more_symbol.address + more_symbol.size);
+        function_name_to_index[match.name] = index;
+    }
+
+    if (o.bundle_file_idx < 2) {
+        switch (o.bundle_type) {
+            case MatchBundleType::Compiland: {
+                const PdbFunctionInfoVector &functions = m_pdbReaders[o.bundle_file_idx].get_functions();
+                const PdbCompilandInfoVector &compilands = m_pdbReaders[o.bundle_file_idx].get_compilands();
+
+                build_bundles(m_matchBundles, functions, compilands, function_name_to_index);
+                break;
+            }
+            case MatchBundleType::SourceFile: {
+                const PdbFunctionInfoVector &functions = m_pdbReaders[o.bundle_file_idx].get_functions();
+                const PdbSourceFileInfoVector &sources = m_pdbReaders[o.bundle_file_idx].get_source_files();
+
+                build_bundles(m_matchBundles, functions, sources, function_name_to_index);
+                break;
+            }
         }
     }
 
-    // ...
+    if (m_matchBundles.empty()) {
+        // Create a dummy bundle with all function matches.
+        m_matchBundles.resize(1);
+        FunctionMatchBundle &bundle = m_matchBundles[0];
+        const size_t count = m_matches.size();
+        bundle.name = "all";
+        bundle.matches.resize(count);
+        for (size_t i = 0; i < count; ++i) {
+            bundle.matches[i] = i;
+        }
+    }
 
     return true;
 }

@@ -26,6 +26,7 @@ AsmFormat to_asm_format(const char *str)
     } else {
         return AsmFormat::DEFAULT;
     }
+    static_assert(size_t(AsmFormat::DEFAULT) == 3, "Enum was changed. Update switch case.");
 }
 
 } // namespace unassemblize

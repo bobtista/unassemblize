@@ -172,6 +172,14 @@ const ExeSectionInfo *Executable::find_section(const std::string &name) const
     return nullptr;
 }
 
+const ExeSectionInfo *Executable::get_code_section() const
+{
+    if (m_codeSectionIdx < m_sections.size()) {
+        return &m_sections[m_codeSectionIdx];
+    }
+    return nullptr;
+}
+
 uint64_t Executable::image_base() const
 {
     return m_imageData.imageBase;
@@ -179,16 +187,16 @@ uint64_t Executable::image_base() const
 
 uint64_t Executable::code_section_begin_from_image_base() const
 {
-    assert(m_codeSectionIdx < m_sections.size());
-
-    return m_sections[m_codeSectionIdx].address + m_imageData.imageBase;
+    const ExeSectionInfo *section = get_code_section();
+    assert(section != nullptr);
+    return section->address + m_imageData.imageBase;
 }
 
 uint64_t Executable::code_section_end_from_image_base() const
 {
-    assert(m_codeSectionIdx < m_sections.size());
-
-    return m_sections[m_codeSectionIdx].address + m_sections[m_codeSectionIdx].size + m_imageData.imageBase;
+    const ExeSectionInfo *section = get_code_section();
+    assert(section != nullptr);
+    return section->address + section->size + m_imageData.imageBase;
 }
 
 uint64_t Executable::all_sections_begin_from_image_base() const

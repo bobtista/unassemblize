@@ -35,9 +35,11 @@ public:
 
     bool read(const std::string &pdb_file);
 
-    const PdbSymbolInfoVector &get_symbols() const;
-    const PdbFunctionInfoVector &get_functions() const;
-    const PdbExeInfo &get_exe_info() const;
+    const PdbCompilandInfoVector &get_compilands() const { return m_compilands; }
+    const PdbSourceFileInfoVector &get_source_files() const { return m_sourceFiles; }
+    const PdbSymbolInfoVector &get_symbols() const { return m_symbols; }
+    const PdbFunctionInfoVector &get_functions() const { return m_functions; }
+    const PdbExeInfo &get_exe_info() const { return m_exe; }
 
     void load_json(const nlohmann::json &js);
     bool load_config(const std::string &file_name);
@@ -97,9 +99,9 @@ private:
      * Persistent structures created after Pdb read.
      */
     // Compilands indices match DIA2 indices.
-    std::vector<PdbCompilandInfo> m_compilands;
+    PdbCompilandInfoVector m_compilands;
     // Source Files indices do not match DIA2 indices (aka "unique id").
-    std::vector<PdbSourceFileInfo> m_sourceFiles;
+    PdbSourceFileInfoVector m_sourceFiles;
     PdbFunctionInfoVector m_functions;
     // Symbols contains every public and global symbol, including functions.
     PdbSymbolInfoVector m_symbols;
