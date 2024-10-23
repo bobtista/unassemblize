@@ -39,20 +39,53 @@ void Runner::print_sections(Executable &exe)
 }
 
 void Runner::dump_function_to_file(
-    const std::string &file_name, Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
+    const std::string &file_name, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
 {
     if (!file_name.empty()) {
         FILE *fp = fopen(file_name.c_str(), "w+");
         if (fp != nullptr) {
-            exe.dissassemble_function(fp, start, end, format);
+            dissassemble_function(fp, exe, start, end, format);
             fclose(fp);
         }
     } else {
-        exe.dissassemble_function(nullptr, start, end, format);
+        dissassemble_function(nullptr, exe, start, end, format);
     }
 }
 
-// #TODO: split into 2 functions, load exe, disassemble functions
+void Runner::dissassemble_function(FILE *fp, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
+{
+    if (format != AsmFormat::MASM) {
+        dissassemble_gas_func(fp, exe, start, end, format);
+    }
+}
+
+void Runner::dissassemble_gas_func(FILE *fp, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
+{
+    if (start != 0 && end != 0) {
+        const FunctionSetup setup(exe, format);
+
+        std::string str;
+        {
+            Function func;
+            func.disassemble(setup, start, end);
+            const InstructionDataVector &instructions = func.get_instructions();
+            str.reserve(instructions.size() * 32);
+            append_as_text(str, instructions);
+        }
+
+        const std::string &sym = exe.get_symbol(start).name;
+
+        if (fp != nullptr) {
+            fprintf(fp, ".intel_syntax noprefix\n\n");
+            if (!sym.empty()) {
+                fprintf(fp, ".globl %s\n%s", sym.c_str(), str.c_str());
+            } else {
+                fprintf(fp, ".globl sub_%" PRIx64 "\n%s", start, str.c_str());
+            }
+        }
+    }
+}
+
 bool Runner::process_exe(const ExeSaveLoadOptions &o, size_t file_idx)
 {
     assert(file_idx < MAX_INPUT_FILES);

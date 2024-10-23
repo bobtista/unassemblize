@@ -70,15 +70,7 @@ public:
      */
     void add_symbol(const ExeSymbol &symbol, bool overwrite = false);
 
-    /**
-     * Disassembles a range of bytes and outputs the format as though it were a single function.
-     * Addresses should be the absolute addresses when the binary is loaded at its preferred base address.
-     */
-    void dissassemble_function(FILE *fp, uint64_t start, uint64_t end, AsmFormat format);
-
 private:
-    void dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end, AsmFormat format);
-
     void load_symbols(nlohmann::json &js, bool overwrite_symbols);
     void dump_symbols(nlohmann::json &js) const;
 

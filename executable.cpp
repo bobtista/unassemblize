@@ -11,7 +11,6 @@
  *            LICENSE
  */
 #include "executable.h"
-#include "function.h"
 #include <LIEF/LIEF.hpp>
 #include <fstream>
 #include <iostream>
@@ -524,40 +523,6 @@ void Executable::dump_objects(nlohmann::json &js) const
 
         for (auto it2 = it->sections.begin(); it2 != it->sections.end(); ++it2) {
             sections.push_back({{"name", it2->name}, {"offset", it2->offset}, {"size", it2->size}});
-        }
-    }
-}
-
-void Executable::dissassemble_function(FILE *fp, uint64_t start, uint64_t end, AsmFormat format)
-{
-    if (format != AsmFormat::MASM) {
-        dissassemble_gas_func(fp, start, end, format);
-    }
-}
-
-void Executable::dissassemble_gas_func(FILE *fp, uint64_t start, uint64_t end, AsmFormat format)
-{
-    if (start != 0 && end != 0) {
-        const FunctionSetup setup(*this, format); // #TODO: Optimize by creating just once
-
-        std::string str;
-        {
-            Function func;
-            func.disassemble(setup, start, end);
-            const InstructionDataVector &instructions = func.get_instructions();
-            str.reserve(instructions.size() * 32);
-            append_as_text(str, instructions);
-        }
-
-        const std::string &sym = get_symbol(start).name;
-
-        if (fp != nullptr) {
-            fprintf(fp, ".intel_syntax noprefix\n\n");
-            if (!sym.empty()) {
-                fprintf(fp, ".globl %s\n%s", sym.c_str(), str.c_str());
-            } else {
-                fprintf(fp, ".globl sub_%" PRIx64 "\n%s", start, str.c_str());
-            }
         }
     }
 }
