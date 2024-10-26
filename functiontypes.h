@@ -12,8 +12,17 @@
  */
 #pragma once
 
+#include <array>
+#include <string_view>
+
 namespace unassemblize
 {
+constexpr std::string_view s_prefix_sub = "sub_";
+constexpr std::string_view s_prefix_off = "off_";
+constexpr std::string_view s_prefix_unk = "unk_";
+constexpr std::string_view s_prefix_loc = "loc_";
+constexpr std::array<std::string_view, 4> s_prefix_array = {s_prefix_sub, s_prefix_off, s_prefix_unk, s_prefix_loc};
+
 // #TODO: implement default value where exe object decides internally what to do.
 enum class AsmFormat
 {

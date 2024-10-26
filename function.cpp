@@ -11,6 +11,7 @@
  *            LICENSE
  */
 #include "function.h"
+#include "util.h"
 #include <Zycore/Format.h>
 #include <Zydis/Zydis.h>
 #include <fmt/core.h>
@@ -128,24 +129,28 @@ bool GetStackWidth(ZydisStackWidth &stack_width, ZydisMachineMode machine_mode)
 
 } // namespace
 
-void append_as_text(std::string &str, const InstructionDataVector &instructions)
+void append_as_text(std::string &str, const AsmInstructionVariants &instructions)
 {
-    for (const InstructionData &instruction : instructions) {
-        if (!instruction.label.empty()) {
-            str += fmt::format("{:s}:\n", instruction.label);
-        }
-        if (instruction.isInvalid) {
-            // Add unrecognized instruction as comment.
-            str += fmt::format("; Unrecognized opcode at runtime-address:0x{:08X} bytes:{:s}",
-                instruction.address,
-                instruction.instruction);
-        } else {
-            str += fmt::format("    {:s}", instruction.instruction);
-        }
+    const std::string strip_quote = "\"";
 
-        if (instruction.isJump) {
-            // Add jump distance as inline comment.
-            str += fmt::format(" ; {:+d} bytes", instruction.jumpLen);
+    for (const AsmInstructionVariant &variant : instructions) {
+        if (const AsmInstruction *instruction = std::get_if<AsmInstruction>(&variant)) {
+            // Print instruction.
+            if (instruction->isInvalid) {
+                // Add unrecognized instruction as comment.
+                str += fmt::format(
+                    "; Unrecognized opcode at runtime-address:0x{:08X} bytes:{:s}", instruction->address, instruction->text);
+            } else {
+                str += fmt::format("    {:s}", util::strip(instruction->text, strip_quote));
+            }
+
+            if (instruction->isJump) {
+                // Add jump distance as inline comment.
+                str += fmt::format(" ; {:+d} bytes", instruction->jumpLen);
+            }
+        } else if (const AsmInstructionLabel *label = std::get_if<AsmInstructionLabel>(&variant)) {
+            // Print label.
+            str += fmt::format("{:s}:", label->label);
         }
 
         str += "\n";
@@ -232,7 +237,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
             if (jump_type == JumpType::Short) {
                 ZYAN_CHECK(ZyanStringAppendFormat(string, "short "));
             }
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "%s", symbol.name.c_str()));
+            const std::string format = fmt::format("\"{:s}\"", symbol.name);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
 
@@ -241,8 +247,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "sub_%" PRIx64, address));
+            const std::string format = fmt::format("\"{:s}{:x}\"", s_prefix_sub, address);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
 
@@ -251,7 +257,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "off_%" PRIx64, address));
+            const std::string format = fmt::format("\"{:s}{:x}\"", s_prefix_off, address);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
     }
@@ -276,7 +283,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressRelative(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        ZYAN_CHECK(ZyanStringAppendFormat(string, "%s", symbol.name.c_str()));
+        const std::string format = fmt::format("\"{:s}\"", symbol.name);
+        ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
         return ZYAN_STATUS_SUCCESS;
     }
 
@@ -285,7 +293,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressRelative(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        ZYAN_CHECK(ZyanStringAppendFormat(string, "sub_%" PRIx64, address));
+        const std::string format = fmt::format("\"{:s}{:x}\"", s_prefix_sub, address);
+        ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
         return ZYAN_STATUS_SUCCESS;
     }
 
@@ -294,7 +303,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressRelative(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        ZYAN_CHECK(ZyanStringAppendFormat(string, "off_%" PRIx64, address));
+        const std::string format = fmt::format("\"{:s}{:x}\"", s_prefix_off, address);
+        ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
         return ZYAN_STATUS_SUCCESS;
     }
 
@@ -326,7 +336,8 @@ ZyanStatus Function::UnasmFormatterPrintDISP(
                 ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
                 ZyanString *string;
                 ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-                ZYAN_CHECK(ZyanStringAppendFormat(string, "+%s", symbol.name.c_str()));
+                const std::string format = fmt::format("+\"{:s}\"", symbol.name);
+                ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
                 return ZYAN_STATUS_SUCCESS;
             }
         }
@@ -336,7 +347,8 @@ ZyanStatus Function::UnasmFormatterPrintDISP(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "+sub_%" PRIx64, value));
+            const std::string format = fmt::format("+\"{:s}{:x}\"", s_prefix_sub, value);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
 
@@ -345,7 +357,8 @@ ZyanStatus Function::UnasmFormatterPrintDISP(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "+off_%" PRIx64, value));
+            const std::string format = fmt::format("+\"{:s}{:x}\"", s_prefix_off, value);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
     }
@@ -375,7 +388,8 @@ ZyanStatus Function::UnasmFormatterPrintIMM(
                 ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
                 ZyanString *string;
                 ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-                ZYAN_CHECK(ZyanStringAppendFormat(string, "offset %s", symbol.name.c_str()));
+                const std::string format = fmt::format("offset \"{:s}\"", symbol.name);
+                ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
                 return ZYAN_STATUS_SUCCESS;
             }
         }
@@ -385,7 +399,8 @@ ZyanStatus Function::UnasmFormatterPrintIMM(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "offset sub_%" PRIx64, value));
+            const std::string format = fmt::format("offset \"{:s}{:x}\"", s_prefix_sub, value);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
 
@@ -394,7 +409,8 @@ ZyanStatus Function::UnasmFormatterPrintIMM(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "offset off_%" PRIx64, value));
+            const std::string format = fmt::format("offset \"{:s}{:x}\"", s_prefix_off, value);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
     }
@@ -418,7 +434,8 @@ ZyanStatus Function::UnasmFormatterFormatOperandPTR(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        ZYAN_CHECK(ZyanStringAppendFormat(string, "%s", symbol.name.c_str()));
+        const std::string format = fmt::format("\"{:s}\"", symbol.name);
+        ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
         return ZYAN_STATUS_SUCCESS;
     }
 
@@ -427,7 +444,8 @@ ZyanStatus Function::UnasmFormatterFormatOperandPTR(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        ZYAN_CHECK(ZyanStringAppendFormat(string, "sub_%" PRIx64, offset));
+        const std::string format = fmt::format("\"{:s}{:x}\"", s_prefix_sub, offset);
+        ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
         return ZYAN_STATUS_SUCCESS;
     }
 
@@ -436,7 +454,8 @@ ZyanStatus Function::UnasmFormatterFormatOperandPTR(
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        ZYAN_CHECK(ZyanStringAppendFormat(string, "unk_%" PRIx64, offset));
+        const std::string format = fmt::format("\"{:s}{:x}\"", s_prefix_unk, offset);
+        ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
         return ZYAN_STATUS_SUCCESS;
     }
 
@@ -473,7 +492,8 @@ ZyanStatus Function::UnasmFormatterFormatOperandMEM(
                 ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
                 ZyanString *string;
                 ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-                ZYAN_CHECK(ZyanStringAppendFormat(string, "[%s]", symbol.name.c_str()));
+                const std::string format = fmt::format("[\"{:s}\"]", symbol.name);
+                ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
                 return ZYAN_STATUS_SUCCESS;
             }
         }
@@ -488,7 +508,8 @@ ZyanStatus Function::UnasmFormatterFormatOperandMEM(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "[sub_%" PRIx64 "]", value));
+            const std::string format = fmt::format("[\"{:s}{:x}\"]", s_prefix_sub, value);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
 
@@ -502,7 +523,8 @@ ZyanStatus Function::UnasmFormatterFormatOperandMEM(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            ZYAN_CHECK(ZyanStringAppendFormat(string, "[unk_%" PRIx64 "]", value));
+            const std::string format = fmt::format("[\"{:s}{:x}\"]", s_prefix_unk, value);
+            ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
     }
@@ -607,6 +629,7 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
     instruction_buffer.resize(1024);
 
     size_t instruction_count = 0;
+    size_t label_count = 0;
 
     // Loop through function once to identify all jumps to local labels and create them.
     while (section_offset < section_offset_end) {
@@ -623,6 +646,13 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
         section_offset += instruction.info.length;
         ++instruction_count;
 
+        {
+            const ExeSymbol &symbol = setup.m_executable.get_symbol(instruction_address);
+            if (!symbol.name.empty()) {
+                ++label_count;
+            }
+        }
+
         if (!ZYAN_SUCCESS(status)) {
             continue;
         }
@@ -633,21 +663,33 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
             ZydisCalcAbsoluteAddress(&instruction.info, instruction.operands, instruction_address, &absolute_address);
 
             if (absolute_address >= begin_address && absolute_address < end_address) {
-                add_pseudo_symbol(absolute_address);
+                if (add_pseudo_symbol(absolute_address)) {
+                    ++label_count;
+                }
             }
         }
     }
 
-    m_instructions.resize(instruction_count);
+    m_instructions.reserve(instruction_count + label_count);
     section_offset = begin_address - address_offset;
     runtime_address = begin_address;
 
     size_t instruction_index = 0;
     while (section_offset < section_offset_end) {
-        InstructionData &instruction_data = m_instructions[instruction_index];
         const Address64T instruction_address = runtime_address;
         const Address64T instruction_section_offset = section_offset;
-        instruction_data.address = runtime_address;
+
+        {
+            const ExeSymbol &symbol = get_symbol(instruction_address);
+            if (!symbol.name.empty()) {
+                AsmInstructionLabel asm_label;
+                asm_label.label = symbol.name;
+                m_instructions.emplace_back(std::move(asm_label));
+            }
+        }
+
+        AsmInstruction asm_instruction;
+        asm_instruction.address = runtime_address;
 
         const ZyanStatus status = UnasmDisassembleCustom(setup.m_formatter,
             setup.m_decoder,
@@ -663,44 +705,38 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
         ++instruction_index;
 
         if (!ZYAN_SUCCESS(status)) {
-            instruction_data.isInvalid = true;
+            asm_instruction.isInvalid = true;
             for (ZyanU8 i = 0; i < instruction.info.length; ++i) {
-                instruction_data.instruction += fmt::format("{:02X}", section_data[instruction_section_offset + i]);
+                asm_instruction.text += fmt::format("{:02X}", section_data[instruction_section_offset + i]);
             }
-            continue;
-        }
+        } else {
+            asm_instruction.text = instruction_buffer.c_str();
 
-        {
-            const ExeSymbol &symbol = get_symbol(instruction_address);
-            if (!symbol.name.empty()) {
-                instruction_data.label = symbol.name;
-            }
-        }
+            const JumpType jump_type = IsJump(&instruction.info, &instruction.operands[0]);
 
-        instruction_data.instruction = instruction_buffer.c_str();
-
-        const JumpType jump_type = IsJump(&instruction.info, &instruction.operands[0]);
-
-        if (jump_type == JumpType::Short) {
-            const int64_t offset = instruction.operands[0].imm.value.s;
-            assert(std::abs(offset) < (1 << (sizeof(InstructionData::jumpLen) * 8)) / 2);
-            instruction_data.isJump = true;
-            instruction_data.jumpLen = offset;
-        } else if (jump_type == JumpType::Long) {
-            // Is only stable when jumping within a single function.
-            ZyanU64 jump_address;
-            if (ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
-                    &instruction.info, &instruction.operands[0], instruction_address, &jump_address))) {
-                if (jump_address >= get_begin_address() && jump_address < get_end_address()) {
-                    const int64_t offset = int64_t(jump_address) - int64_t(instruction_address);
+            if (jump_type == JumpType::Short) {
+                const int64_t offset = instruction.operands[0].imm.value.s;
+                assert(std::abs(offset) < (1 << (sizeof(AsmInstruction::jumpLen) * 8)) / 2);
+                asm_instruction.isJump = true;
+                asm_instruction.jumpLen = offset;
+            } else if (jump_type == JumpType::Long) {
+                // Is only stable when jumping within a single function.
+                ZyanU64 jump_address;
+                if (ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
+                        &instruction.info, &instruction.operands[0], instruction_address, &jump_address))) {
+                    if (jump_address >= get_begin_address() && jump_address < get_end_address()) {
+                        const int64_t offset = int64_t(jump_address) - int64_t(instruction_address);
 #if 0 // Cannot assert this when disassembling a range beyond a single function.
-                     assert(std::abs(offset) < (1 << (sizeof(InstructionData::jumpLen) * 8)) / 2);
+                        assert(std::abs(offset) < (1 << (sizeof(InstructionData::jumpLen) * 8)) / 2);
 #endif
-                    instruction_data.isJump = true;
-                    instruction_data.jumpLen = offset;
+                        asm_instruction.isJump = true;
+                        asm_instruction.jumpLen = offset;
+                    }
                 }
             }
         }
+
+        m_instructions.emplace_back(std::move(asm_instruction));
     }
 
     assert(instruction_index == instruction_count);
@@ -708,12 +744,12 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
     m_intermediate = nullptr;
 }
 
-void Function::add_pseudo_symbol(Address64T address)
+bool Function::add_pseudo_symbol(Address64T address)
 {
     {
         const ExeSymbol &symbol = get_executable().get_symbol(address);
         if (symbol.address != 0) {
-            return;
+            return false;
         }
     }
 
@@ -722,19 +758,23 @@ void Function::add_pseudo_symbol(Address64T address)
 
     Address64ToIndexMap::iterator it = pseudoSymbolMap.find(address);
 
-    if (it == pseudoSymbolMap.end()) {
-        ExeSymbol symbol;
-        symbol.name = fmt::format("loc_{:X}", address);
-        symbol.address = address;
-        symbol.size = 0;
-
-        const uint32_t index = static_cast<uint32_t>(pseudoSymbolVec.size());
-        pseudoSymbolVec.emplace_back(std::move(symbol));
-        pseudoSymbolMap[address] = index;
+    if (it != pseudoSymbolMap.end()) {
+        return false;
     }
+
+    ExeSymbol symbol;
+    symbol.name = fmt::format("{:s}{:x}", s_prefix_loc, address);
+    symbol.address = address;
+    symbol.size = 0;
+
+    const uint32_t index = static_cast<uint32_t>(pseudoSymbolVec.size());
+    pseudoSymbolVec.emplace_back(std::move(symbol));
+    pseudoSymbolMap[address] = index;
+
+    return true;
 }
 
-const InstructionDataVector &Function::get_instructions() const
+const AsmInstructionVariants &Function::get_instructions() const
 {
     return m_instructions;
 }

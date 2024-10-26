@@ -259,7 +259,7 @@ void Runner::dissassemble_gas_func(FILE *fp, const Executable &exe, uint64_t sta
         {
             Function func;
             func.disassemble(setup, start, end);
-            const InstructionDataVector &instructions = func.get_instructions();
+            const AsmInstructionVariants &instructions = func.get_instructions();
             str.reserve(instructions.size() * 32);
             append_as_text(str, instructions);
         }

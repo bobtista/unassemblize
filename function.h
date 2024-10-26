@@ -17,9 +17,11 @@
 #include <Zydis/Decoder.h>
 #include <Zydis/Formatter.h>
 #include <Zydis/SharedTypes.h>
+#include <array>
 #include <map>
 #include <stdint.h>
 #include <string>
+#include <variant>
 #include <vector>
 
 struct ZydisDisassembledInstruction_;
@@ -30,10 +32,16 @@ namespace unassemblize
 /*
  * Intermediate instruction data between Zydis disassemble and final text generation.
  */
-// #TODO: Think about how to improve instruction string/data to preserve a little bit more information of how the instruction
-// is composed (symbol address, operands, etc).
-struct InstructionData
+struct AsmInstruction
 {
+    AsmInstruction()
+    {
+        address = 0;
+        isJump = false;
+        isInvalid = false;
+        jumpLen = 0;
+    }
+
     Address64T address; // Position of the instruction within the executable.
     bool isJump : 1; // Instruction is a jump.
     bool isInvalid : 1; // Instruction was not read or formatted correctly.
@@ -41,15 +49,25 @@ struct InstructionData
     {
         int16_t jumpLen; // Jump length in bytes.
     };
-    std::string instruction; // Instruction mnemonics and operands with address symbol substitution.
-    std::string label; // Function or Jump label before this instruction.
+    std::string text; // Instruction mnemonics and operands with address symbol substitution.
 };
-using InstructionDataVector = std::vector<InstructionData>;
+
+struct AsmInstructionLabel
+{
+    std::string label;
+};
+
+struct AsmInstructionNull
+{
+};
+
+using AsmInstructionVariant = std::variant<AsmInstructionNull, AsmInstructionLabel, AsmInstruction>;
+using AsmInstructionVariants = std::vector<AsmInstructionVariant>;
 
 /*
  * Generate pure text from an instruction data vector.
  */
-void append_as_text(std::string &str, const InstructionDataVector &instructions);
+void append_as_text(std::string &str, const AsmInstructionVariants &instructions);
 
 class Function;
 
@@ -115,7 +133,7 @@ public:
      */
     void disassemble(const FunctionSetup &setup, Address64T begin_address, Address64T end_address);
 
-    const InstructionDataVector &get_instructions() const;
+    const AsmInstructionVariants &get_instructions() const;
     Address64T get_begin_address() const;
     Address64T get_end_address() const;
 
@@ -130,7 +148,7 @@ private:
     ZydisFormatterFunc get_default_format_operand_ptr() const;
     ZydisFormatterRegisterFunc get_default_print_register() const;
 
-    void add_pseudo_symbol(Address64T address);
+    bool add_pseudo_symbol(Address64T address);
     const ExeSymbol &get_symbol(Address64T address) const;
     const ExeSymbol &get_symbol_from_image_base(Address64T address) const;
     const ExeSymbol &get_nearest_symbol(Address64T address) const; // #TODO: investigate
@@ -159,9 +177,9 @@ private:
 
 private:
     FunctionIntermediate *m_intermediate = nullptr;
-    Address64T m_beginAddress = 0; // #TODO: Move to FunctionIntermediate if not needed here.
-    Address64T m_endAddress = 0; // #TODO: Remove if not needed at all.
-    InstructionDataVector m_instructions;
+    Address64T m_beginAddress = 0;
+    Address64T m_endAddress = 0;
+    AsmInstructionVariants m_instructions;
 };
 
 } // namespace unassemblize

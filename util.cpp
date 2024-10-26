@@ -2,7 +2,7 @@
 /**
  * @file
  *
- * @brief Class to extract relevant symbols from PDB files
+ * @brief Utility functions
  *
  * @copyright Unassemblize is free software: you can redistribute it and/or
  *            modify it under the terms of the GNU General Public License
@@ -42,10 +42,17 @@ std::wstring to_utf16(const std::string &utf8)
     return convert.from_bytes(utf8);
 }
 
-void remove_characters_inplace(std::string &s, const std::string &chars)
+void strip_inplace(std::string &str, const std::string &chars)
 {
-    s.erase(
-        std::remove_if(s.begin(), s.end(), [&chars](const char &c) { return chars.find(c) != std::string::npos; }), s.end());
+    auto pred = [&chars](const char &c) { return chars.find(c) != std::string::npos; };
+    str.erase(std::remove_if(str.begin(), str.end(), pred), str.end());
+}
+
+std::string strip(const std::string &str, const std::string &chars)
+{
+    std::string s(str);
+    strip_inplace(s, chars);
+    return s;
 }
 
 std::string get_file_name_without_ext(const std::string &file_name)
