@@ -133,9 +133,11 @@ public:
      */
     void disassemble(const FunctionSetup &setup, Address64T begin_address, Address64T end_address);
 
-    const AsmInstructionVariants &get_instructions() const;
-    Address64T get_begin_address() const;
-    Address64T get_end_address() const;
+    const AsmInstructionVariants &get_instructions() const { return m_instructions; }
+    Address64T get_begin_address() const { return m_beginAddress; }
+    Address64T get_end_address() const { return m_endAddress; }
+    uint32_t get_instruction_count() const { return m_instructionCount; }
+    uint32_t get_label_count() const { return m_labelCount; }
 
 private:
     const FunctionSetup &get_setup() const;
@@ -180,6 +182,8 @@ private:
     Address64T m_beginAddress = 0;
     Address64T m_endAddress = 0;
     AsmInstructionVariants m_instructions;
+    uint32_t m_instructionCount = 0;
+    uint32_t m_labelCount = 0;
 };
 
 } // namespace unassemblize

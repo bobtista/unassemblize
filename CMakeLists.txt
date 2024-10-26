@@ -80,6 +80,10 @@ add_executable(unassemblize)
 target_sources(unassemblize PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp
     gitinfo.h
+    asmmatcher.cpp
+    asmmatcher.h
+    asmmatchertypes.cpp
+    asmmatchertypes.h
     executable.cpp
     executable.h
     executabletypes.cpp

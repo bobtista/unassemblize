@@ -11,6 +11,7 @@
  *            LICENSE
  */
 #include "runner.h"
+#include "asmmatcher.h"
 #include "util.h"
 #include <filesystem>
 #include <inttypes.h>
@@ -153,7 +154,7 @@ bool Runner::process_asm_compare(const AsmCompareOptions &o)
 
     using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
     StringToIndexMapT function_name_to_index;
-    m_matches.reserve(512);
+    m_collection.matches.reserve(512);
     function_name_to_index.reserve(512);
 
     for (const ExeSymbol &less_symbol : less_symbols) {
@@ -164,9 +165,9 @@ bool Runner::process_asm_compare(const AsmCompareOptions &o)
         if (more_symbol.name.empty() || !in_code_section(more_idx, more_symbol)) {
             continue;
         }
-        IndexT index = m_matches.size();
-        m_matches.emplace_back();
-        FunctionMatch &match = m_matches.back();
+        IndexT index = m_collection.matches.size();
+        m_collection.matches.emplace_back();
+        FunctionMatch &match = m_collection.matches.back();
         match.name = less_symbol.name;
         match.functions[less_idx].disassemble(less_setup, less_symbol.address, less_symbol.address + less_symbol.size);
         match.functions[more_idx].disassemble(more_setup, more_symbol.address, more_symbol.address + more_symbol.size);
@@ -179,28 +180,35 @@ bool Runner::process_asm_compare(const AsmCompareOptions &o)
                 const PdbFunctionInfoVector &functions = m_pdbReaders[o.bundle_file_idx].get_functions();
                 const PdbCompilandInfoVector &compilands = m_pdbReaders[o.bundle_file_idx].get_compilands();
 
-                build_bundles(m_matchBundles, functions, compilands, function_name_to_index);
+                build_bundles(m_collection.bundles, functions, compilands, function_name_to_index);
                 break;
             }
             case MatchBundleType::SourceFile: {
                 const PdbFunctionInfoVector &functions = m_pdbReaders[o.bundle_file_idx].get_functions();
                 const PdbSourceFileInfoVector &sources = m_pdbReaders[o.bundle_file_idx].get_source_files();
 
-                build_bundles(m_matchBundles, functions, sources, function_name_to_index);
+                build_bundles(m_collection.bundles, functions, sources, function_name_to_index);
                 break;
             }
         }
     }
 
-    if (m_matchBundles.empty()) {
+    if (m_collection.bundles.empty()) {
         // Create a dummy bundle with all function matches.
-        m_matchBundles.resize(1);
-        FunctionMatchBundle &bundle = m_matchBundles[0];
-        const size_t count = m_matches.size();
+        m_collection.bundles.resize(1);
+        FunctionMatchBundle &bundle = m_collection.bundles[0];
+        const size_t count = m_collection.matches.size();
         bundle.name = "all";
         bundle.matches.resize(count);
         for (size_t i = 0; i < count; ++i) {
             bundle.matches[i] = i;
+        }
+    }
+
+    for (const FunctionMatchBundle &bundle : m_collection.bundles) {
+        for (IndexT idx : bundle.matches) {
+            AsmMatcher matcher;
+            matcher.run_comparison(m_collection.matches[idx]);
         }
     }
 

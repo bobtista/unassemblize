@@ -685,6 +685,7 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
                 AsmInstructionLabel asm_label;
                 asm_label.label = symbol.name;
                 m_instructions.emplace_back(std::move(asm_label));
+                ++m_labelCount;
             }
         }
 
@@ -737,9 +738,11 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
         }
 
         m_instructions.emplace_back(std::move(asm_instruction));
+        ++m_instructionCount;
     }
 
     assert(instruction_index == instruction_count);
+    assert(m_instructions.size() == static_cast<size_t>(m_instructionCount + m_labelCount));
 
     m_intermediate = nullptr;
 }
@@ -772,11 +775,6 @@ bool Function::add_pseudo_symbol(Address64T address)
     pseudoSymbolMap[address] = index;
 
     return true;
-}
-
-const AsmInstructionVariants &Function::get_instructions() const
-{
-    return m_instructions;
 }
 
 const FunctionSetup &Function::get_setup() const
@@ -877,16 +875,6 @@ const ExeSymbol &Function::get_nearest_symbol(Address64T address) const
     }
 
     return get_executable().get_nearest_symbol(address);
-}
-
-Address64T Function::get_begin_address() const
-{
-    return m_beginAddress;
-}
-
-Address64T Function::get_end_address() const
-{
-    return m_endAddress;
 }
 
 } // namespace unassemblize

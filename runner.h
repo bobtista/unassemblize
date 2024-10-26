@@ -12,10 +12,9 @@
  */
 #pragma once
 
+#include "asmmatchertypes.h"
 #include "executable.h"
-#include "function.h"
 #include "pdbreader.h"
-#include <array>
 
 namespace unassemblize
 {
@@ -62,28 +61,6 @@ struct AsmCompareOptions
     MatchBundleType bundle_type = MatchBundleType::None; // The method to group symbols with.
 };
 
-// #TODO: Facilitate function asm matching (class AsmMatcher)
-
-/*
- * Pairs a function from 2 executables.
- */
-struct FunctionMatch
-{
-    std::string name;
-    std::array<Function, 2> functions;
-};
-using FunctionMatches = std::vector<FunctionMatch>;
-
-/*
- * Groups function matches of the same compiland or source file together.
- */
-struct FunctionMatchBundle
-{
-    std::string name; // Compiland or source file name.
-    std::vector<IndexT> matches;
-};
-using FunctionMatchBundles = std::vector<FunctionMatchBundle>;
-
 class Runner
 {
 public:
@@ -109,7 +86,7 @@ private:
     std::array<Executable, MAX_INPUT_FILES> m_executables;
     std::array<PdbReader, MAX_INPUT_FILES> m_pdbReaders;
 
-    FunctionMatches m_matches;
-    FunctionMatchBundles m_matchBundles;
+    FunctionMatchCollection m_collection;
 };
+
 } // namespace unassemblize
