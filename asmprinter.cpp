@@ -63,7 +63,7 @@ std::string AsmPrinter::to_string(const AsmInstruction &instruction, size_t inde
     } else {
         // Assign assembler text.
         str.reserve(indent_len + instruction.text.size());
-        str.insert(str.end(), indent_len, ' ');
+        add_whitespace_inplace(str, indent_len);
         str.append(instruction.text);
         util::strip_inplace(str, strip_quote);
     }
@@ -81,7 +81,7 @@ std::string AsmPrinter::to_string(const AsmInstructionLabel &label)
     return fmt::format("{:s}:", label.label);
 }
 
-void AsmPrinter::append_to_string(std::string &str, const AsmComparisonResult &comparison)
+void AsmPrinter::append_to_string(std::string &str, const AsmComparisonResult &comparison, const StringPair &exe_filenames)
 {
     if (comparison.records.empty()) {
         return;
@@ -89,6 +89,7 @@ void AsmPrinter::append_to_string(std::string &str, const AsmComparisonResult &c
 
     // #TODO: Make part of this configurable
     constexpr std::string_view eol = "\n";
+    constexpr std::string_view header = "> ";
     constexpr std::string_view equal = " == ";
     constexpr std::string_view unequal = " xx ";
     constexpr std::string_view left_missing = " >> ";
@@ -104,9 +105,13 @@ void AsmPrinter::append_to_string(std::string &str, const AsmComparisonResult &c
     static_assert(equal.size() == left_missing.size(), "Expects same length");
     static_assert(equal.size() == right_missing.size(), "Expects same length");
 
-    std::string asm_buf;
+    auto pad_side_line = [=](std::string &line_buf, size_t side_idx) {
+        pad_whitespace_inplace(line_buf, (side_idx + 1) * (address_len + indent_len + asm_len) + side_idx * cmp_len);
+    };
+
+    std::string misc_buf;
     std::string line_buf;
-    asm_buf.reserve(1024);
+    misc_buf.reserve(1024);
     line_buf.reserve(line_len);
 
     // The first line is expected to be a label if it is the begin of a function.
@@ -118,47 +123,54 @@ void AsmPrinter::append_to_string(std::string &str, const AsmComparisonResult &c
     }
     const float match_percent = (float)comparison.match_count / (float)(comparison.get_instruction_count()) * 100.f;
 
-    asm_buf = fmt::format(
-        "::  {:s}{:s}"
-        "::    matches: {:d}{:s}"
-        "::    mismatches: {:d}{:s}"
-        "::    match percent: {:.1f}{:s}{:s}",
-        name,
-        eol,
-        comparison.match_count,
-        eol,
-        comparison.mismatch_count,
-        eol,
-        match_percent,
-        eol,
-        eol);
+    // Create misc info.
+    misc_buf += fmt::format("{:s}{:s}{:s}", header, name, eol);
+    misc_buf += fmt::format("{:s}  matches: {:d}{:s}", header, comparison.match_count, eol);
+    misc_buf += fmt::format("{:s}  mismatches: {:d}{:s}", header, comparison.mismatch_count, eol);
+    misc_buf += fmt::format("{:s}  match percent: {:.1f}{:s}", header, match_percent, eol);
+    misc_buf += fmt::format("{:s}{:s}", header, eol);
+
+    // Create file names.
+    for (size_t i = 0; i < side_count; ++i) {
+        std::string filename_copy = exe_filenames[i];
+        front_truncate_string_inplace(filename_copy, address_len + indent_len + asm_len - header.size());
+        line_buf += header;
+        line_buf += filename_copy;
+        pad_side_line(line_buf, i);
+        if (i != side_count - 1) {
+            add_whitespace_inplace(line_buf, cmp_len);
+        } else {
+            line_buf += eol;
+        }
+    }
+
+    line_buf += header;
+    line_buf += eol;
+    misc_buf.append(line_buf);
+    line_buf.clear();
 
     const size_t reserved_len =
-        str.size() + comparison.records.size() * line_len + end_eol_count * eol.size() + asm_buf.size();
+        str.size() + comparison.records.size() * line_len + end_eol_count * eol.size() + misc_buf.size();
 
     str.reserve(reserved_len);
-    str.append(asm_buf);
-
-    auto pad_line = [=](std::string &line_buf, size_t side_idx) {
-        pad_whitespace_inplace(line_buf, (side_idx + 1) * (address_len + indent_len + asm_len) + side_idx * cmp_len);
-    };
+    str.append(misc_buf);
 
     for (const AsmComparisonRecord &record : comparison.records) {
-        asm_buf.clear();
+        misc_buf.clear();
         line_buf.clear();
 
         if (const AsmLabel *asm_label = std::get_if<AsmLabel>(&record)) {
             for (size_t i = 0; i < side_count; ++i) {
                 const AsmInstructionLabel &label = *asm_label->label_pair[i];
                 if (!label.label.empty()) {
-                    line_buf.insert(line_buf.end(), address_len, ' ');
-                    asm_buf = to_string(label);
-                    truncate_string_inplace(asm_buf, asm_len);
-                    line_buf.append(asm_buf);
+                    add_whitespace_inplace(line_buf, address_len);
+                    misc_buf = to_string(label);
+                    truncate_string_inplace(misc_buf, asm_len);
+                    line_buf.append(misc_buf);
                 }
-                pad_line(line_buf, i);
+                pad_side_line(line_buf, i);
                 if (i != side_count - 1) {
-                    line_buf.insert(line_buf.end(), cmp_len, ' ');
+                    add_whitespace_inplace(line_buf, cmp_len);
                 }
             }
         } else if (const AsmMatch *asm_match = std::get_if<AsmMatch>(&record)) {
@@ -166,11 +178,11 @@ void AsmPrinter::append_to_string(std::string &str, const AsmComparisonResult &c
                 const AsmInstruction &instruction = *asm_match->instruction_pair[i];
                 if (!instruction.is_empty()) {
                     line_buf.append(fmt::format("{:08x}  ", instruction.address));
-                    asm_buf = to_string(instruction, indent_len);
-                    truncate_string_inplace(asm_buf, asm_len + indent_len);
-                    line_buf.append(asm_buf);
+                    misc_buf = to_string(instruction, indent_len);
+                    truncate_string_inplace(misc_buf, asm_len + indent_len);
+                    line_buf.append(misc_buf);
                 }
-                pad_line(line_buf, i);
+                pad_side_line(line_buf, i);
                 if (i != side_count - 1) {
                     line_buf.append(equal);
                 }
@@ -180,11 +192,11 @@ void AsmPrinter::append_to_string(std::string &str, const AsmComparisonResult &c
                 const AsmInstruction &instruction = *asm_mismatch->instruction_pair[i];
                 if (!instruction.is_empty()) {
                     line_buf.append(fmt::format("{:08x}  ", instruction.address));
-                    asm_buf = to_string(instruction, indent_len);
-                    truncate_string_inplace(asm_buf, asm_len + indent_len);
-                    line_buf.append(asm_buf);
+                    misc_buf = to_string(instruction, indent_len);
+                    truncate_string_inplace(misc_buf, asm_len + indent_len);
+                    line_buf.append(misc_buf);
                 }
-                pad_line(line_buf, i);
+                pad_side_line(line_buf, i);
                 if (i != side_count - 1) {
                     const AsmInstruction &right_instruction = *asm_mismatch->instruction_pair[i + 1];
                     if (!instruction.is_empty() && !right_instruction.is_empty()) {
@@ -225,12 +237,28 @@ void AsmPrinter::truncate_string_inplace(std::string &str, size_t max_len)
     }
 }
 
+void AsmPrinter::front_truncate_string_inplace(std::string &str, size_t max_len)
+{
+    max_len = std::max<size_t>(max_len, 2);
+    if (str.size() > max_len) {
+        str.erase(0, str.size() - max_len);
+        // Begin string on 2 dots to clarify that it has been truncated.
+        str[0] = '.';
+        str[1] = '.';
+    }
+}
+
 void AsmPrinter::pad_whitespace_inplace(std::string &str, size_t len)
 {
     if (str.size() < len) {
         const size_t pad_count = len - str.size();
-        str.insert(str.end(), pad_count, ' ');
+        add_whitespace_inplace(str, pad_count);
     }
+}
+
+void AsmPrinter::add_whitespace_inplace(std::string &str, size_t len)
+{
+    str.insert(str.end(), len, ' ');
 }
 
 } // namespace unassemblize

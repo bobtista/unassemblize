@@ -87,7 +87,8 @@ private:
     FunctionMatchCollection build_function_match_collection(size_t bundle_file_idx, MatchBundleType bundle_type) const;
     void disassemble_function_match_collection(FunctionMatchCollection &collection, AsmFormat format) const;
     AsmComparisonResultBundles build_comparison_results(const FunctionMatchCollection &collection) const;
-    static bool output_comparison_results(AsmComparisonResultBundles &result_bundles, const std::string &output_file);
+    static bool output_comparison_results(
+        AsmComparisonResultBundles &result_bundles, const std::string &output_file, const StringPair &exe_filenames);
     static std::string
         build_cmp_output_path(size_t bundle_idx, const std::string &bundle_name, const std::string &output_file);
 

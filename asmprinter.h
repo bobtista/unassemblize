@@ -28,14 +28,16 @@ public:
     /*
      * Appends texts from instruction data of a comparison result to a string.
      */
-    static void append_to_string(std::string &str, const AsmComparisonResult &comparison);
+    static void append_to_string(std::string &str, const AsmComparisonResult &comparison, const StringPair &exe_filenames);
 
 private:
     static std::string to_string(const AsmInstruction &instruction, size_t indent_len);
     static std::string to_string(const AsmInstructionLabel &label);
 
     static void truncate_string_inplace(std::string &str, size_t max_len);
+    static void front_truncate_string_inplace(std::string &str, size_t max_len);
     static void pad_whitespace_inplace(std::string &str, size_t len);
+    static void add_whitespace_inplace(std::string &str, size_t len);
 };
 
 } // namespace unassemblize

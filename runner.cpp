@@ -181,7 +181,9 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 
     AsmComparisonResultBundles result_bundles = build_comparison_results(collection);
 
-    ok = output_comparison_results(result_bundles, o.output_file);
+    const StringPair exe_filenames = {m_executables[0].get_filename(), m_executables[1].get_filename()};
+
+    ok = output_comparison_results(result_bundles, o.output_file, exe_filenames);
 
     return ok;
 }
@@ -295,7 +297,8 @@ AsmComparisonResultBundles Runner::build_comparison_results(const FunctionMatchC
     return result_bundles;
 }
 
-bool Runner::output_comparison_results(AsmComparisonResultBundles &result_bundles, const std::string &output_file)
+bool Runner::output_comparison_results(
+    AsmComparisonResultBundles &result_bundles, const std::string &output_file, const StringPair &exe_filenames)
 {
     size_t file_write_count = 0;
     size_t bundle_idx = 0;
@@ -307,7 +310,7 @@ bool Runner::output_comparison_results(AsmComparisonResultBundles &result_bundle
         if (fp != nullptr) {
             for (const AsmComparisonResult &result : result_bundle.results) {
                 std::string text;
-                AsmPrinter::append_to_string(text, result);
+                AsmPrinter::append_to_string(text, result, exe_filenames);
                 fprintf(fp, text.c_str());
             }
             fclose(fp);

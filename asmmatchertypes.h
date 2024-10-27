@@ -91,4 +91,6 @@ struct AsmComparisonResultBundle
 };
 using AsmComparisonResultBundles = std::vector<AsmComparisonResultBundle>;
 
+using StringPair = std::array<std::string, 2>;
+
 } // namespace unassemblize
