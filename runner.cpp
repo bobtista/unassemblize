@@ -12,6 +12,7 @@
  */
 #include "runner.h"
 #include "asmmatcher.h"
+#include "asmprinter.h"
 #include "util.h"
 #include <filesystem>
 #include <inttypes.h>
@@ -139,9 +140,9 @@ void build_bundles(
 
 } // namespace
 
-bool Runner::process_asm_compare(const AsmCompareOptions &o)
+bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 {
-    if (!asm_compare_ready())
+    if (!asm_comparison_ready())
         return false;
 
     const size_t less_idx = m_executables[0].get_symbols().size() < m_executables[1].get_symbols().size() ? 0 : 1;
@@ -218,7 +219,7 @@ bool Runner::process_asm_compare(const AsmCompareOptions &o)
     return true;
 }
 
-bool Runner::asm_compare_ready() const
+bool Runner::asm_comparison_ready() const
 {
     static_assert(MAX_INPUT_FILES >= 2, "Expects at least two input files to work with");
 
@@ -256,6 +257,8 @@ void Runner::print_sections(Executable &exe)
 
 void Runner::dissassemble_function(FILE *fp, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
 {
+    assert(fp != nullptr);
+
     if (format != AsmFormat::MASM) {
         dissassemble_gas_func(fp, exe, start, end, format);
     }
@@ -263,28 +266,16 @@ void Runner::dissassemble_function(FILE *fp, const Executable &exe, uint64_t sta
 
 void Runner::dissassemble_gas_func(FILE *fp, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
 {
+    assert(fp != nullptr);
+
     if (start != 0 && end != 0) {
         const FunctionSetup setup(exe, format);
 
-        std::string str;
-        {
-            Function func;
-            func.disassemble(setup, start, end);
-            const AsmInstructionVariants &instructions = func.get_instructions();
-            str.reserve(instructions.size() * 32);
-            append_as_text(str, instructions);
-        }
+        Function func;
+        func.disassemble(setup, start, end);
+        const AsmInstructionVariants &instructions = func.get_instructions();
 
-        const std::string &sym = exe.get_symbol(start).name;
-
-        if (fp != nullptr) {
-            fprintf(fp, ".intel_syntax noprefix\n\n");
-            if (!sym.empty()) {
-                fprintf(fp, ".globl %s\n%s", sym.c_str(), str.c_str());
-            } else {
-                fprintf(fp, ".globl sub_%" PRIx64 "\n%s", start, str.c_str());
-            }
-        }
+        AsmPrinter::append_to_file(fp, instructions);
     }
 }
 

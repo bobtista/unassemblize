@@ -1,7 +1,7 @@
 /**
  * @file
  *
- * @brief Data to store relevant data from executable files
+ * @brief Types to store relevant data for asm matching
  *
  * @copyright Unassemblize is free software: you can redistribute it and/or
  *            modify it under the terms of the GNU General Public License

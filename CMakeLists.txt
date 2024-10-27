@@ -84,6 +84,8 @@ target_sources(unassemblize PRIVATE
     asmmatcher.h
     asmmatchertypes.cpp
     asmmatchertypes.h
+    asmprinter.cpp
+    asmprinter.h
     executable.cpp
     executable.h
     executabletypes.cpp

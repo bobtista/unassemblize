@@ -247,12 +247,12 @@ int main(int argc, char **argv)
             ok &= runner.process_asm_output(o);
         }
 
-        if (runner.asm_compare_ready()) {
-            unassemblize::AsmCompareOptions o;
+        if (runner.asm_comparison_ready()) {
+            unassemblize::AsmComparisonOptions o;
             o.format = format;
             o.bundle_file_idx = bundle_file_idx;
             o.bundle_type = bundle_type;
-            ok &= runner.process_asm_compare(o);
+            ok &= runner.process_asm_comparison(o);
         }
     }
     return ok ? 0 : 1;

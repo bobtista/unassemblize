@@ -64,11 +64,6 @@ struct AsmInstructionNull
 using AsmInstructionVariant = std::variant<AsmInstructionNull, AsmInstructionLabel, AsmInstruction>;
 using AsmInstructionVariants = std::vector<AsmInstructionVariant>;
 
-/*
- * Generate pure text from an instruction data vector.
- */
-void append_as_text(std::string &str, const AsmInstructionVariants &instructions);
-
 class Function;
 
 /*

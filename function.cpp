@@ -11,7 +11,6 @@
  *            LICENSE
  */
 #include "function.h"
-#include "util.h"
 #include <Zycore/Format.h>
 #include <Zydis/Zydis.h>
 #include <fmt/core.h>
@@ -128,34 +127,6 @@ bool GetStackWidth(ZydisStackWidth &stack_width, ZydisMachineMode machine_mode)
 }
 
 } // namespace
-
-void append_as_text(std::string &str, const AsmInstructionVariants &instructions)
-{
-    const std::string strip_quote = "\"";
-
-    for (const AsmInstructionVariant &variant : instructions) {
-        if (const AsmInstruction *instruction = std::get_if<AsmInstruction>(&variant)) {
-            // Print instruction.
-            if (instruction->isInvalid) {
-                // Add unrecognized instruction as comment.
-                str += fmt::format(
-                    "; Unrecognized opcode at runtime-address:0x{:08X} bytes:{:s}", instruction->address, instruction->text);
-            } else {
-                str += fmt::format("    {:s}", util::strip(instruction->text, strip_quote));
-            }
-
-            if (instruction->isJump) {
-                // Add jump distance as inline comment.
-                str += fmt::format(" ; {:+d} bytes", instruction->jumpLen);
-            }
-        } else if (const AsmInstructionLabel *label = std::get_if<AsmInstructionLabel>(&variant)) {
-            // Print label.
-            str += fmt::format("{:s}:", label->label);
-        }
-
-        str += "\n";
-    }
-}
 
 FunctionSetup::FunctionSetup(const Executable &executable, AsmFormat format) : m_executable(executable), m_format(format)
 {

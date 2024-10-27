@@ -54,7 +54,7 @@ enum class MatchBundleType
 
 MatchBundleType to_match_bundle_type(const char *str);
 
-struct AsmCompareOptions
+struct AsmComparisonOptions
 {
     AsmFormat format = AsmFormat::IGAS;
     size_t bundle_file_idx = 0; // The executable file that will be used to group symbols with.
@@ -67,9 +67,9 @@ public:
     bool process_exe(const ExeSaveLoadOptions &o, size_t file_idx = 0);
     bool process_pdb(const PdbSaveLoadOptions &o, size_t file_idx = 0);
     bool process_asm_output(const AsmOutputOptions &o);
-    bool process_asm_compare(const AsmCompareOptions &o);
+    bool process_asm_comparison(const AsmComparisonOptions &o);
 
-    bool asm_compare_ready() const;
+    bool asm_comparison_ready() const;
     const std::string &get_exe_filename(size_t file_idx = 0) const;
     std::string get_exe_file_name_from_pdb(size_t file_idx = 0) const;
 
