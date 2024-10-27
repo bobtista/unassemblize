@@ -134,19 +134,29 @@ void build_bundles(
         for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx) {
             const typename SourceInfoVectorT::value_type &source = sources[source_idx];
             FunctionMatchBundle &bundle = bundles[source_idx];
-            const IndexT function_count = source.functionIds.size();
-            bundle.name = source.name;
-            bundle.matches.reserve(function_count);
+            build_bundle(bundle, functions, source, function_name_to_index);
+        }
+    }
+}
 
-            for (IndexT function_idx = 0; function_idx < function_count; ++function_idx) {
-                const PdbFunctionInfo &functionInfo = functions[source.functionIds[function_idx]];
-                StringToIndexMapT::const_iterator it = function_name_to_index.find(functionInfo.decoratedName);
-                if (it != function_name_to_index.end()) {
-                    bundle.matches.push_back(it->second);
-                } else {
-                    // Can track unmatched functions here ...
-                }
-            }
+template<class SourceInfoT>
+void build_bundle(
+    FunctionMatchBundle &bundle,
+    const PdbFunctionInfoVector &functions,
+    const SourceInfoT &source,
+    const StringToIndexMapT &function_name_to_index)
+{
+    const IndexT function_count = source.functionIds.size();
+    bundle.name = source.name;
+    bundle.matches.reserve(function_count);
+
+    for (IndexT function_idx = 0; function_idx < function_count; ++function_idx) {
+        const PdbFunctionInfo &functionInfo = functions[source.functionIds[function_idx]];
+        StringToIndexMapT::const_iterator it = function_name_to_index.find(functionInfo.decoratedName);
+        if (it != function_name_to_index.end()) {
+            bundle.matches.push_back(it->second);
+        } else {
+            // Can track unmatched functions here ...
         }
     }
 }
