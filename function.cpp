@@ -578,18 +578,32 @@ ZyanStatus Function::UnasmDisassembleCustom(
     return ZYAN_STATUS_SUCCESS;
 }
 
+void Function::set_address_range(Address64T begin_address, Address64T end_address)
+{
+    m_beginAddress = begin_address;
+    m_endAddress = end_address;
+}
+
 void Function::disassemble(const FunctionSetup &setup, Address64T begin_address, Address64T end_address)
 {
-    const ExeSectionInfo *section_info = setup.m_executable.find_section(begin_address);
+    set_address_range(begin_address, end_address);
+    disassemble(setup);
+}
+
+void Function::disassemble(const FunctionSetup &setup)
+{
+    assert(m_beginAddress < m_endAddress);
+
+    const ExeSectionInfo *section_info = setup.m_executable.find_section(m_beginAddress);
 
     if (section_info == nullptr) {
         return;
     }
 
-    Address64T runtime_address = begin_address;
+    Address64T runtime_address = m_beginAddress;
     const Address64T address_offset = section_info->address;
-    Address64T section_offset = begin_address - address_offset;
-    const Address64T section_offset_end = end_address - address_offset;
+    Address64T section_offset = m_beginAddress - address_offset;
+    const Address64T section_offset_end = m_endAddress - address_offset;
 
     if (section_offset_end - section_offset > section_info->size) {
         return;
@@ -599,8 +613,8 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
     m_intermediate = &intermediate;
 
     m_instructions.clear();
-    m_beginAddress = begin_address;
-    m_endAddress = end_address;
+    m_instructionCount = 0;
+    m_labelCount = 0;
 
     const Address64T image_base = setup.m_executable.image_base();
     const uint8_t *section_data = section_info->data;
@@ -645,7 +659,7 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
             Address64T absolute_address;
             ZydisCalcAbsoluteAddress(&instruction.info, instruction.operands, instruction_address, &absolute_address);
 
-            if (absolute_address >= begin_address && absolute_address < end_address) {
+            if (absolute_address >= m_beginAddress && absolute_address < m_endAddress) {
                 if (add_pseudo_symbol(absolute_address)) {
                     ++label_count;
                 }
@@ -654,8 +668,8 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
     }
 
     m_instructions.reserve(instruction_count + label_count);
-    section_offset = begin_address - address_offset;
-    runtime_address = begin_address;
+    section_offset = m_beginAddress - address_offset;
+    runtime_address = m_beginAddress;
 
     size_t instruction_index = 0;
     while (section_offset < section_offset_end) {

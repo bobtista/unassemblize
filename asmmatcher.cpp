@@ -25,6 +25,8 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
 
     const AsmInstructionVariants &instructions0 = match.functions[0].get_instructions();
     const AsmInstructionVariants &instructions1 = match.functions[1].get_instructions();
+    assert(instructions0.size() != 0);
+    assert(instructions1.size() != 0);
 
     // Creates all instruction splits in advance to avoid redundant splits when visiting instructions multiple times.
     const InstructionTextArrays arrays0 = split_instruction_texts(instructions0);
@@ -42,7 +44,7 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
         // On top of that, empty entries can take up space on either side, so this adds a guessed margin.
         size_t max_size = std::max(inst_count0 + label_count_comb, inst_count1 + label_count_comb);
         max_size = (size_t)((double)max_size * 1.2);
-        result.lines.reserve(max_size);
+        result.records.reserve(max_size);
     }
 
     const size_t count0 = instructions0.size();
@@ -81,7 +83,7 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
                 } else {
                     asm_label.label_pair[1] = &s_dummyInstructionLabel;
                 }
-                result.lines.emplace_back(std::move(asm_label));
+                result.records.emplace_back(std::move(asm_label));
                 ++result.label_count;
                 continue;
             }
@@ -174,7 +176,7 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
             AsmMatch asm_match;
             asm_match.instruction_pair[0] = &instruction0;
             asm_match.instruction_pair[1] = &instruction1;
-            result.lines.emplace_back(std::move(asm_match));
+            result.records.emplace_back(std::move(asm_match));
             ++result.match_count;
             ++i0;
             ++i1;
@@ -195,7 +197,7 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
                 asm_mismatch.instruction_pair[1] = &s_dummyInstruction;
             }
             asm_mismatch.text_info = text_info;
-            result.lines.emplace_back(std::move(asm_mismatch));
+            result.records.emplace_back(std::move(asm_mismatch));
             ++result.mismatch_count;
         }
     }
@@ -235,7 +237,7 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
                     AsmLabel asm_label;
                     asm_label.label_pair[lookahead_side] = label;
                     asm_label.label_pair[opposite_side] = &s_dummyInstructionLabel;
-                    comparison_result.lines.emplace_back(std::move(asm_label));
+                    comparison_result.records.emplace_back(std::move(asm_label));
                     ++comparison_result.label_count;
                 } else {
                     // These are all mismatches because above it hit the first match upon lookahead.
@@ -246,7 +248,7 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
                     asm_mismatch.instruction_pair[lookahead_side] = &instruction;
                     asm_mismatch.instruction_pair[opposite_side] = &s_dummyInstruction;
                     asm_mismatch.text_info = text_info;
-                    comparison_result.lines.emplace_back(std::move(asm_mismatch));
+                    comparison_result.records.emplace_back(std::move(asm_mismatch));
                     ++comparison_result.mismatch_count;
                 }
             }

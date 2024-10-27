@@ -15,6 +15,7 @@
 #include "asmprinter.h"
 #include "util.h"
 #include <filesystem>
+#include <fmt/core.h>
 #include <inttypes.h>
 #include <strings.h>
 
@@ -165,13 +166,29 @@ void build_bundle(
 
 bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 {
-    if (!asm_comparison_ready())
+    if (!asm_comparison_ready()) {
         return false;
+    }
+
+    bool ok = true;
+
+    FunctionMatchCollection collection = build_function_match_collection(o.bundle_file_idx, o.bundle_type);
+
+    disassemble_function_match_collection(collection, o.format);
+
+    AsmComparisonResultBundles result_bundles = build_comparison_results(collection);
+
+    ok = output_comparison_results(result_bundles, o.output_file);
+
+    return ok;
+}
+
+FunctionMatchCollection Runner::build_function_match_collection(size_t bundle_file_idx, MatchBundleType bundle_type) const
+{
+    assert(asm_comparison_ready());
 
     const size_t less_idx = m_executables[0].get_symbols().size() < m_executables[1].get_symbols().size() ? 0 : 1;
-    const size_t more_idx = less_idx == 0 ? 1 : 0;
-    const FunctionSetup less_setup(m_executables[less_idx], o.format);
-    const FunctionSetup more_setup(m_executables[more_idx], o.format);
+    const size_t more_idx = (less_idx + 1) % 2;
     const ExeSymbols &less_symbols = m_executables[less_idx].get_symbols();
 
     auto in_code_section = [&](size_t idx, const ExeSymbol &symbol) -> bool {
@@ -179,9 +196,13 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
         return symbol.address >= code_section->address && symbol.address < code_section->address + code_section->size;
     };
 
+    // #TODO: If performance is a concern in UI, then build matches per some requested source files or compilands.
+    // Currently all function matches are prepared, but not disassembled.
+
     using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
+    FunctionMatchCollection collection;
     StringToIndexMapT function_name_to_index;
-    m_collection.matches.reserve(512);
+    collection.matches.reserve(512);
     function_name_to_index.reserve(512);
 
     for (const ExeSymbol &less_symbol : less_symbols) {
@@ -192,39 +213,39 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
         if (more_symbol.name.empty() || !in_code_section(more_idx, more_symbol)) {
             continue;
         }
-        IndexT index = m_collection.matches.size();
-        m_collection.matches.emplace_back();
-        FunctionMatch &match = m_collection.matches.back();
+        IndexT index = collection.matches.size();
+        collection.matches.emplace_back();
+        FunctionMatch &match = collection.matches.back();
         match.name = less_symbol.name;
-        match.functions[less_idx].disassemble(less_setup, less_symbol.address, less_symbol.address + less_symbol.size);
-        match.functions[more_idx].disassemble(more_setup, more_symbol.address, more_symbol.address + more_symbol.size);
+        match.functions[less_idx].set_address_range(less_symbol.address, less_symbol.address + less_symbol.size);
+        match.functions[more_idx].set_address_range(more_symbol.address, more_symbol.address + more_symbol.size);
         function_name_to_index[match.name] = index;
     }
 
-    if (o.bundle_file_idx < 2) {
-        switch (o.bundle_type) {
+    if (bundle_file_idx < 2) {
+        switch (bundle_type) {
             case MatchBundleType::Compiland: {
-                const PdbFunctionInfoVector &functions = m_pdbReaders[o.bundle_file_idx].get_functions();
-                const PdbCompilandInfoVector &compilands = m_pdbReaders[o.bundle_file_idx].get_compilands();
+                const PdbFunctionInfoVector &functions = m_pdbReaders[bundle_file_idx].get_functions();
+                const PdbCompilandInfoVector &compilands = m_pdbReaders[bundle_file_idx].get_compilands();
 
-                build_bundles(m_collection.bundles, functions, compilands, function_name_to_index);
+                build_bundles(collection.bundles, functions, compilands, function_name_to_index);
                 break;
             }
             case MatchBundleType::SourceFile: {
-                const PdbFunctionInfoVector &functions = m_pdbReaders[o.bundle_file_idx].get_functions();
-                const PdbSourceFileInfoVector &sources = m_pdbReaders[o.bundle_file_idx].get_source_files();
+                const PdbFunctionInfoVector &functions = m_pdbReaders[bundle_file_idx].get_functions();
+                const PdbSourceFileInfoVector &sources = m_pdbReaders[bundle_file_idx].get_source_files();
 
-                build_bundles(m_collection.bundles, functions, sources, function_name_to_index);
+                build_bundles(collection.bundles, functions, sources, function_name_to_index);
                 break;
             }
         }
     }
 
-    if (m_collection.bundles.empty()) {
+    if (collection.bundles.empty()) {
         // Create a dummy bundle with all function matches.
-        m_collection.bundles.resize(1);
-        FunctionMatchBundle &bundle = m_collection.bundles[0];
-        const size_t count = m_collection.matches.size();
+        collection.bundles.resize(1);
+        FunctionMatchBundle &bundle = collection.bundles[0];
+        const size_t count = collection.matches.size();
         bundle.name = "all";
         bundle.matches.resize(count);
         for (size_t i = 0; i < count; ++i) {
@@ -232,14 +253,64 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
         }
     }
 
-    for (const FunctionMatchBundle &bundle : m_collection.bundles) {
-        for (IndexT idx : bundle.matches) {
-            AsmMatcher matcher;
-            matcher.run_comparison(m_collection.matches[idx]);
+    return collection;
+}
+
+void Runner::disassemble_function_match_collection(FunctionMatchCollection &collection, AsmFormat format) const
+{
+    const FunctionSetup setup0(m_executables[0], format);
+    const FunctionSetup setup1(m_executables[1], format);
+
+    for (FunctionMatch &match : collection.matches) {
+        match.functions[0].disassemble(setup0);
+        match.functions[1].disassemble(setup1);
+    }
+}
+
+AsmComparisonResultBundles Runner::build_comparison_results(const FunctionMatchCollection &collection) const
+{
+    AsmComparisonResultBundles result_bundles;
+
+    const size_t bundle_count = collection.bundles.size();
+
+    result_bundles.resize(collection.bundles.size());
+
+    for (size_t bundle_idx = 0; bundle_idx < bundle_count; ++bundle_idx) {
+        const FunctionMatchBundle &match_bundle = collection.bundles[bundle_idx];
+        AsmComparisonResultBundle &result_bundle = result_bundles[bundle_idx];
+        const size_t match_count = match_bundle.matches.size();
+        result_bundle.name = match_bundle.name;
+        result_bundle.results.resize(match_count);
+        size_t result_index = 0;
+
+        for (IndexT match_idx : match_bundle.matches) {
+            const FunctionMatch &match = collection.matches[match_idx];
+            result_bundle.results[result_index++] = AsmMatcher::run_comparison(match);
+        }
+        assert(result_index == result_bundle.results.size());
+    }
+    return result_bundles;
+}
+
+bool Runner::output_comparison_results(AsmComparisonResultBundles &result_bundles, const std::string &output_file)
+{
+    size_t file_write_count = 0;
+    size_t bundle_idx = 0;
+
+    for (const AsmComparisonResultBundle &result_bundle : result_bundles) {
+        std::string output_file_variant = build_cmp_output_path(bundle_idx, result_bundle.name, output_file);
+
+        FILE *fp = fopen(output_file_variant.c_str(), "w+");
+        if (fp != nullptr) {
+            for (const AsmComparisonResult &result : result_bundle.results) {
+                AsmPrinter::append_to_file(fp, result);
+            }
+            fclose(fp);
+            ++file_write_count;
         }
     }
 
-    return true;
+    return file_write_count == result_bundles.size();
 }
 
 bool Runner::asm_comparison_ready() const
@@ -267,6 +338,22 @@ std::string Runner::get_exe_file_name_from_pdb(size_t file_idx) const
     path /= exe_info.exeFileName;
     path += ".exe";
 
+    return path.string();
+}
+
+std::string Runner::build_cmp_output_path(size_t bundle_idx, const std::string &bundle_name, const std::string &output_file)
+{
+    const std::filesystem::path bundle_path = bundle_name;
+    const std::filesystem::path output_path = output_file;
+
+    const std::string filename = fmt::format(
+        "{:s}.{:s}.{:d}{:s}",
+        output_path.stem().string(),
+        bundle_path.filename().string(),
+        bundle_idx++,
+        output_path.extension().string());
+
+    const std::filesystem::path path = output_path.parent_path() / filename;
     return path.string();
 }
 

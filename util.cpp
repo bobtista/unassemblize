@@ -42,13 +42,13 @@ std::wstring to_utf16(const std::string &utf8)
     return convert.from_bytes(utf8);
 }
 
-void strip_inplace(std::string &str, const std::string &chars)
+void strip_inplace(std::string &str, std::string_view chars)
 {
     auto pred = [&chars](const char &c) { return chars.find(c) != std::string::npos; };
     str.erase(std::remove_if(str.begin(), str.end(), pred), str.end());
 }
 
-std::string strip(const std::string &str, const std::string &chars)
+std::string strip(const std::string &str, std::string_view chars)
 {
     std::string s(str);
     strip_inplace(s, chars);

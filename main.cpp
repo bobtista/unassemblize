@@ -63,6 +63,23 @@ std::string get_asm_output_file_name(const std::string &input_file, const std::s
     return output_file;
 }
 
+std::string
+    get_cmp_output_file_name(const std::string &input_file0, const std::string &input_file1, const std::string &output_file)
+{
+    if (0 == strcasecmp(output_file.c_str(), auto_str)) {
+        // path0/program0_program1_cmp.txt
+        std::filesystem::path path0 = input_file0;
+        std::filesystem::path path1 = input_file1;
+        std::filesystem::path path = path0.parent_path();
+        path /= path0.stem();
+        path += "_";
+        path += path1.stem();
+        path += "_cmp.txt";
+        return path.string();
+    }
+    return output_file;
+}
+
 InputType get_input_type(const std::string &input_file, const std::string &input_type)
 {
     InputType type = InputType::None;
@@ -93,7 +110,8 @@ int main(int argc, char **argv)
 #define OPT_INPUT_2 "input2"
 #define OPT_INPUTTYPE "input-type"
 #define OPT_INPUTTYPE_2 "input2-type"
-#define OPT_OUTPUT "output"
+#define OPT_ASM_OUTPUT "output"
+#define OPT_CMP_OUTPUT "cmp-output"
 #define OPT_FORMAT "format"
 #define OPT_BUNDLE_FILE_ID "bundle-file-id"
 #define OPT_BUNDLE_TYPE "bundle-type"
@@ -112,7 +130,8 @@ int main(int argc, char **argv)
         cxxopts::Option{OPT_INPUT_2, "Input file 2", cxxopts::value<std::string>()},
         cxxopts::Option{OPT_INPUTTYPE, "Input file type. Default is 'auto'", cxxopts::value<std::string>(), R"(["auto", "exe", "pdb"])"},
         cxxopts::Option{OPT_INPUTTYPE_2, "Input file 2 type. Default is 'auto'", cxxopts::value<std::string>(), R"(["auto", "exe", "pdb"])"},
-        cxxopts::Option{"o," OPT_OUTPUT, "Filename for single file output. Default is 'auto'", cxxopts::value<std::string>()},
+        cxxopts::Option{"o," OPT_ASM_OUTPUT, "Filename for single file output. Default is 'auto'", cxxopts::value<std::string>()},
+        cxxopts::Option{OPT_CMP_OUTPUT, "Filename for comparison file output. Default is 'auto'", cxxopts::value<std::string>()},
         cxxopts::Option{"f," OPT_FORMAT, "Assembly output format. Default is 'igas'", cxxopts::value<std::string>(), R"(["igas", "agas", "masm", "default"])"},
         cxxopts::Option{OPT_BUNDLE_FILE_ID, "Input file used to bundle match results with. Default is 1.", cxxopts::value<size_t>(), "[1: 1st input file, 2: 2nd input file]"},
         cxxopts::Option{OPT_BUNDLE_TYPE, "Method used to bundle match results with. Default is 'sourcefile'.", cxxopts::value<std::string>(), R"(["none", "sourcefile", "compiland"])"},
@@ -152,6 +171,7 @@ int main(int argc, char **argv)
     std::fill_n(input_type, MAX_INPUT_FILES, auto_str);
     // When output_file is set to "auto", then output file name is chosen for input file name.
     std::string output_file = auto_str;
+    std::string cmp_output_file = auto_str;
     unassemblize::AsmFormat format = unassemblize::AsmFormat::IGAS;
     size_t bundle_file_idx = 0;
     unassemblize::MatchBundleType bundle_type = unassemblize::MatchBundleType::SourceFile;
@@ -174,8 +194,10 @@ int main(int argc, char **argv)
             input_type[0] = kv.value();
         } else if (v == OPT_INPUTTYPE_2) {
             input_type[1] = kv.value();
-        } else if (v == OPT_OUTPUT) {
+        } else if (v == OPT_ASM_OUTPUT) {
             output_file = kv.value();
+        } else if (v == OPT_CMP_OUTPUT) {
+            cmp_output_file = kv.value();
         } else if (v == OPT_FORMAT) {
             format = unassemblize::to_asm_format(kv.value().c_str());
         } else if (v == OPT_BUNDLE_FILE_ID) {
@@ -254,6 +276,7 @@ int main(int argc, char **argv)
 
         if (runner.asm_comparison_ready()) {
             unassemblize::AsmComparisonOptions o;
+            o.output_file = get_cmp_output_file_name(runner.get_exe_filename(0), runner.get_exe_filename(1), output_file);
             o.format = format;
             o.bundle_file_idx = bundle_file_idx;
             o.bundle_type = bundle_type;

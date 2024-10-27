@@ -13,6 +13,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 
 namespace util
 {
@@ -20,9 +21,8 @@ std::string to_utf8(const wchar_t *utf16);
 std::string to_utf8(const std::wstring &utf16);
 std::wstring to_utf16(const char *utf8);
 std::wstring to_utf16(const std::string &utf8);
-void strip_inplace(std::string &str, const std::string &chars);
-std::string strip(const std::string &str, const std::string &chars);
-std::string get_file_name_without_ext(const std::string &file_name);
+void strip_inplace(std::string &str, std::string_view chars);
+std::string strip(const std::string &str, std::string_view chars);
 std::string get_file_ext(const std::string &file_name);
 
 } // namespace util

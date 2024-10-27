@@ -56,6 +56,7 @@ MatchBundleType to_match_bundle_type(const char *str);
 
 struct AsmComparisonOptions
 {
+    std::string output_file;
     AsmFormat format = AsmFormat::IGAS;
     size_t bundle_file_idx = 0; // The executable file that will be used to group symbols with.
     MatchBundleType bundle_type = MatchBundleType::None; // The method to group symbols with.
@@ -79,13 +80,22 @@ public:
     std::string get_exe_file_name_from_pdb(size_t file_idx = 0) const;
 
 private:
+    /*
+     * Builds function match collection.
+     * All function objects are not disassembled for performance reasons, but are prepared.
+     */
+    FunctionMatchCollection build_function_match_collection(size_t bundle_file_idx, MatchBundleType bundle_type) const;
+    void disassemble_function_match_collection(FunctionMatchCollection &collection, AsmFormat format) const;
+    AsmComparisonResultBundles build_comparison_results(const FunctionMatchCollection &collection) const;
+    static bool output_comparison_results(AsmComparisonResultBundles &result_bundles, const std::string &output_file);
+    static std::string
+        build_cmp_output_path(size_t bundle_idx, const std::string &bundle_name, const std::string &output_file);
+
     static void print_sections(Executable &exe);
 
 private:
     std::array<Executable, MAX_INPUT_FILES> m_executables;
     std::array<PdbReader, MAX_INPUT_FILES> m_pdbReaders;
-
-    FunctionMatchCollection m_collection;
 };
 
 } // namespace unassemblize

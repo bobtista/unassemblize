@@ -70,15 +70,25 @@ struct AsmMismatch
     AsmTextMismatchInfo text_info;
 };
 
+using AsmComparisonRecord = std::variant<AsmLabel, AsmMatch, AsmMismatch>;
+using AsmComparisonRecords = std::vector<AsmComparisonRecord>;
+
 struct AsmComparisonResult
 {
-    using AsmLine = std::variant<AsmLabel, AsmMatch, AsmMismatch>;
-    using AsmLineVector = std::vector<AsmLine>;
+    uint32_t get_instruction_count() const { return match_count + mismatch_count; }
 
-    AsmLineVector lines;
+    AsmComparisonRecords records;
     uint32_t label_count = 0;
     uint32_t match_count = 0;
     uint32_t mismatch_count = 0;
 };
+using AsmComparisonResults = std::vector<AsmComparisonResult>;
+
+struct AsmComparisonResultBundle
+{
+    std::string name; // Compiland or source file name.
+    AsmComparisonResults results;
+};
+using AsmComparisonResultBundles = std::vector<AsmComparisonResultBundle>;
 
 } // namespace unassemblize

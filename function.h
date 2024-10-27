@@ -42,6 +42,8 @@ struct AsmInstruction
         jumpLen = 0;
     }
 
+    bool is_empty() const { return address == 0; }
+
     Address64T address; // Position of the instruction within the executable.
     bool isJump : 1; // Instruction is a jump.
     bool isInvalid : 1; // Instruction was not read or formatted correctly.
@@ -122,11 +124,13 @@ class Function
 public:
     Function() = default;
 
+    void set_address_range(Address64T begin_address, Address64T end_address);
     /*
      * Disassemble a function from begin to end with the given setup. The address range is free to choose, but it is best
      * used for a single function only. When complete, instruction data will be available.
      */
     void disassemble(const FunctionSetup &setup, Address64T begin_address, Address64T end_address);
+    void disassemble(const FunctionSetup &setup);
 
     const AsmInstructionVariants &get_instructions() const { return m_instructions; }
     Address64T get_begin_address() const { return m_beginAddress; }
