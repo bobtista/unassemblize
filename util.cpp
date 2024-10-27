@@ -55,15 +55,6 @@ std::string strip(const std::string &str, const std::string &chars)
     return s;
 }
 
-std::string get_file_name_without_ext(const std::string &file_name)
-{
-    const size_t pos = file_name.find_last_of(".");
-    if (pos != std::string::npos) {
-        return file_name.substr(0, pos);
-    }
-    return file_name;
-}
-
 std::string get_file_ext(const std::string &file_name)
 {
     const size_t pos = file_name.find_last_of(".");

@@ -15,6 +15,7 @@
 #include "util.h"
 #include <assert.h>
 #include <cxxopts.hpp>
+#include <filesystem>
 #include <iostream>
 #include <stdio.h>
 #include <strings.h>
@@ -43,17 +44,21 @@ enum class InputType
 std::string get_config_file_name(const std::string &input_file, const std::string &config_file)
 {
     if (0 == strcasecmp(config_file.c_str(), auto_str)) {
-        // program.config.json
-        return util::get_file_name_without_ext(input_file) + ".config.json";
+        // path/program.config.json
+        std::filesystem::path path = input_file;
+        path.replace_extension("config.json");
+        return path.string();
     }
     return config_file;
 }
 
-std::string get_output_file_name(const std::string &input_file, const std::string &output_file)
+std::string get_asm_output_file_name(const std::string &input_file, const std::string &output_file)
 {
     if (0 == strcasecmp(output_file.c_str(), auto_str)) {
-        // program.S
-        return util::get_file_name_without_ext(input_file) + ".S";
+        // path/program.S
+        std::filesystem::path path = input_file;
+        path.replace_extension("S");
+        return path.string();
     }
     return output_file;
 }
@@ -240,7 +245,7 @@ int main(int argc, char **argv)
     if (ok) {
         if (!output_file.empty()) {
             unassemblize::AsmOutputOptions o;
-            o.output_file = get_output_file_name(runner.get_exe_filename(), output_file);
+            o.output_file = get_asm_output_file_name(runner.get_exe_filename(0), output_file);
             o.format = format;
             o.start_addr = start_addr;
             o.end_addr = end_addr;
