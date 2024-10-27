@@ -111,9 +111,12 @@ bool Runner::process_asm_output(const AsmOutputOptions &o)
     Function func;
     func.disassemble(setup, o.start_addr, o.end_addr);
     const AsmInstructionVariants &instructions = func.get_instructions();
-    AsmPrinter::append_to_file(fp, instructions);
 
+    std::string text;
+    AsmPrinter::append_to_string(text, instructions);
+    fprintf(fp, text.c_str());
     fclose(fp);
+
     return true;
 }
 
@@ -303,7 +306,9 @@ bool Runner::output_comparison_results(AsmComparisonResultBundles &result_bundle
         FILE *fp = fopen(output_file_variant.c_str(), "w+");
         if (fp != nullptr) {
             for (const AsmComparisonResult &result : result_bundle.results) {
-                AsmPrinter::append_to_file(fp, result);
+                std::string text;
+                AsmPrinter::append_to_string(text, result);
+                fprintf(fp, text.c_str());
             }
             fclose(fp);
             ++file_write_count;

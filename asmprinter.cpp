@@ -16,16 +16,10 @@
 
 namespace unassemblize
 {
-void AsmPrinter::append_to_file(FILE *fp, const AsmInstructionVariants &instructions)
+void AsmPrinter::append_to_string(std::string &str, const AsmInstructionVariants &instructions)
 {
-    assert(fp != nullptr);
-
-    if (instructions.empty()) {
-        return;
-    }
-
-    std::string text;
-    append_to_string(text, instructions);
+    constexpr std::string_view eol = "\n";
+    constexpr size_t indent_len = 4;
 
     // The first variant is expected to be a label if it is the begin of a function.
     std::string name;
@@ -35,15 +29,17 @@ void AsmPrinter::append_to_file(FILE *fp, const AsmInstructionVariants &instruct
         name = "_unknown_";
     }
 
-    fprintf(fp, ".intel_syntax noprefix\n\n");
-    fprintf(fp, ".globl %s\n%s", name.c_str(), text.c_str());
-}
+    std::string header = fmt::format(
+        ".intel_syntax noprefix{:s}{:s}"
+        ".globl {:s}{:s}",
+        eol,
+        eol,
+        name,
+        eol);
 
-void AsmPrinter::append_to_string(std::string &str, const AsmInstructionVariants &instructions)
-{
-    constexpr size_t indent_len = 4;
-
-    str.reserve(instructions.size() * 32);
+    // Simple estimation based on game.dat
+    str.reserve(header.size() + instructions.size() * (indent_len + 24));
+    str += header;
 
     for (const AsmInstructionVariant &variant : instructions) {
         if (const AsmInstruction *instruction = std::get_if<AsmInstruction>(&variant)) {
@@ -52,7 +48,7 @@ void AsmPrinter::append_to_string(std::string &str, const AsmInstructionVariants
             str += to_string(*label);
         }
 
-        str += "\n";
+        str += eol;
     }
 }
 
@@ -83,21 +79,6 @@ std::string AsmPrinter::to_string(const AsmInstruction &instruction, size_t inde
 std::string AsmPrinter::to_string(const AsmInstructionLabel &label)
 {
     return fmt::format("{:s}:", label.label);
-}
-
-void AsmPrinter::append_to_file(FILE *fp, const AsmComparisonResult &comparison)
-{
-    assert(fp != nullptr);
-
-    if (comparison.records.empty()) {
-        return;
-    }
-
-    std::string text;
-    // text.reserve(comparison.records.size() * 64); // #TODO: reserve more?
-    append_to_string(text, comparison);
-
-    fprintf(fp, text.c_str());
 }
 
 void AsmPrinter::append_to_string(std::string &str, const AsmComparisonResult &comparison)

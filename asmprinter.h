@@ -21,19 +21,9 @@ class AsmPrinter
 {
 public:
     /*
-     * Appends texts from instruction data to a file.
-     */
-    static void append_to_file(FILE *fp, const AsmInstructionVariants &instructions);
-
-    /*
      * Appends texts from instruction data to a string.
      */
     static void append_to_string(std::string &str, const AsmInstructionVariants &instructions);
-
-    /*
-     * Appends texts from instruction data of a comparison result to a file.
-     */
-    static void append_to_file(FILE *fp, const AsmComparisonResult &comparison);
 
     /*
      * Appends texts from instruction data of a comparison result to a string.
