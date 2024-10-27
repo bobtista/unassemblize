@@ -65,8 +65,8 @@ struct AsmComparisonOptions
 class Runner
 {
 public:
-    bool process_exe(const ExeSaveLoadOptions &o, size_t file_idx = 0);
-    bool process_pdb(const PdbSaveLoadOptions &o, size_t file_idx = 0);
+    bool process_exe(const ExeSaveLoadOptions &o, size_t file_idx);
+    bool process_pdb(const PdbSaveLoadOptions &o, size_t file_idx);
 
     /**
      * Disassembles a range of bytes and outputs the format as though it were a single function.
@@ -76,8 +76,8 @@ public:
     bool process_asm_comparison(const AsmComparisonOptions &o);
 
     bool asm_comparison_ready() const;
-    const std::string &get_exe_filename(size_t file_idx = 0) const;
-    std::string get_exe_file_name_from_pdb(size_t file_idx = 0) const;
+    const std::string &get_exe_filename(size_t file_idx) const;
+    std::string get_exe_file_name_from_pdb(size_t file_idx) const;
 
 private:
     /*

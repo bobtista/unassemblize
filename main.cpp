@@ -256,7 +256,7 @@ int main(int argc, char **argv)
                 o.print_secs = print_secs;
                 o.dump_syms = dump_syms;
                 o.verbose = verbose;
-                ok &= runner.process_exe(o);
+                ok &= runner.process_exe(o, file_idx);
             }
         } else if (file_idx == 0) {
             printf("Unrecognized input file type '%s'. Exiting...\n", input_type[file_idx].c_str());
