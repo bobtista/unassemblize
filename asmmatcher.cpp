@@ -203,7 +203,6 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
     return result;
 }
 
-// clang-format off
 AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
     size_t lookahead_side,
     AsmInstructionVariants::const_iterator lookahead_base_it,
@@ -212,7 +211,6 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
     const AsmInstruction &opposite_base_instruction,
     const InstructionTextArray &opposite_base_array,
     AsmComparisonResult &comparison_result)
-// clang-format on
 {
     assert(lookahead_side < 2);
     assert(lookahead_base_it < lookahead_last_it);
@@ -258,14 +256,12 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
     return lookahead_result;
 }
 
-// clang-format off
 bool AsmMatcher::has_mismatch(
     const AsmInstruction &instruction0,
     const AsmInstruction &instruction1,
     const InstructionTextArray *array0,
     const InstructionTextArray *array1,
     AsmTextMismatchInfo *out_text_info)
-// clang-format on
 {
     if (instruction0.isInvalid != instruction1.isInvalid) {
         return true;

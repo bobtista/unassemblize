@@ -554,8 +554,12 @@ ZyanStatus Function::UnasmFormatterPrintRegister(
 }
 
 // Copy of the disassemble function without any formatting.
-ZyanStatus Function::UnasmDisassembleNoFormat(const ZydisDecoder &decoder, ZyanU64 runtime_address, const void *buffer,
-    ZyanUSize length, ZydisDisassembledInstruction &instruction)
+ZyanStatus Function::UnasmDisassembleNoFormat(
+    const ZydisDecoder &decoder,
+    ZyanU64 runtime_address,
+    const void *buffer,
+    ZyanUSize length,
+    ZydisDisassembledInstruction &instruction)
 {
     assert(buffer != nullptr);
 
@@ -570,9 +574,15 @@ ZyanStatus Function::UnasmDisassembleNoFormat(const ZydisDecoder &decoder, ZyanU
     return ZYAN_STATUS_SUCCESS;
 }
 
-ZyanStatus Function::UnasmDisassembleCustom(const ZydisFormatter &formatter, const ZydisDecoder &decoder,
-    ZyanU64 runtime_address, const void *buffer, ZyanUSize length, ZydisDisassembledInstruction &instruction,
-    std::string &instruction_buffer, void *user_data)
+ZyanStatus Function::UnasmDisassembleCustom(
+    const ZydisFormatter &formatter,
+    const ZydisDecoder &decoder,
+    ZyanU64 runtime_address,
+    const void *buffer,
+    ZyanUSize length,
+    ZydisDisassembledInstruction &instruction,
+    std::string &instruction_buffer,
+    void *user_data)
 {
     assert(buffer != nullptr);
 
@@ -584,7 +594,8 @@ ZyanStatus Function::UnasmDisassembleCustom(const ZydisFormatter &formatter, con
     ZYAN_CHECK(
         ZydisDecoderDecodeOperands(&decoder, &ctx, &instruction.info, instruction.operands, instruction.info.operand_count));
 
-    ZYAN_CHECK(ZydisFormatterFormatInstruction(&formatter,
+    ZYAN_CHECK(ZydisFormatterFormatInstruction(
+        &formatter,
         &instruction.info,
         instruction.operands,
         instruction.info.operand_count_visible,
@@ -636,7 +647,8 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
         const Address64T instruction_address = runtime_address;
         const Address64T instruction_section_offset = section_offset;
 
-        const ZyanStatus status = UnasmDisassembleNoFormat(setup.m_decoder,
+        const ZyanStatus status = UnasmDisassembleNoFormat(
+            setup.m_decoder,
             instruction_address,
             section_data + instruction_section_offset,
             section_size - instruction_section_offset,
@@ -692,7 +704,8 @@ void Function::disassemble(const FunctionSetup &setup, Address64T begin_address,
         AsmInstruction asm_instruction;
         asm_instruction.address = runtime_address;
 
-        const ZyanStatus status = UnasmDisassembleCustom(setup.m_formatter,
+        const ZyanStatus status = UnasmDisassembleCustom(
+            setup.m_formatter,
             setup.m_decoder,
             instruction_address,
             section_data + instruction_section_offset,

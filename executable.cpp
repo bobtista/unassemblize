@@ -489,9 +489,10 @@ void Executable::load_objects(nlohmann::json &js)
 
         {
             // Skip if entry already exists.
-            ExeObjects::const_iterator it_object = std::find_if(m_targetObjects.begin(),
-                m_targetObjects.end(),
-                [&](const ExeObject &object) { return object.name == obj_name; });
+            ExeObjects::const_iterator it_object =
+                std::find_if(m_targetObjects.begin(), m_targetObjects.end(), [&](const ExeObject &object) {
+                    return object.name == obj_name;
+                });
             if (it_object != m_targetObjects.end()) {
                 continue;
             }

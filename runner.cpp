@@ -107,7 +107,10 @@ namespace
 using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
 
 template<class SourceInfoVectorT>
-void build_bundles(FunctionMatchBundles &bundles, const PdbFunctionInfoVector &functions, const SourceInfoVectorT &sources,
+void build_bundles(
+    FunctionMatchBundles &bundles,
+    const PdbFunctionInfoVector &functions,
+    const SourceInfoVectorT &sources,
     const StringToIndexMapT &function_name_to_index)
 {
     if (!sources.empty()) {

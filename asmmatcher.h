@@ -41,13 +41,12 @@ public:
     static AsmComparisonResult run_comparison(const FunctionMatch &match);
 
 private:
-    // clang-format off
-
     /*
      * Looks ahead one side of the instruction list and compares
      * its last instruction with the base instruction of the opposite side.
      */
-    static LookaheadResult run_lookahead_comparison(size_t lookahead_side,
+    static LookaheadResult run_lookahead_comparison(
+        size_t lookahead_side,
         AsmInstructionVariants::const_iterator lookahead_base_it,
         AsmInstructionVariants::const_iterator lookahead_last_it,
         const InstructionTextArray &lookahead_last_array,
@@ -61,8 +60,6 @@ private:
         const InstructionTextArray *array0 = nullptr,
         const InstructionTextArray *array1 = nullptr,
         AsmTextMismatchInfo *out_text_info = nullptr);
-
-    // clang-format on
 
     static bool has_jump_len_mismatch(const AsmInstruction &instruction0, const AsmInstruction &instruction1);
     static AsmTextMismatchInfo compare_asm_text(const std::string &text0, const std::string &text1);

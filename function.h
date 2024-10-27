@@ -171,11 +171,22 @@ private:
     static ZyanStatus UnasmFormatterPrintRegister(
         const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context, ZydisRegister reg);
 
-    static ZyanStatus UnasmDisassembleNoFormat(const ZydisDecoder &decoder, ZyanU64 runtime_address, const void *buffer,
-        ZyanUSize length, ZydisDisassembledInstruction &instruction);
-    static ZyanStatus UnasmDisassembleCustom(const ZydisFormatter &formatter, const ZydisDecoder &decoder,
-        ZyanU64 runtime_address, const void *buffer, ZyanUSize length, ZydisDisassembledInstruction &instruction,
-        std::string &instruction_buffer, void *user_data);
+    static ZyanStatus UnasmDisassembleNoFormat(
+        const ZydisDecoder &decoder,
+        ZyanU64 runtime_address,
+        const void *buffer,
+        ZyanUSize length,
+        ZydisDisassembledInstruction &instruction);
+
+    static ZyanStatus UnasmDisassembleCustom(
+        const ZydisFormatter &formatter,
+        const ZydisDecoder &decoder,
+        ZyanU64 runtime_address,
+        const void *buffer,
+        ZyanUSize length,
+        ZydisDisassembledInstruction &instruction,
+        std::string &instruction_buffer,
+        void *user_data);
 
 private:
     FunctionIntermediate *m_intermediate = nullptr;
