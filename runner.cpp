@@ -92,15 +92,28 @@ bool Runner::process_pdb(const PdbSaveLoadOptions &o, size_t file_idx)
 
 bool Runner::process_asm_output(const AsmOutputOptions &o)
 {
-    FILE *fp = fopen(o.output_file.c_str(), "w+");
-    if (fp != nullptr) {
-        const Executable &executable = m_executables[0];
-        dissassemble_function(fp, executable, o.start_addr, o.end_addr, o.format);
-        fclose(fp);
-        return true;
+    if (o.format == AsmFormat::MASM) {
+        return false;
     }
 
-    return false;
+    if (!m_executables[0].is_ready()) {
+        return false;
+    }
+
+    FILE *fp = fopen(o.output_file.c_str(), "w+");
+    if (fp == nullptr) {
+        return false;
+    }
+
+    const Executable &exe = m_executables[0];
+    const FunctionSetup setup(exe, o.format);
+    Function func;
+    func.disassemble(setup, o.start_addr, o.end_addr);
+    const AsmInstructionVariants &instructions = func.get_instructions();
+    AsmPrinter::append_to_file(fp, instructions);
+
+    fclose(fp);
+    return true;
 }
 
 namespace
@@ -252,30 +265,6 @@ void Runner::print_sections(Executable &exe)
     const ExeSections &sections = exe.get_sections();
     for (const ExeSectionInfo &section : sections) {
         printf("Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n", section.name.c_str(), section.address, section.size);
-    }
-}
-
-void Runner::dissassemble_function(FILE *fp, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
-{
-    assert(fp != nullptr);
-
-    if (format != AsmFormat::MASM) {
-        dissassemble_gas_func(fp, exe, start, end, format);
-    }
-}
-
-void Runner::dissassemble_gas_func(FILE *fp, const Executable &exe, uint64_t start, uint64_t end, AsmFormat format)
-{
-    assert(fp != nullptr);
-
-    if (start != 0 && end != 0) {
-        const FunctionSetup setup(exe, format);
-
-        Function func;
-        func.disassemble(setup, start, end);
-        const AsmInstructionVariants &instructions = func.get_instructions();
-
-        AsmPrinter::append_to_file(fp, instructions);
     }
 }
 
