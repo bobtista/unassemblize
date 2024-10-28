@@ -219,6 +219,7 @@ void PdbReader::unload()
         }
 
         CoUninitialize();
+        m_pDiaSource = nullptr;
 
         m_coInitialized = false;
     }
@@ -264,26 +265,21 @@ bool PdbReader::read_symbols()
 
 bool PdbReader::read_global_scope()
 {
-    IDiaSymbol *pSymbol;
-    if (m_pDiaSession->get_globalScope(&pSymbol) == S_OK)
     {
+        BSTR name;
+        if (m_pDiaSymbol->get_name(&name) == S_OK)
         {
-            BSTR name;
-            if (pSymbol->get_name(&name) == S_OK)
-            {
-                m_exe.exeFileName = util::to_utf8(name);
-                SysFreeString(name);
-            }
+            m_exe.exeFileName = util::to_utf8(name);
+            SysFreeString(name);
         }
+    }
+    {
+        BSTR name;
+        if (m_pDiaSymbol->get_symbolsFileName(&name) == S_OK)
         {
-            BSTR name;
-            if (pSymbol->get_symbolsFileName(&name) == S_OK)
-            {
-                m_exe.pdbFilePath = util::to_utf8(name);
-                SysFreeString(name);
-            }
+            m_exe.pdbFilePath = util::to_utf8(name);
+            SysFreeString(name);
         }
-        pSymbol->Release();
     }
 
     return !m_exe.exeFileName.empty() && !m_exe.pdbFilePath.empty();

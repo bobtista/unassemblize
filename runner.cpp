@@ -381,7 +381,10 @@ std::string Runner::get_exe_file_name_from_pdb(size_t file_idx) const
     std::filesystem::path path = exe_info.pdbFilePath;
     path = path.parent_path();
     path /= exe_info.exeFileName;
-    path += ".exe";
+    if (!path.has_extension())
+    {
+        path += ".exe";
+    }
 
     return path.string();
 }
