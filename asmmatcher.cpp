@@ -171,6 +171,8 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
         const AsmInstructionVariant &variant1 = (i1 < count1) ? instructions1[i1] : s_nullInstructionVariant;
 
         if (is_matching) {
+            assert(std::holds_alternative<AsmInstruction>(variant0));
+            assert(std::holds_alternative<AsmInstruction>(variant1));
             const AsmInstruction &instruction0 = std::get<AsmInstruction>(variant0);
             const AsmInstruction &instruction1 = std::get<AsmInstruction>(variant1);
             AsmMatch asm_match;
@@ -223,6 +225,7 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
     if (const AsmInstructionLabel *label = std::get_if<AsmInstructionLabel>(&*lookahead_last_it)) {
         lookahead_result.is_label = true;
     } else {
+        assert(std::holds_alternative<AsmInstruction>(*lookahead_last_it));
         const AsmInstruction &lookahead_last_instruction = std::get<AsmInstruction>(*lookahead_last_it);
 
         if (!has_mismatch(
@@ -241,6 +244,7 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
                     ++comparison_result.label_count;
                 } else {
                     // These are all mismatches because above it hit the first match upon lookahead.
+                    assert(std::holds_alternative<AsmInstruction>(variant));
                     const AsmInstruction &instruction = std::get<AsmInstruction>(variant);
                     AsmMismatch asm_mismatch;
                     AsmTextMismatchInfo text_info;
