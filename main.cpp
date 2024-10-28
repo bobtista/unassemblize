@@ -25,7 +25,8 @@ void print_version()
     char revision[12] = {0};
     const char *version = GitTag[0] == 'v' ? GitTag : GitShortSHA1;
 
-    if (GitTag[0] != 'v') {
+    if (GitTag[0] != 'v')
+    {
         snprintf(revision, sizeof(revision), "r%d ", GitRevision);
     }
 
@@ -43,7 +44,8 @@ enum class InputType
 
 std::string get_config_file_name(const std::string &input_file, const std::string &config_file)
 {
-    if (0 == strcasecmp(config_file.c_str(), auto_str)) {
+    if (0 == strcasecmp(config_file.c_str(), auto_str))
+    {
         // path/program.config.json
         std::filesystem::path path = input_file;
         path.replace_extension("config.json");
@@ -54,7 +56,8 @@ std::string get_config_file_name(const std::string &input_file, const std::strin
 
 std::string get_asm_output_file_name(const std::string &input_file, const std::string &output_file)
 {
-    if (0 == strcasecmp(output_file.c_str(), auto_str)) {
+    if (0 == strcasecmp(output_file.c_str(), auto_str))
+    {
         // path/program.S
         std::filesystem::path path = input_file;
         path.replace_extension("S");
@@ -66,7 +69,8 @@ std::string get_asm_output_file_name(const std::string &input_file, const std::s
 std::string
     get_cmp_output_file_name(const std::string &input_file0, const std::string &input_file1, const std::string &output_file)
 {
-    if (0 == strcasecmp(output_file.c_str(), auto_str)) {
+    if (0 == strcasecmp(output_file.c_str(), auto_str))
+    {
         // path0/program0_program1_cmp.txt
         std::filesystem::path path0 = input_file0;
         std::filesystem::path path1 = input_file1;
@@ -84,16 +88,24 @@ InputType get_input_type(const std::string &input_file, const std::string &input
 {
     InputType type = InputType::None;
 
-    if (0 == strcasecmp(input_type.c_str(), auto_str)) {
+    if (0 == strcasecmp(input_type.c_str(), auto_str))
+    {
         std::string input_file_ext = util::get_file_ext(input_file);
-        if (0 == strcasecmp(input_file_ext.c_str(), "pdb")) {
+        if (0 == strcasecmp(input_file_ext.c_str(), "pdb"))
+        {
             type = InputType::Pdb;
-        } else {
+        }
+        else
+        {
             type = InputType::Exe;
         }
-    } else if (0 == strcasecmp(input_type.c_str(), "exe")) {
+    }
+    else if (0 == strcasecmp(input_type.c_str(), "exe"))
+    {
         type = InputType::Exe;
-    } else if (0 == strcasecmp(input_type.c_str(), "pdb")) {
+    }
+    else if (0 == strcasecmp(input_type.c_str(), "pdb"))
+    {
         type = InputType::Pdb;
     }
 
@@ -151,14 +163,18 @@ int main(int argc, char **argv)
     options.parse_positional({"input", "input2"});
 
     cxxopts::ParseResult result;
-    try {
+    try
+    {
         result = options.parse(argc, argv);
-    } catch (const std::exception &e) {
+    }
+    catch (const std::exception &e)
+    {
         std::cerr << "Error parsing options: " << e.what() << std::endl;
         return 1;
     }
 
-    if (result.count("help") != 0) {
+    if (result.count("help") != 0)
+    {
         std::cout << options.help() << std::endl;
         return 0;
     }
@@ -184,44 +200,77 @@ int main(int argc, char **argv)
     bool dump_syms = false;
     bool verbose = false;
 
-    for (const cxxopts::KeyValue &kv : result.arguments()) {
+    for (const cxxopts::KeyValue &kv : result.arguments())
+    {
         const std::string &v = kv.key();
-        if (v == OPT_INPUT) {
+        if (v == OPT_INPUT)
+        {
             input_file[0] = kv.value();
-        } else if (v == OPT_INPUT_2) {
+        }
+        else if (v == OPT_INPUT_2)
+        {
             input_file[1] = kv.value();
-        } else if (v == OPT_INPUTTYPE) {
+        }
+        else if (v == OPT_INPUTTYPE)
+        {
             input_type[0] = kv.value();
-        } else if (v == OPT_INPUTTYPE_2) {
+        }
+        else if (v == OPT_INPUTTYPE_2)
+        {
             input_type[1] = kv.value();
-        } else if (v == OPT_ASM_OUTPUT) {
+        }
+        else if (v == OPT_ASM_OUTPUT)
+        {
             output_file = kv.value();
-        } else if (v == OPT_CMP_OUTPUT) {
+        }
+        else if (v == OPT_CMP_OUTPUT)
+        {
             cmp_output_file = kv.value();
-        } else if (v == OPT_FORMAT) {
+        }
+        else if (v == OPT_FORMAT)
+        {
             format = unassemblize::to_asm_format(kv.value().c_str());
-        } else if (v == OPT_BUNDLE_FILE_ID) {
+        }
+        else if (v == OPT_BUNDLE_FILE_ID)
+        {
             bundle_file_idx = kv.as<size_t>() - 1;
-        } else if (v == OPT_BUNDLE_TYPE) {
+        }
+        else if (v == OPT_BUNDLE_TYPE)
+        {
             bundle_type = unassemblize::to_match_bundle_type(kv.value().c_str());
-        } else if (v == OPT_CONFIG) {
+        }
+        else if (v == OPT_CONFIG)
+        {
             config_file[0] = kv.value();
-        } else if (v == OPT_CONFIG_2) {
+        }
+        else if (v == OPT_CONFIG_2)
+        {
             config_file[1] = kv.value();
-        } else if (v == OPT_START) {
+        }
+        else if (v == OPT_START)
+        {
             start_addr = strtoull(kv.value().c_str(), nullptr, 16);
-        } else if (v == OPT_END) {
+        }
+        else if (v == OPT_END)
+        {
             end_addr = strtoull(kv.value().c_str(), nullptr, 16);
-        } else if (v == OPT_LISTSECTIONS) {
+        }
+        else if (v == OPT_LISTSECTIONS)
+        {
             print_secs = kv.as<bool>();
-        } else if (v == OPT_DUMPSYMS) {
+        }
+        else if (v == OPT_DUMPSYMS)
+        {
             dump_syms = kv.as<bool>();
-        } else if (v == OPT_VERBOSE) {
+        }
+        else if (v == OPT_VERBOSE)
+        {
             verbose = kv.as<bool>();
         }
     }
 
-    if (input_file[0].empty()) {
+    if (input_file[0].empty())
+    {
         printf("Missing input file command line argument. Exiting...\n");
         return 1;
     }
@@ -229,10 +278,12 @@ int main(int argc, char **argv)
     bool ok = true;
     unassemblize::Runner runner;
 
-    for (size_t file_idx = 0; file_idx < MAX_INPUT_FILES && ok; ++file_idx) {
+    for (size_t file_idx = 0; file_idx < MAX_INPUT_FILES && ok; ++file_idx)
+    {
         const InputType type = get_input_type(input_file[file_idx], input_type[file_idx]);
 
-        if (InputType::Exe == type) {
+        if (InputType::Exe == type)
+        {
             unassemblize::ExeSaveLoadOptions o;
             o.input_file = input_file[file_idx];
             o.config_file = get_config_file_name(o.input_file, config_file[file_idx]);
@@ -240,7 +291,9 @@ int main(int argc, char **argv)
             o.dump_syms = dump_syms;
             o.verbose = verbose;
             ok &= runner.process_exe(o, file_idx);
-        } else if (InputType::Pdb == type) {
+        }
+        else if (InputType::Pdb == type)
+        {
             {
                 unassemblize::PdbSaveLoadOptions o;
                 o.input_file = input_file[file_idx];
@@ -249,7 +302,8 @@ int main(int argc, char **argv)
                 o.verbose = verbose;
                 ok &= runner.process_pdb(o, file_idx);
             }
-            if (ok) {
+            if (ok)
+            {
                 unassemblize::ExeSaveLoadOptions o;
                 o.input_file = runner.get_exe_file_name_from_pdb(file_idx);
                 o.config_file = get_config_file_name(o.input_file, config_file[file_idx]);
@@ -258,14 +312,18 @@ int main(int argc, char **argv)
                 o.verbose = verbose;
                 ok &= runner.process_exe(o, file_idx);
             }
-        } else if (file_idx == 0) {
+        }
+        else if (file_idx == 0)
+        {
             printf("Unrecognized input file type '%s'. Exiting...\n", input_type[file_idx].c_str());
             return 1;
         }
     }
 
-    if (ok) {
-        if (!output_file.empty()) {
+    if (ok)
+    {
+        if (!output_file.empty())
+        {
             unassemblize::AsmOutputOptions o;
             o.output_file = get_asm_output_file_name(runner.get_exe_filename(0), output_file);
             o.format = format;
@@ -274,7 +332,8 @@ int main(int argc, char **argv)
             ok &= runner.process_asm_output(o);
         }
 
-        if (runner.asm_comparison_ready()) {
+        if (runner.asm_comparison_ready())
+        {
             unassemblize::AsmComparisonOptions o;
             o.output_file = get_cmp_output_file_name(runner.get_exe_filename(0), runner.get_exe_filename(1), output_file);
             o.format = format;

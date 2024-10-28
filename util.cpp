@@ -58,7 +58,8 @@ std::string strip(const std::string &str, std::string_view chars)
 std::string get_file_ext(const std::string &file_name)
 {
     const size_t pos = file_name.find_last_of(".");
-    if (pos != std::string::npos) {
+    if (pos != std::string::npos)
+    {
         return file_name.substr(pos + 1);
     }
     return {};

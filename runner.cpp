@@ -23,11 +23,16 @@ namespace unassemblize
 {
 MatchBundleType to_match_bundle_type(const char *str)
 {
-    if (0 == strcasecmp(str, "compiland")) {
+    if (0 == strcasecmp(str, "compiland"))
+    {
         return MatchBundleType::Compiland;
-    } else if (0 == strcasecmp(str, "sourcefile")) {
+    }
+    else if (0 == strcasecmp(str, "sourcefile"))
+    {
         return MatchBundleType::SourceFile;
-    } else {
+    }
+    else
+    {
         return MatchBundleType::None;
     }
     static_assert(size_t(MatchBundleType::None) == 2, "Enum was changed. Update conditions.");
@@ -38,17 +43,20 @@ bool Runner::process_exe(const ExeSaveLoadOptions &o, size_t file_idx)
     assert(file_idx < MAX_INPUT_FILES);
     Executable &executable = m_executables[file_idx];
 
-    if (o.verbose) {
+    if (o.verbose)
+    {
         printf("Parsing exe file '%s'...\n", o.input_file.c_str());
     }
 
     executable.set_verbose(o.verbose);
 
-    if (!executable.read(o.input_file)) {
+    if (!executable.read(o.input_file))
+    {
         return false;
     }
 
-    if (o.print_secs) {
+    if (o.print_secs)
+    {
         print_sections(executable);
     }
 
@@ -58,13 +66,17 @@ bool Runner::process_exe(const ExeSaveLoadOptions &o, size_t file_idx)
     const PdbReader &pdbReader = m_pdbReaders[file_idx];
     const PdbSymbolInfoVector &pdb_symbols = pdbReader.get_symbols();
 
-    if (!pdb_symbols.empty()) {
+    if (!pdb_symbols.empty())
+    {
         executable.add_symbols(pdb_symbols, pdb_symbols_overwrite_exe_symbols);
     }
 
-    if (o.dump_syms) {
+    if (o.dump_syms)
+    {
         executable.save_config(o.config_file.c_str());
-    } else {
+    }
+    else
+    {
         executable.load_config(o.config_file.c_str(), cfg_symbols_overwrite_exe_pdb_symbols);
     }
 
@@ -80,11 +92,13 @@ bool Runner::process_pdb(const PdbSaveLoadOptions &o, size_t file_idx)
 
     // Currently does not read back config file here.
 
-    if (!pdbReader.read(o.input_file)) {
+    if (!pdbReader.read(o.input_file))
+    {
         return false;
     }
 
-    if (o.dump_syms) {
+    if (o.dump_syms)
+    {
         pdbReader.save_config(o.config_file);
     }
 
@@ -93,16 +107,19 @@ bool Runner::process_pdb(const PdbSaveLoadOptions &o, size_t file_idx)
 
 bool Runner::process_asm_output(const AsmOutputOptions &o)
 {
-    if (o.format == AsmFormat::MASM) {
+    if (o.format == AsmFormat::MASM)
+    {
         return false;
     }
 
-    if (!m_executables[0].is_ready()) {
+    if (!m_executables[0].is_ready())
+    {
         return false;
     }
 
     FILE *fp = fopen(o.output_file.c_str(), "w+");
-    if (fp == nullptr) {
+    if (fp == nullptr)
+    {
         return false;
     }
 
@@ -131,11 +148,13 @@ void build_bundles(
     const SourceInfoVectorT &sources,
     const StringToIndexMapT &function_name_to_index)
 {
-    if (!sources.empty()) {
+    if (!sources.empty())
+    {
         const IndexT sources_count = sources.size();
         bundles.resize(sources_count);
 
-        for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx) {
+        for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx)
+        {
             const typename SourceInfoVectorT::value_type &source = sources[source_idx];
             FunctionMatchBundle &bundle = bundles[source_idx];
             build_bundle(bundle, functions, source, function_name_to_index);
@@ -154,12 +173,16 @@ void build_bundle(
     bundle.name = source.name;
     bundle.matches.reserve(function_count);
 
-    for (IndexT function_idx = 0; function_idx < function_count; ++function_idx) {
+    for (IndexT function_idx = 0; function_idx < function_count; ++function_idx)
+    {
         const PdbFunctionInfo &functionInfo = functions[source.functionIds[function_idx]];
         StringToIndexMapT::const_iterator it = function_name_to_index.find(functionInfo.decoratedName);
-        if (it != function_name_to_index.end()) {
+        if (it != function_name_to_index.end())
+        {
             bundle.matches.push_back(it->second);
-        } else {
+        }
+        else
+        {
             // Can track unmatched functions here ...
         }
     }
@@ -169,7 +192,8 @@ void build_bundle(
 
 bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 {
-    if (!asm_comparison_ready()) {
+    if (!asm_comparison_ready())
+    {
         return false;
     }
 
@@ -210,12 +234,15 @@ FunctionMatchCollection Runner::build_function_match_collection(size_t bundle_fi
     collection.matches.reserve(512);
     function_name_to_index.reserve(512);
 
-    for (const ExeSymbol &less_symbol : less_symbols) {
-        if (!in_code_section(less_idx, less_symbol)) {
+    for (const ExeSymbol &less_symbol : less_symbols)
+    {
+        if (!in_code_section(less_idx, less_symbol))
+        {
             continue;
         }
         const ExeSymbol &more_symbol = m_executables[more_idx].get_symbol(less_symbol.name);
-        if (more_symbol.name.empty() || !in_code_section(more_idx, more_symbol)) {
+        if (more_symbol.name.empty() || !in_code_section(more_idx, more_symbol))
+        {
             continue;
         }
         IndexT index = collection.matches.size();
@@ -227,8 +254,10 @@ FunctionMatchCollection Runner::build_function_match_collection(size_t bundle_fi
         function_name_to_index[match.name] = index;
     }
 
-    if (bundle_file_idx < 2) {
-        switch (bundle_type) {
+    if (bundle_file_idx < 2)
+    {
+        switch (bundle_type)
+        {
             case MatchBundleType::Compiland: {
                 const PdbFunctionInfoVector &functions = m_pdbReaders[bundle_file_idx].get_functions();
                 const PdbCompilandInfoVector &compilands = m_pdbReaders[bundle_file_idx].get_compilands();
@@ -246,14 +275,16 @@ FunctionMatchCollection Runner::build_function_match_collection(size_t bundle_fi
         }
     }
 
-    if (collection.bundles.empty()) {
+    if (collection.bundles.empty())
+    {
         // Create a dummy bundle with all function matches.
         collection.bundles.resize(1);
         FunctionMatchBundle &bundle = collection.bundles[0];
         const size_t count = collection.matches.size();
         bundle.name = "all";
         bundle.matches.resize(count);
-        for (size_t i = 0; i < count; ++i) {
+        for (size_t i = 0; i < count; ++i)
+        {
             bundle.matches[i] = i;
         }
     }
@@ -266,7 +297,8 @@ void Runner::disassemble_function_match_collection(FunctionMatchCollection &coll
     const FunctionSetup setup0(m_executables[0], format);
     const FunctionSetup setup1(m_executables[1], format);
 
-    for (FunctionMatch &match : collection.matches) {
+    for (FunctionMatch &match : collection.matches)
+    {
         match.functions[0].disassemble(setup0);
         match.functions[1].disassemble(setup1);
     }
@@ -280,7 +312,8 @@ AsmComparisonResultBundles Runner::build_comparison_results(const FunctionMatchC
 
     result_bundles.resize(collection.bundles.size());
 
-    for (size_t bundle_idx = 0; bundle_idx < bundle_count; ++bundle_idx) {
+    for (size_t bundle_idx = 0; bundle_idx < bundle_count; ++bundle_idx)
+    {
         const FunctionMatchBundle &match_bundle = collection.bundles[bundle_idx];
         AsmComparisonResultBundle &result_bundle = result_bundles[bundle_idx];
         const size_t match_count = match_bundle.matches.size();
@@ -288,7 +321,8 @@ AsmComparisonResultBundles Runner::build_comparison_results(const FunctionMatchC
         result_bundle.results.resize(match_count);
         size_t result_index = 0;
 
-        for (IndexT match_idx : match_bundle.matches) {
+        for (IndexT match_idx : match_bundle.matches)
+        {
             const FunctionMatch &match = collection.matches[match_idx];
             result_bundle.results[result_index++] = AsmMatcher::run_comparison(match);
         }
@@ -303,12 +337,15 @@ bool Runner::output_comparison_results(
     size_t file_write_count = 0;
     size_t bundle_idx = 0;
 
-    for (const AsmComparisonResultBundle &result_bundle : result_bundles) {
+    for (const AsmComparisonResultBundle &result_bundle : result_bundles)
+    {
         std::string output_file_variant = build_cmp_output_path(bundle_idx, result_bundle.name, output_file);
 
         FILE *fp = fopen(output_file_variant.c_str(), "w+");
-        if (fp != nullptr) {
-            for (const AsmComparisonResult &result : result_bundle.results) {
+        if (fp != nullptr)
+        {
+            for (const AsmComparisonResult &result : result_bundle.results)
+            {
                 std::string text;
                 AsmPrinter::append_to_string(text, result, exe_filenames);
                 fprintf(fp, text.c_str());
@@ -368,7 +405,8 @@ std::string Runner::build_cmp_output_path(size_t bundle_idx, const std::string &
 void Runner::print_sections(Executable &exe)
 {
     const ExeSections &sections = exe.get_sections();
-    for (const ExeSectionInfo &section : sections) {
+    for (const ExeSectionInfo &section : sections)
+    {
         printf("Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n", section.name.c_str(), section.address, section.size);
     }
 }

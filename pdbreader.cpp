@@ -31,7 +31,8 @@ bool PdbReader::read(const std::string &pdb_file)
 {
     bool success = false;
 
-    if (load(pdb_file)) {
+    if (load(pdb_file))
+    {
         success = read_symbols();
     }
     unload();
@@ -49,7 +50,8 @@ void PdbReader::load_json(const nlohmann::json &js)
 
 bool PdbReader::load_config(const std::string &file_name)
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Loading config file '%s'...\n", file_name.c_str());
     }
 
@@ -58,7 +60,8 @@ bool PdbReader::load_config(const std::string &file_name)
     {
         std::ifstream fs(file_name);
 
-        if (!fs.good()) {
+        if (!fs.good())
+        {
             return false;
         }
 
@@ -74,23 +77,28 @@ void PdbReader::save_json(nlohmann::json &js, bool overwrite_sections)
 {
     // Don't dump if we already have sections for these.
 
-    if (overwrite_sections || js.find(s_compilands) == js.end()) {
+    if (overwrite_sections || js.find(s_compilands) == js.end())
+    {
         js[s_compilands] = m_compilands;
     }
-    if (overwrite_sections || js.find(s_sourceFiles) == js.end()) {
+    if (overwrite_sections || js.find(s_sourceFiles) == js.end())
+    {
         js[s_sourceFiles] = m_sourceFiles;
     }
-    if (overwrite_sections || js.find(s_functions) == js.end()) {
+    if (overwrite_sections || js.find(s_functions) == js.end())
+    {
         js[s_functions] = m_functions;
     }
-    if (overwrite_sections || js.find(s_exe) == js.end()) {
+    if (overwrite_sections || js.find(s_exe) == js.end())
+    {
         js[s_exe] = m_exe;
     }
 }
 
 bool PdbReader::save_config(const std::string &file_name, bool overwrite_sections)
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Saving config file '%s'...\n", file_name.c_str());
     }
 
@@ -100,7 +108,8 @@ bool PdbReader::save_config(const std::string &file_name, bool overwrite_section
     {
         std::ifstream fs(file_name);
 
-        if (fs.good()) {
+        if (fs.good())
+        {
             js = nlohmann::json::parse(fs);
         }
     }
@@ -121,7 +130,8 @@ bool PdbReader::load(const std::string &pdb_file)
 
     HRESULT hr = CoInitialize(NULL);
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         wprintf(L"CoInitialize failed - HRESULT = %08X\n", hr);
         return false;
     }
@@ -132,7 +142,8 @@ bool PdbReader::load(const std::string &pdb_file)
 
     hr = CoCreateInstance(__uuidof(DiaSource), NULL, CLSCTX_INPROC_SERVER, __uuidof(IDiaDataSource), (void **)&m_pDiaSource);
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         wprintf(L"CoCreateInstance failed - HRESULT = %08X\n", hr);
         return false;
     }
@@ -143,7 +154,8 @@ bool PdbReader::load(const std::string &pdb_file)
 
     hr = m_pDiaSource->loadDataFromPdb(wfilename.c_str());
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         wprintf(L"loadDataFromPdb failed - HRESULT = %08X\n", hr);
         return false;
     }
@@ -152,7 +164,8 @@ bool PdbReader::load(const std::string &pdb_file)
 
     hr = m_pDiaSource->openSession(&m_pDiaSession);
 
-    if (FAILED(hr)) {
+    if (FAILED(hr))
+    {
         wprintf(L"openSession failed - HRESULT = %08X\n", hr);
         return false;
     }
@@ -161,7 +174,8 @@ bool PdbReader::load(const std::string &pdb_file)
 
     hr = m_pDiaSession->get_globalScope(&m_pDiaSymbol);
 
-    if (hr != S_OK) {
+    if (hr != S_OK)
+    {
         wprintf(L"get_globalScope failed\n");
         return false;
     }
@@ -169,8 +183,10 @@ bool PdbReader::load(const std::string &pdb_file)
     // Set Machine type for getting correct register names
 
     DWORD dwMachType = 0;
-    if (m_pDiaSymbol->get_machineType(&dwMachType) == S_OK) {
-        switch (dwMachType) {
+    if (m_pDiaSymbol->get_machineType(&dwMachType) == S_OK)
+    {
+        switch (dwMachType)
+        {
             case IMAGE_FILE_MACHINE_I386:
                 m_dwMachineType = CV_CFL_80386;
                 break;
@@ -188,13 +204,16 @@ bool PdbReader::load(const std::string &pdb_file)
 
 void PdbReader::unload()
 {
-    if (m_coInitialized) {
-        if (m_pDiaSession != nullptr) {
+    if (m_coInitialized)
+    {
+        if (m_pDiaSession != nullptr)
+        {
             m_pDiaSession->Release();
             m_pDiaSession = nullptr;
         }
 
-        if (m_pDiaSymbol != nullptr) {
+        if (m_pDiaSymbol != nullptr)
+        {
             m_pDiaSymbol->Release();
             m_pDiaSymbol = nullptr;
         }
@@ -246,17 +265,20 @@ bool PdbReader::read_symbols()
 bool PdbReader::read_global_scope()
 {
     IDiaSymbol *pSymbol;
-    if (m_pDiaSession->get_globalScope(&pSymbol) == S_OK) {
+    if (m_pDiaSession->get_globalScope(&pSymbol) == S_OK)
+    {
         {
             BSTR name;
-            if (pSymbol->get_name(&name) == S_OK) {
+            if (pSymbol->get_name(&name) == S_OK)
+            {
                 m_exe.exeFileName = util::to_utf8(name);
                 SysFreeString(name);
             }
         }
         {
             BSTR name;
-            if (pSymbol->get_symbolsFileName(&name) == S_OK) {
+            if (pSymbol->get_symbolsFileName(&name) == S_OK)
+            {
                 m_exe.pdbFilePath = util::to_utf8(name);
                 SysFreeString(name);
             }
@@ -277,15 +299,18 @@ IDiaEnumSourceFiles *PdbReader::get_enum_source_files()
     IDiaTable *pTable = NULL;
     ULONG celt = 0;
 
-    if (m_pDiaSession->getEnumTables(&pEnumTables) != S_OK) {
+    if (m_pDiaSession->getEnumTables(&pEnumTables) != S_OK)
+    {
         wprintf(L"ERROR - GetTable() getEnumTables\n");
         return NULL;
     }
-    while (pEnumTables->Next(1, &pTable, &celt) == S_OK && celt == 1) {
+    while (pEnumTables->Next(1, &pTable, &celt) == S_OK && celt == 1)
+    {
         // There is only one table that matches the given iid
         HRESULT hr = pTable->QueryInterface(iid, (void **)&pUnknown);
         pTable->Release();
-        if (hr == S_OK) {
+        if (hr == S_OK)
+        {
             break;
         }
     }
@@ -296,7 +321,8 @@ IDiaEnumSourceFiles *PdbReader::get_enum_source_files()
 bool PdbReader::read_source_files()
 {
     IDiaEnumSourceFiles *pEnumSourceFiles = get_enum_source_files();
-    if (pEnumSourceFiles != nullptr) {
+    if (pEnumSourceFiles != nullptr)
+    {
         {
             LONG count = 0;
             pEnumSourceFiles->get_Count(&count);
@@ -309,7 +335,8 @@ bool PdbReader::read_source_files()
 
         // Go through all the source files.
 
-        while (SUCCEEDED(pEnumSourceFiles->Next(1, &pSourceFile, &celt)) && (celt == 1)) {
+        while (SUCCEEDED(pEnumSourceFiles->Next(1, &pSourceFile, &celt)) && (celt == 1))
+        {
             read_source_file_initial(pSourceFile);
             pSourceFile->Release();
         }
@@ -332,7 +359,8 @@ void PdbReader::read_source_file_initial(IDiaSourceFile *pSourceFile)
     // Populate source file info.
     {
         BSTR name;
-        if (pSourceFile->get_fileName(&name) == S_OK) {
+        if (pSourceFile->get_fileName(&name) == S_OK)
+        {
             fileInfo.name = util::to_utf8(name);
             m_sourceFileNameToIndexMap[fileInfo.name] = sourceFileIndex;
             SysFreeString(name);
@@ -340,20 +368,23 @@ void PdbReader::read_source_file_initial(IDiaSourceFile *pSourceFile)
     }
     {
         DWORD checksumType = CHKSUM_TYPE_NONE;
-        if (pSourceFile->get_checksumType(&checksumType) == S_OK) {
+        if (pSourceFile->get_checksumType(&checksumType) == S_OK)
+        {
             fileInfo.checksumType = static_cast<CV_Chksum>(checksumType);
         }
     }
     {
         BYTE checksum[256];
         DWORD cbChecksum = sizeof(checksum);
-        if (pSourceFile->get_checksum(cbChecksum, &cbChecksum, checksum) == S_OK) {
+        if (pSourceFile->get_checksum(cbChecksum, &cbChecksum, checksum) == S_OK)
+        {
             fileInfo.checksum.assign(checksum, checksum + cbChecksum);
         }
     }
     {
         IDiaEnumSymbols *pEnumCompilands;
-        if (pSourceFile->get_compilands(&pEnumCompilands) == S_OK) {
+        if (pSourceFile->get_compilands(&pEnumCompilands) == S_OK)
+        {
             {
                 LONG count = 0;
                 pEnumCompilands->get_Count(&count);
@@ -363,9 +394,11 @@ void PdbReader::read_source_file_initial(IDiaSourceFile *pSourceFile)
             IDiaSymbol *pCompiland;
             ULONG celt = 0;
 
-            while (SUCCEEDED(pEnumCompilands->Next(1, &pCompiland, &celt)) && (celt == 1)) {
+            while (SUCCEEDED(pEnumCompilands->Next(1, &pCompiland, &celt)) && (celt == 1))
+            {
                 DWORD indexId;
-                if (pCompiland->get_symIndexId(&indexId) == S_OK) {
+                if (pCompiland->get_symIndexId(&indexId) == S_OK)
+                {
                     fileInfo.compilandIds.push_back(indexId);
                 }
             }
@@ -379,7 +412,8 @@ bool PdbReader::read_compilands()
 
     IDiaEnumSymbols *pEnumCompilands;
 
-    if (FAILED(m_pDiaSymbol->findChildren(SymTagCompiland, NULL, nsNone, &pEnumCompilands))) {
+    if (FAILED(m_pDiaSymbol->findChildren(SymTagCompiland, NULL, nsNone, &pEnumCompilands)))
+    {
         return false;
     }
 
@@ -394,14 +428,16 @@ bool PdbReader::read_compilands()
 
     // Go through all the compilands.
 
-    while (SUCCEEDED(pEnumCompilands->Next(1, &pCompiland, &celt)) && (celt == 1)) {
+    while (SUCCEEDED(pEnumCompilands->Next(1, &pCompiland, &celt)) && (celt == 1))
+    {
         const auto compilandId = static_cast<IndexT>(m_compilands.size());
         m_compilands.emplace_back();
         PdbCompilandInfo &compilandInfo = m_compilands.back();
 
         {
             BSTR name;
-            if (pCompiland->get_name(&name) == S_OK) {
+            if (pCompiland->get_name(&name) == S_OK)
+            {
                 compilandInfo.name = util::to_utf8(name);
                 SysFreeString(name);
             }
@@ -413,7 +449,8 @@ bool PdbReader::read_compilands()
 
             IDiaEnumSourceFiles *pEnumSourceFiles;
 
-            if (SUCCEEDED(m_pDiaSession->findFile(pCompiland, NULL, nsNone, &pEnumSourceFiles))) {
+            if (SUCCEEDED(m_pDiaSession->findFile(pCompiland, NULL, nsNone, &pEnumSourceFiles)))
+            {
                 IDiaSourceFile *pSourceFile;
 
                 {
@@ -422,7 +459,8 @@ bool PdbReader::read_compilands()
                     compilandInfo.sourceFileIds.reserve(count);
                 }
 
-                while (SUCCEEDED(pEnumSourceFiles->Next(1, &pSourceFile, &celt)) && (celt == 1)) {
+                while (SUCCEEDED(pEnumSourceFiles->Next(1, &pSourceFile, &celt)) && (celt == 1))
+                {
                     read_source_file_for_compiland(compilandInfo, pSourceFile);
                     pSourceFile->Release();
                 }
@@ -436,7 +474,8 @@ bool PdbReader::read_compilands()
 
             IDiaEnumSymbols *pEnumChildren;
 
-            if (SUCCEEDED(pCompiland->findChildren(SymTagNull, NULL, nsNone, &pEnumChildren))) {
+            if (SUCCEEDED(pCompiland->findChildren(SymTagNull, NULL, nsNone, &pEnumChildren)))
+            {
                 {
                     LONG count = 0;
                     pEnumCompilands->get_Count(&count);
@@ -446,7 +485,8 @@ bool PdbReader::read_compilands()
                 IDiaSymbol *pSymbol;
                 ULONG celtChildren = 0;
 
-                while (SUCCEEDED(pEnumChildren->Next(1, &pSymbol, &celtChildren)) && (celtChildren == 1)) {
+                while (SUCCEEDED(pEnumChildren->Next(1, &pSymbol, &celtChildren)) && (celtChildren == 1))
+                {
                     read_compiland_symbol(compilandInfo, compilandId, pSymbol);
                     pSymbol->Release();
                 }
@@ -471,14 +511,16 @@ void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IndexT co
 
     DWORD dwSymTag;
 
-    if (pSymbol->get_symTag(&dwSymTag) != S_OK) {
+    if (pSymbol->get_symTag(&dwSymTag) != S_OK)
+    {
         wprintf(L"ERROR - get_symTag() failed\n");
         return;
     }
 
     const auto symTag = static_cast<enum SymTagEnum>(dwSymTag);
 
-    switch (symTag) {
+    switch (symTag)
+    {
         case SymTagCompilandDetails:
             break;
 
@@ -545,18 +587,21 @@ void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IndexT co
             break;
     }
 
-    switch (symTag) {
+    switch (symTag)
+    {
         case SymTagFunction:
         case SymTagBlock:
         case SymTagAnnotation:
         case SymTagUDT: {
             IDiaEnumSymbols *pEnumChildren;
 
-            if (SUCCEEDED(pSymbol->findChildren(SymTagNull, NULL, nsNone, &pEnumChildren))) {
+            if (SUCCEEDED(pSymbol->findChildren(SymTagNull, NULL, nsNone, &pEnumChildren)))
+            {
                 IDiaSymbol *pChild;
                 ULONG celt = 0;
 
-                while (SUCCEEDED(pEnumChildren->Next(1, &pChild, &celt)) && (celt == 1)) {
+                while (SUCCEEDED(pEnumChildren->Next(1, &pChild, &celt)) && (celt == 1))
+                {
                     read_compiland_symbol(compilandInfo, compilandId, pChild);
                     pChild->Release();
                 }
@@ -577,28 +622,35 @@ void PdbReader::read_compiland_function(
     ULONGLONG ulLen;
     DWORD dwCall;
 
-    if (pSymbol->get_virtualAddress(&dwVA) == S_OK) {
+    if (pSymbol->get_virtualAddress(&dwVA) == S_OK)
+    {
         functionInfo.address.absVirtual = dwVA;
     }
-    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK) {
+    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK)
+    {
         functionInfo.address.relVirtual = dwRVA;
     }
-    if (pSymbol->get_addressSection(&dwSec) == S_OK) {
+    if (pSymbol->get_addressSection(&dwSec) == S_OK)
+    {
         functionInfo.address.section = dwSec;
     }
-    if (pSymbol->get_addressOffset(&dwOff) == S_OK) {
+    if (pSymbol->get_addressOffset(&dwOff) == S_OK)
+    {
         functionInfo.address.offset = dwOff;
     }
-    if (pSymbol->get_length(&ulLen) == S_OK) {
+    if (pSymbol->get_length(&ulLen) == S_OK)
+    {
         functionInfo.length = ulLen;
     }
-    if (pSymbol->get_callingConvention(&dwCall) == S_OK) {
+    if (pSymbol->get_callingConvention(&dwCall) == S_OK)
+    {
         functionInfo.call = static_cast<CV_Call>(dwCall);
     }
 
     {
         BSTR name;
-        if (pSymbol->get_undecoratedName(&name) == S_OK) {
+        if (pSymbol->get_undecoratedName(&name) == S_OK)
+        {
             functionInfo.undecoratedName = util::to_utf8(name);
             SysFreeString(name);
         }
@@ -606,7 +658,8 @@ void PdbReader::read_compiland_function(
 
     {
         BSTR name;
-        if (pSymbol->get_name(&name) == S_OK) {
+        if (pSymbol->get_name(&name) == S_OK)
+        {
             functionInfo.globalName = util::to_utf8(name);
             SysFreeString(name);
         }
@@ -615,12 +668,14 @@ void PdbReader::read_compiland_function(
     {
         IDiaEnumSymbols *pEnumSymbols;
 
-        if (SUCCEEDED(m_pDiaSymbol->findChildrenExByVA(SymTagPublicSymbol, NULL, nsNone, dwVA, &pEnumSymbols))) {
+        if (SUCCEEDED(m_pDiaSymbol->findChildrenExByVA(SymTagPublicSymbol, NULL, nsNone, dwVA, &pEnumSymbols)))
+        {
             // Note: There can be more than one public symbol for a function.
             IDiaSymbol *pSymbol;
             ULONG celt = 0;
 
-            while (SUCCEEDED(pEnumSymbols->Next(1, &pSymbol, &celt)) && (celt == 1)) {
+            while (SUCCEEDED(pEnumSymbols->Next(1, &pSymbol, &celt)) && (celt == 1))
+            {
                 read_public_function(functionInfo, pSymbol);
                 pSymbol->Release();
             }
@@ -632,7 +687,8 @@ void PdbReader::read_compiland_function(
     {
         IDiaEnumLineNumbers *pLines;
 
-        if (SUCCEEDED(m_pDiaSession->findLinesByVA(dwVA, DWORD(ulLen), &pLines))) {
+        if (SUCCEEDED(m_pDiaSession->findLinesByVA(dwVA, DWORD(ulLen), &pLines)))
+        {
             {
                 LONG count = 0;
                 pLines->get_Count(&count);
@@ -643,10 +699,13 @@ void PdbReader::read_compiland_function(
             ULONG celt = 0;
             int line_index = 0;
 
-            while (SUCCEEDED(pLines->Next(1, &pLine, &celt)) && (celt == 1)) {
-                if (line_index++ == 0) {
+            while (SUCCEEDED(pLines->Next(1, &pLine, &celt)) && (celt == 1))
+            {
+                if (line_index++ == 0)
+                {
                     IDiaSourceFile *pSource;
-                    if (pLine->get_sourceFile(&pSource) == S_OK) {
+                    if (pLine->get_sourceFile(&pSource) == S_OK)
+                    {
                         read_source_file_for_function(functionInfo, functionId, pSource);
 
                         pSource->Release();
@@ -672,16 +731,20 @@ void PdbReader::read_compiland_function_start(PdbFunctionInfo &functionInfo, IDi
     DWORD dwSec;
     DWORD dwOff;
 
-    if (pSymbol->get_virtualAddress(&dwVA) == S_OK) {
+    if (pSymbol->get_virtualAddress(&dwVA) == S_OK)
+    {
         functionInfo.debugStartAddress.absVirtual = dwVA;
     }
-    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK) {
+    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK)
+    {
         functionInfo.debugStartAddress.relVirtual = dwRVA;
     }
-    if (pSymbol->get_addressSection(&dwSec) == S_OK) {
+    if (pSymbol->get_addressSection(&dwSec) == S_OK)
+    {
         functionInfo.debugStartAddress.section = dwSec;
     }
-    if (pSymbol->get_addressOffset(&dwOff) == S_OK) {
+    if (pSymbol->get_addressOffset(&dwOff) == S_OK)
+    {
         functionInfo.debugStartAddress.offset = dwOff;
     }
 }
@@ -697,16 +760,20 @@ void PdbReader::read_compiland_function_end(PdbFunctionInfo &functionInfo, IDiaS
     DWORD dwSec;
     DWORD dwOff;
 
-    if (pSymbol->get_virtualAddress(&dwVA) == S_OK) {
+    if (pSymbol->get_virtualAddress(&dwVA) == S_OK)
+    {
         functionInfo.debugEndAddress.absVirtual = dwVA;
     }
-    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK) {
+    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK)
+    {
         functionInfo.debugEndAddress.relVirtual = dwRVA;
     }
-    if (pSymbol->get_addressSection(&dwSec) == S_OK) {
+    if (pSymbol->get_addressSection(&dwSec) == S_OK)
+    {
         functionInfo.debugEndAddress.section = dwSec;
     }
-    if (pSymbol->get_addressOffset(&dwOff) == S_OK) {
+    if (pSymbol->get_addressOffset(&dwOff) == S_OK)
+    {
         functionInfo.debugEndAddress.offset = dwOff;
     }
 }
@@ -714,7 +781,8 @@ void PdbReader::read_compiland_function_end(PdbFunctionInfo &functionInfo, IDiaS
 void PdbReader::read_public_function(PdbFunctionInfo &functionInfo, IDiaSymbol *pSymbol)
 {
     BSTR name;
-    if (pSymbol->get_name(&name) == S_OK) {
+    if (pSymbol->get_name(&name) == S_OK)
+    {
         const std::string n = util::to_utf8(name);
         functionInfo.decoratedName = get_relevant_symbol_name(functionInfo.decoratedName, n);
         SysFreeString(name);
@@ -724,7 +792,8 @@ void PdbReader::read_public_function(PdbFunctionInfo &functionInfo, IDiaSymbol *
 void PdbReader::read_source_file_for_compiland(PdbCompilandInfo &compilandInfo, IDiaSourceFile *pSourceFile)
 {
     BSTR name;
-    if (pSourceFile->get_fileName(&name) == S_OK) {
+    if (pSourceFile->get_fileName(&name) == S_OK)
+    {
         std::string n = util::to_utf8(name);
         StringToIndexMapT::iterator it = m_sourceFileNameToIndexMap.find(n);
         assert(it != m_sourceFileNameToIndexMap.end());
@@ -738,7 +807,8 @@ void PdbReader::read_source_file_for_compiland(PdbCompilandInfo &compilandInfo, 
 void PdbReader::read_source_file_for_function(PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSourceFile *pSourceFile)
 {
     BSTR name;
-    if (pSourceFile->get_fileName(&name) == S_OK) {
+    if (pSourceFile->get_fileName(&name) == S_OK)
+    {
         std::string n = util::to_utf8(name);
         StringToIndexMapT::iterator it = m_sourceFileNameToIndexMap.find(n);
         assert(it != m_sourceFileNameToIndexMap.end());
@@ -763,7 +833,8 @@ void PdbReader::read_line(PdbFunctionInfo &functionInfo, IDiaLineNumber *pLine)
     ok = ok && pLine->get_lineNumber(&dwLinenum) == S_OK;
     ok = ok && pLine->get_length(&dwLength) == S_OK;
 
-    if (ok) {
+    if (ok)
+    {
         functionInfo.sourceLines.emplace_back();
         PdbSourceLineInfo &lineInfo = functionInfo.sourceLines.back();
         lineInfo.lineNumber = dwLinenum;
@@ -776,7 +847,8 @@ bool PdbReader::read_publics()
 {
     IDiaEnumSymbols *pEnumSymbols;
 
-    if (FAILED(m_pDiaSymbol->findChildren(SymTagPublicSymbol, NULL, nsNone, &pEnumSymbols))) {
+    if (FAILED(m_pDiaSymbol->findChildren(SymTagPublicSymbol, NULL, nsNone, &pEnumSymbols)))
+    {
         return false;
     }
 
@@ -790,7 +862,8 @@ bool PdbReader::read_publics()
     IDiaSymbol *pSymbol;
     ULONG celt = 0;
 
-    while (SUCCEEDED(pEnumSymbols->Next(1, &pSymbol, &celt)) && (celt == 1)) {
+    while (SUCCEEDED(pEnumSymbols->Next(1, &pSymbol, &celt)) && (celt == 1))
+    {
         PdbSymbolInfo symbolInfo;
         read_public_symbol(symbolInfo, pSymbol);
         add_or_update_symbol(std::move(symbolInfo));
@@ -811,25 +884,30 @@ bool PdbReader::read_globals()
     bool ok = true;
     size_t combinedCount = 0;
 
-    for (size_t i = 0; i < dwSymTags.size(); ++i) {
+    for (size_t i = 0; i < dwSymTags.size(); ++i)
+    {
         enumSymbolsPtrs[i] = nullptr;
         ok = ok && SUCCEEDED(m_pDiaSymbol->findChildren(dwSymTags[i], NULL, nsNone, &enumSymbolsPtrs[i]));
-        if (ok) {
+        if (ok)
+        {
             LONG count = 0;
             enumSymbolsPtrs[i]->get_Count(&count);
             combinedCount += count;
         }
     }
 
-    if (ok) {
+    if (ok)
+    {
         m_symbols.reserve(m_symbols.size() + combinedCount);
         m_addressToSymbolsMap.reserve(m_addressToSymbolsMap.size() + combinedCount);
 
-        for (size_t i = 0; i < enumSymbolsPtrs.size(); ++i) {
+        for (size_t i = 0; i < enumSymbolsPtrs.size(); ++i)
+        {
             IDiaSymbol *pSymbol;
             ULONG celt = 0;
 
-            while (SUCCEEDED(enumSymbolsPtrs[i]->Next(1, &pSymbol, &celt)) && (celt == 1)) {
+            while (SUCCEEDED(enumSymbolsPtrs[i]->Next(1, &pSymbol, &celt)) && (celt == 1))
+            {
                 PdbSymbolInfo symbolInfo;
                 read_global_symbol(symbolInfo, pSymbol);
                 add_or_update_symbol(std::move(symbolInfo));
@@ -839,8 +917,10 @@ bool PdbReader::read_globals()
         }
     }
 
-    for (size_t i = 0; i < enumSymbolsPtrs.size(); ++i) {
-        if (enumSymbolsPtrs[i] != nullptr) {
+    for (size_t i = 0; i < enumSymbolsPtrs.size(); ++i)
+    {
+        if (enumSymbolsPtrs[i] != nullptr)
+        {
             enumSymbolsPtrs[i]->Release();
             enumSymbolsPtrs[i] = nullptr;
         }
@@ -857,25 +937,31 @@ void PdbReader::read_common_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbo
     DWORD dwOff;
     ULONGLONG ulLen;
 
-    if (pSymbol->get_virtualAddress(&dwVA) == S_OK) {
+    if (pSymbol->get_virtualAddress(&dwVA) == S_OK)
+    {
         symbolInfo.address.absVirtual = dwVA;
     }
-    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK) {
+    if (pSymbol->get_relativeVirtualAddress(&dwRVA) == S_OK)
+    {
         symbolInfo.address.relVirtual = dwRVA;
     }
-    if (pSymbol->get_addressSection(&dwSec) == S_OK) {
+    if (pSymbol->get_addressSection(&dwSec) == S_OK)
+    {
         symbolInfo.address.section = dwSec;
     }
-    if (pSymbol->get_addressOffset(&dwOff) == S_OK) {
+    if (pSymbol->get_addressOffset(&dwOff) == S_OK)
+    {
         symbolInfo.address.offset = dwOff;
     }
-    if (pSymbol->get_length(&ulLen) == S_OK) {
+    if (pSymbol->get_length(&ulLen) == S_OK)
+    {
         symbolInfo.length = ulLen;
     }
 
     {
         BSTR name;
-        if (pSymbol->get_undecoratedName(&name) == S_OK) {
+        if (pSymbol->get_undecoratedName(&name) == S_OK)
+        {
             symbolInfo.undecoratedName = util::to_utf8(name);
             SysFreeString(name);
         }
@@ -888,7 +974,8 @@ void PdbReader::read_public_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbo
 
     {
         BSTR name;
-        if (pSymbol->get_name(&name) == S_OK) {
+        if (pSymbol->get_name(&name) == S_OK)
+        {
             symbolInfo.decoratedName = util::to_utf8(name);
             SysFreeString(name);
         }
@@ -901,7 +988,8 @@ void PdbReader::read_global_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbo
 
     {
         BSTR name;
-        if (pSymbol->get_name(&name) == S_OK) {
+        if (pSymbol->get_name(&name) == S_OK)
+        {
             symbolInfo.globalName = util::to_utf8(name);
             SysFreeString(name);
         }
@@ -910,14 +998,22 @@ void PdbReader::read_global_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbo
 
 const std::string &PdbReader::get_relevant_symbol_name(const std::string &name1, const std::string &name2)
 {
-    if (name1.empty()) {
+    if (name1.empty())
+    {
         return name2;
-    } else if (name2.empty()) {
+    }
+    else if (name2.empty())
+    {
         return name1;
-    } else {
-        if (name1.compare(name2) <= 0) {
+    }
+    else
+    {
+        if (name1.compare(name2) <= 0)
+        {
             return name1;
-        } else {
+        }
+        else
+        {
             return name2;
         }
     }
@@ -927,17 +1023,21 @@ bool PdbReader::add_or_update_symbol(PdbSymbolInfo &&symbolInfo)
 {
     const auto address = symbolInfo.address.absVirtual;
 
-    if (address == ~decltype(address)(0)) {
+    if (address == ~decltype(address)(0))
+    {
         return false;
     }
 
     Address64ToIndexMapT::iterator it = m_addressToSymbolsMap.find(address);
 
-    if (it == m_addressToSymbolsMap.end()) {
+    if (it == m_addressToSymbolsMap.end())
+    {
         const IndexT index = static_cast<IndexT>(m_symbols.size());
         m_symbols.emplace_back(std::move(symbolInfo));
         m_addressToSymbolsMap[address] = index;
-    } else {
+    }
+    else
+    {
         /* This update can hit in two ways:
          *
          * 1) a public symbol is also a global symbol
@@ -948,10 +1048,12 @@ bool PdbReader::add_or_update_symbol(PdbSymbolInfo &&symbolInfo)
          */
         PdbSymbolInfo &curSymbolInfo = m_symbols[it->second];
 
-        if (symbolInfo.address.absVirtual != ~Address64T(0)) {
+        if (symbolInfo.address.absVirtual != ~Address64T(0))
+        {
             curSymbolInfo.address = symbolInfo.address;
         }
-        if (symbolInfo.length != 0) {
+        if (symbolInfo.length != 0)
+        {
             curSymbolInfo.length = symbolInfo.length;
         }
         curSymbolInfo.decoratedName = get_relevant_symbol_name(curSymbolInfo.decoratedName, symbolInfo.decoratedName);

@@ -17,11 +17,16 @@ namespace unassemblize
 {
 ExeSectionType to_section_type(const char *str)
 {
-    if (0 == strcasecmp(str, "code")) {
+    if (0 == strcasecmp(str, "code"))
+    {
         return ExeSectionType::Code;
-    } else if (0 == strcasecmp(str, "data")) {
+    }
+    else if (0 == strcasecmp(str, "data"))
+    {
         return ExeSectionType::Data;
-    } else {
+    }
+    else
+    {
         return ExeSectionType::Unknown;
     }
     static_assert(size_t(ExeSectionType::Unknown) == 2, "Enum was changed. Update conditions.");
@@ -29,7 +34,8 @@ ExeSectionType to_section_type(const char *str)
 
 const char *to_string(ExeSectionType type)
 {
-    switch (type) {
+    switch (type)
+    {
         case ExeSectionType::Code:
             return "code";
         case ExeSectionType::Data:

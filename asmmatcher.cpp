@@ -51,7 +51,8 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
     const size_t count1 = instructions1.size();
     size_t i0 = 0;
     size_t i1 = 0;
-    while (i0 < count0 || i1 < count1) {
+    while (i0 < count0 || i1 < count1)
+    {
         bool is_matching = false;
         bool do_lookahead = false;
 
@@ -69,18 +70,25 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
             const AsmInstructionLabel *label0 = std::get_if<AsmInstructionLabel>(&variant0);
             const AsmInstructionLabel *label1 = std::get_if<AsmInstructionLabel>(&variant1);
 
-            if (label0 != nullptr || label1 != nullptr) {
+            if (label0 != nullptr || label1 != nullptr)
+            {
                 AsmLabel asm_label;
-                if (label0 != nullptr) {
+                if (label0 != nullptr)
+                {
                     asm_label.label_pair[0] = label0;
                     ++i0;
-                } else {
+                }
+                else
+                {
                     asm_label.label_pair[0] = &s_dummyInstructionLabel;
                 }
-                if (label1 != nullptr) {
+                if (label1 != nullptr)
+                {
                     asm_label.label_pair[1] = label1;
                     ++i1;
-                } else {
+                }
+                else
+                {
                     asm_label.label_pair[1] = &s_dummyInstructionLabel;
                 }
                 result.records.emplace_back(std::move(asm_label));
@@ -93,21 +101,27 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
             const AsmInstruction *instruction0 = std::get_if<AsmInstruction>(&variant0);
             const AsmInstruction *instruction1 = std::get_if<AsmInstruction>(&variant1);
 
-            if (instruction0 == nullptr || instruction1 == nullptr) {
+            if (instruction0 == nullptr || instruction1 == nullptr)
+            {
                 // Is missing instruction on one side.
                 // Lookahead makes no sense then.
                 is_matching = false;
                 do_lookahead = false;
                 text_info.mismatch_bits = ~uint16_t(0);
-            } else if (has_mismatch(*instruction0, *instruction1, &array0, &array1, &text_info)) {
+            }
+            else if (has_mismatch(*instruction0, *instruction1, &array0, &array1, &text_info))
+            {
                 is_matching = false;
                 do_lookahead = true;
-            } else {
+            }
+            else
+            {
                 is_matching = true;
                 do_lookahead = false;
             }
 
-            if (do_lookahead) {
+            if (do_lookahead)
+            {
                 // Lookahead instructions to check if there is a match further ahead.
                 assert(is_matching == false);
                 assert(instruction0 != nullptr);
@@ -119,46 +133,60 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
                 size_t k1 = 0;
                 ++k0;
 
-                while (i0 + k0 < count0 && i1 + k1 < count1 && k0 < lookahead_limit0 && k1 < lookahead_limit1) {
+                while (i0 + k0 < count0 && i1 + k1 < count1 && k0 < lookahead_limit0 && k1 < lookahead_limit1)
+                {
                     // Lookahead takes turns on both sides.
                     // The first lookahead match will determine the side that skips ahead.
-                    if (k0 > k1) {
+                    if (k0 > k1)
+                    {
                         AsmInstructionVariants::const_iterator lookahead_base_it = instructions0.begin() + i0;
                         AsmInstructionVariants::const_iterator lookahead_last_it = lookahead_base_it + k0;
                         const InstructionTextArray &lookahead_last_array = arrays0[i0 + k0];
                         LookaheadResult lookahead_result = run_lookahead_comparison(
                             0, lookahead_base_it, lookahead_last_it, lookahead_last_array, *instruction1, array1, result);
 
-                        if (lookahead_result.is_label) {
+                        if (lookahead_result.is_label)
+                        {
                             // Skip over label.
                             ++k0;
                             ++lookahead_limit0;
-                        } else if (lookahead_result.is_matching) {
+                        }
+                        else if (lookahead_result.is_matching)
+                        {
                             // Set new base index and break.
                             is_matching = true;
                             i0 += k0;
                             break;
-                        } else {
+                        }
+                        else
+                        {
                             // Increment opposite side index to look at next.
                             ++k1;
                         }
-                    } else {
+                    }
+                    else
+                    {
                         AsmInstructionVariants::const_iterator lookahead_base_it = instructions1.begin() + i1;
                         AsmInstructionVariants::const_iterator lookahead_last_it = lookahead_base_it + k1;
                         const InstructionTextArray &lookahead_last_array = arrays1[i1 + k1];
                         LookaheadResult lookahead_result = run_lookahead_comparison(
                             1, lookahead_base_it, lookahead_last_it, lookahead_last_array, *instruction0, array0, result);
 
-                        if (lookahead_result.is_label) {
+                        if (lookahead_result.is_label)
+                        {
                             // Skip over label.
                             ++k1;
                             ++lookahead_limit1;
-                        } else if (lookahead_result.is_matching) {
+                        }
+                        else if (lookahead_result.is_matching)
+                        {
                             // Set new base index and break.
                             is_matching = true;
                             i1 += k1;
                             break;
-                        } else {
+                        }
+                        else
+                        {
                             // Increment opposite side index to look at next.
                             ++k0;
                         }
@@ -170,7 +198,8 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
         const AsmInstructionVariant &variant0 = (i0 < count0) ? instructions0[i0] : s_nullInstructionVariant;
         const AsmInstructionVariant &variant1 = (i1 < count1) ? instructions1[i1] : s_nullInstructionVariant;
 
-        if (is_matching) {
+        if (is_matching)
+        {
             assert(std::holds_alternative<AsmInstruction>(variant0));
             assert(std::holds_alternative<AsmInstruction>(variant1));
             const AsmInstruction &instruction0 = std::get<AsmInstruction>(variant0);
@@ -182,20 +211,28 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
             ++result.match_count;
             ++i0;
             ++i1;
-        } else {
+        }
+        else
+        {
             const AsmInstruction *instruction0 = std::get_if<AsmInstruction>(&variant0);
             const AsmInstruction *instruction1 = std::get_if<AsmInstruction>(&variant1);
             AsmMismatch asm_mismatch;
-            if (instruction0 != nullptr) {
+            if (instruction0 != nullptr)
+            {
                 asm_mismatch.instruction_pair[0] = instruction0;
                 ++i0;
-            } else {
+            }
+            else
+            {
                 asm_mismatch.instruction_pair[0] = &s_dummyInstruction;
             }
-            if (instruction1 != nullptr) {
+            if (instruction1 != nullptr)
+            {
                 asm_mismatch.instruction_pair[1] = instruction1;
                 ++i1;
-            } else {
+            }
+            else
+            {
                 asm_mismatch.instruction_pair[1] = &s_dummyInstruction;
             }
             asm_mismatch.text_info = text_info;
@@ -222,27 +259,35 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
     const size_t opposite_side = (lookahead_side + 1) % 2;
     LookaheadResult lookahead_result;
 
-    if (const AsmInstructionLabel *label = std::get_if<AsmInstructionLabel>(&*lookahead_last_it)) {
+    if (const AsmInstructionLabel *label = std::get_if<AsmInstructionLabel>(&*lookahead_last_it))
+    {
         lookahead_result.is_label = true;
-    } else {
+    }
+    else
+    {
         assert(std::holds_alternative<AsmInstruction>(*lookahead_last_it));
         const AsmInstruction &lookahead_last_instruction = std::get<AsmInstruction>(*lookahead_last_it);
 
         if (!has_mismatch(
-                lookahead_last_instruction, opposite_base_instruction, &lookahead_last_array, &opposite_base_array)) {
+                lookahead_last_instruction, opposite_base_instruction, &lookahead_last_array, &opposite_base_array))
+        {
             // Lookahead instruction is matching with base instruction on the other side.
             lookahead_result.is_matching = true;
 
-            for (auto it = lookahead_base_it; it < lookahead_last_it; ++it) {
+            for (auto it = lookahead_base_it; it < lookahead_last_it; ++it)
+            {
                 const AsmInstructionVariant &variant = *it;
-                if (const AsmInstructionLabel *label = std::get_if<AsmInstructionLabel>(&variant)) {
+                if (const AsmInstructionLabel *label = std::get_if<AsmInstructionLabel>(&variant))
+                {
                     // Insert the label and go ahead.
                     AsmLabel asm_label;
                     asm_label.label_pair[lookahead_side] = label;
                     asm_label.label_pair[opposite_side] = &s_dummyInstructionLabel;
                     comparison_result.records.emplace_back(std::move(asm_label));
                     ++comparison_result.label_count;
-                } else {
+                }
+                else
+                {
                     // These are all mismatches because above it hit the first match upon lookahead.
                     assert(std::holds_alternative<AsmInstruction>(variant));
                     const AsmInstruction &instruction = std::get<AsmInstruction>(variant);
@@ -269,22 +314,29 @@ bool AsmMatcher::has_mismatch(
     const InstructionTextArray *array1,
     AsmTextMismatchInfo *out_text_info)
 {
-    if (instruction0.isInvalid != instruction1.isInvalid) {
+    if (instruction0.isInvalid != instruction1.isInvalid)
+    {
         return true;
     }
     AsmTextMismatchInfo text_info;
-    if (array0 != nullptr && array1 != nullptr) {
+    if (array0 != nullptr && array1 != nullptr)
+    {
         text_info = compare_asm_text(*array0, *array1);
-    } else {
+    }
+    else
+    {
         text_info = compare_asm_text(instruction0.text, instruction1.text);
     }
-    if (out_text_info != nullptr) {
+    if (out_text_info != nullptr)
+    {
         *out_text_info = text_info;
     }
-    if (text_info.is_mismatch()) {
+    if (text_info.is_mismatch())
+    {
         return true;
     }
-    if (has_jump_len_mismatch(instruction0, instruction1)) {
+    if (has_jump_len_mismatch(instruction0, instruction1))
+    {
         return true;
     }
     return false;
@@ -311,23 +363,29 @@ AsmTextMismatchInfo AsmMatcher::compare_asm_text(const InstructionTextArray &arr
 
     std::string dummy;
 
-    for (size_t i = 0; i < array0.size || i < array1.size; ++i) {
+    for (size_t i = 0; i < array0.size || i < array1.size; ++i)
+    {
         const std::string &word0 = (i < array0.size) ? array0.inner[i] : dummy;
         const std::string &word1 = (i < array1.size) ? array1.inner[i] : dummy;
         const char *c0 = word0.c_str();
         const char *c1 = word1.c_str();
         int in_quote = -1;
 
-        for (; *c0 != '\0' || *c1 != '\0'; ++c0, ++c1) {
-            if (*c0 == '\"' && *c1 == '\"') {
+        for (; *c0 != '\0' || *c1 != '\0'; ++c0, ++c1)
+        {
+            if (*c0 == '\"' && *c1 == '\"')
+            {
                 // String is entering or leaving a quoted symbol name.
                 in_quote = in_quote < 0 ? 0 : -1;
                 continue;
-            } else if (in_quote >= 0) {
+            }
+            else if (in_quote >= 0)
+            {
                 ++in_quote;
             }
 
-            if (in_quote == 1) {
+            if (in_quote == 1)
+            {
                 assert(*c0 != '\"');
                 assert(*c1 != '\"');
 
@@ -336,21 +394,26 @@ AsmTextMismatchInfo AsmMatcher::compare_asm_text(const InstructionTextArray &arr
                 const bool skipped1 = skip_unknown_symbol(c1);
 
                 // If one side skipped an unknown symbol, then skip the other symbol as well.
-                if (skipped0 && !skipped1) {
+                if (skipped0 && !skipped1)
+                {
                     skip_known_symbol(c1);
-                } else if (!skipped0 && skipped1) {
+                }
+                else if (!skipped0 && skipped1)
+                {
                     skip_known_symbol(c0);
                 }
 
                 // If at least one symbol was skipped, then this quote is done.
-                if (skipped0 || skipped1) {
+                if (skipped0 || skipped1)
+                {
                     assert(*c0 == '\"');
                     assert(*c1 == '\"');
                     in_quote = -1;
                 }
             }
 
-            if (*c0 != *c1) {
+            if (*c0 != *c1)
+            {
                 // This section is mismatching. Break.
                 result.mismatch_bits |= (1 << i);
                 break;
@@ -364,10 +427,13 @@ AsmTextMismatchInfo AsmMatcher::compare_asm_text(const InstructionTextArray &arr
 bool AsmMatcher::skip_unknown_symbol(const char *&str)
 {
     bool skipped = false;
-    for (const std::string_view prefix : s_prefix_array) {
-        if (0 == strncasecmp(str, prefix.data(), prefix.size())) {
+    for (const std::string_view prefix : s_prefix_array)
+    {
+        if (0 == strncasecmp(str, prefix.data(), prefix.size()))
+        {
             str += prefix.size();
-            while (*str != '\"') {
+            while (*str != '\"')
+            {
                 ++str;
             }
             skipped = true;
@@ -379,7 +445,8 @@ bool AsmMatcher::skip_unknown_symbol(const char *&str)
 
 void AsmMatcher::skip_known_symbol(const char *&str)
 {
-    while (*str != '\"' && *str != '\0') {
+    while (*str != '\"' && *str != '\0')
+    {
         ++str;
     }
 }
@@ -389,8 +456,10 @@ AsmMatcher::InstructionTextArrays AsmMatcher::split_instruction_texts(const AsmI
     InstructionTextArrays arrays;
     const size_t size = instructions.size();
     arrays.resize(size);
-    for (size_t i = 0; i < size; ++i) {
-        if (const AsmInstruction *instruction = std::get_if<AsmInstruction>(&instructions[i])) {
+    for (size_t i = 0; i < size; ++i)
+    {
+        if (const AsmInstruction *instruction = std::get_if<AsmInstruction>(&instructions[i]))
+        {
             arrays[i] = split_instruction_text(instruction->text);
         }
     }
@@ -404,11 +473,15 @@ AsmMatcher::InstructionTextArray AsmMatcher::split_instruction_text(const std::s
     char sep = ' ';
     bool in_quote = false;
 
-    for (const char *c = text.c_str(); *c != '\0'; ++c) {
-        if (*c == '\"') {
+    for (const char *c = text.c_str(); *c != '\0'; ++c)
+    {
+        if (*c == '\"')
+        {
             // Does not look for separator inside quoted text.
             in_quote = !in_quote;
-        } else if (!in_quote && *c == sep) {
+        }
+        else if (!in_quote && *c == sep)
+        {
             // Change word separator for operands.
             sep = ',';
             // Omit spaces between operands.

@@ -32,13 +32,15 @@ Executable::~Executable() {}
 
 bool Executable::read(const std::string &exe_file)
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Loading section info...\n");
     }
 
     m_binary = LIEF::Parser::parse(exe_file);
 
-    if (m_binary.get() == nullptr) {
+    if (m_binary.get() == nullptr)
+    {
         return false;
     }
 
@@ -55,8 +57,10 @@ bool Executable::read(const std::string &exe_file)
 
     bool checked_image_base = false;
 
-    for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
-        if (!it->name().empty() && it->size() != 0) {
+    for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it)
+    {
+        if (!it->name().empty() && it->size() != 0)
+        {
             const IndexT section_idx = m_sections.size();
             m_sections.emplace_back();
             ExeSectionInfo &section = m_sections.back();
@@ -77,17 +81,21 @@ bool Executable::read(const std::string &exe_file)
             // Naive split on whether section contains data or code... have entrypoint? Code, else data.
             // Needs to be refined by providing a config file with section types specified.
             const uint64_t entrypoint = m_binary->entrypoint() - m_binary->imagebase();
-            if (section.address < entrypoint && section.address + section.size >= entrypoint) {
+            if (section.address < entrypoint && section.address + section.size >= entrypoint)
+            {
                 section.type = ExeSectionType::Code;
                 assert(m_codeSectionIdx == ~IndexT(0));
                 m_codeSectionIdx = section_idx;
-            } else {
+            }
+            else
+            {
                 section.type = ExeSectionType::Data;
             }
         }
     }
 
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Indexing embedded symbols...\n");
     }
 
@@ -101,7 +109,8 @@ bool Executable::read(const std::string &exe_file)
         m_symbolNameToIndexMap.reserve(newSize);
     }
 
-    for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it) {
+    for (auto it = exe_syms.begin(); it != exe_syms.end(); ++it)
+    {
         ExeSymbol symbol;
         symbol.name = it->name();
         symbol.address = it->value();
@@ -110,7 +119,8 @@ bool Executable::read(const std::string &exe_file)
         add_symbol(symbol);
     }
 
-    for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it) {
+    for (auto it = exe_imports.begin(); it != exe_imports.end(); ++it)
+    {
         ExeSymbol symbol;
         symbol.name = it->name();
         symbol.address = it->value();
@@ -119,13 +129,16 @@ bool Executable::read(const std::string &exe_file)
         add_symbol(symbol);
     }
 
-    if (m_targetObjects.empty()) {
+    if (m_targetObjects.empty())
+    {
         m_targetObjects.push_back(
             {m_binary->name().substr(m_binary->name().find_last_of("/\\") + 1), std::list<ExeObjectSection>()});
         ExeObject &obj = m_targetObjects.back();
 
-        for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it) {
-            if (it->name().empty() || it->size() == 0) {
+        for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it)
+        {
+            if (it->name().empty() || it->size() == 0)
+            {
                 continue;
             }
 
@@ -153,8 +166,10 @@ const ExeSections &Executable::get_sections() const
 
 const ExeSectionInfo *Executable::find_section(uint64_t address) const
 {
-    for (const ExeSectionInfo &section : m_sections) {
-        if (address >= section.address && address < section.address + section.size) {
+    for (const ExeSectionInfo &section : m_sections)
+    {
+        if (address >= section.address && address < section.address + section.size)
+        {
             return &section;
         }
     }
@@ -165,7 +180,8 @@ const ExeSectionInfo *Executable::find_section(const std::string &name) const
 {
     StringToIndexMap::const_iterator it = m_sectionNameToIndexMap.find(name);
 
-    if (it != m_sectionNameToIndexMap.end()) {
+    if (it != m_sectionNameToIndexMap.end())
+    {
         return &m_sections[it->second];
     }
     return nullptr;
@@ -173,7 +189,8 @@ const ExeSectionInfo *Executable::find_section(const std::string &name) const
 
 const ExeSectionInfo *Executable::get_code_section() const
 {
-    if (m_codeSectionIdx < m_sections.size()) {
+    if (m_codeSectionIdx < m_sections.size())
+    {
         return &m_sections[m_codeSectionIdx];
     }
     return nullptr;
@@ -212,7 +229,8 @@ const ExeSymbol &Executable::get_symbol(uint64_t address) const
 {
     Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.find(address);
 
-    if (it != m_symbolAddressToIndexMap.end()) {
+    if (it != m_symbolAddressToIndexMap.end())
+    {
         return m_symbols[it->second];
     }
     return s_emptySymbol;
@@ -222,7 +240,8 @@ const ExeSymbol &Executable::get_symbol(const std::string &name) const
 {
     StringToIndexMap::const_iterator it = m_symbolNameToIndexMap.find(name);
 
-    if (it != m_symbolNameToIndexMap.end()) {
+    if (it != m_symbolNameToIndexMap.end())
+    {
         return m_symbols[it->second];
     }
     return s_emptySymbol;
@@ -237,11 +256,15 @@ const ExeSymbol &Executable::get_nearest_symbol(uint64_t address) const
 {
     Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.lower_bound(address);
 
-    if (it != m_symbolAddressToIndexMap.end()) {
+    if (it != m_symbolAddressToIndexMap.end())
+    {
         const ExeSymbol &symbol = m_symbols[it->second];
-        if (symbol.address == address) {
+        if (symbol.address == address)
+        {
             return symbol;
-        } else {
+        }
+        else
+        {
             const ExeSymbol &prevSymbol = m_symbols[std::prev(it)->second];
             return prevSymbol;
         }
@@ -262,7 +285,8 @@ void Executable::add_symbols(const ExeSymbols &symbols, bool overwrite)
     m_symbolAddressToIndexMap.reserve(size);
     m_symbolNameToIndexMap.reserve(size);
 
-    for (const ExeSymbol &symbol : symbols) {
+    for (const ExeSymbol &symbol : symbols)
+    {
         add_symbol(symbol, overwrite);
     }
 }
@@ -274,7 +298,8 @@ void Executable::add_symbols(const PdbSymbolInfoVector &symbols, bool overwrite)
     m_symbolAddressToIndexMap.reserve(size);
     m_symbolNameToIndexMap.reserve(size);
 
-    for (const PdbSymbolInfo &pdbSymbol : symbols) {
+    for (const PdbSymbolInfo &pdbSymbol : symbols)
+    {
         add_symbol(to_exe_symbol(pdbSymbol), overwrite);
     }
 }
@@ -283,31 +308,37 @@ void Executable::add_symbol(const ExeSymbol &symbol, bool overwrite)
 {
     Address64ToIndexMap::iterator it = m_symbolAddressToIndexMap.find(symbol.address);
 
-    if (it == m_symbolAddressToIndexMap.end()) {
+    if (it == m_symbolAddressToIndexMap.end())
+    {
         const uint32_t index = static_cast<uint32_t>(m_symbols.size());
         m_symbols.push_back(symbol);
         m_symbolAddressToIndexMap[symbol.address] = index;
         m_symbolNameToIndexMap[symbol.name] = index;
-    } else if (overwrite) {
+    }
+    else if (overwrite)
+    {
         m_symbols[it->second] = symbol;
     }
 }
 
 void Executable::load_config(const char *file_name, bool overwrite_symbols)
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Loading config file '%s'...\n", file_name);
     }
 
     std::ifstream fs(file_name);
 
-    if (!fs.good()) {
+    if (!fs.good())
+    {
         return;
     }
 
     nlohmann::json j = nlohmann::json::parse(fs);
 
-    if (j.find(s_configSection) != j.end()) {
+    if (j.find(s_configSection) != j.end())
+    {
         nlohmann::json &conf = j.at(s_configSection);
         conf.at("codealign").get_to(m_imageData.codeAlignment);
         conf.at("dataalign").get_to(m_imageData.dataAlignment);
@@ -315,22 +346,26 @@ void Executable::load_config(const char *file_name, bool overwrite_symbols)
         conf.at("datapadding").get_to(m_imageData.dataPad);
     }
 
-    if (j.find(s_symbolSection) != j.end()) {
+    if (j.find(s_symbolSection) != j.end())
+    {
         load_symbols(j.at(s_symbolSection), overwrite_symbols);
     }
 
-    if (j.find(s_sectionsSection) != j.end()) {
+    if (j.find(s_sectionsSection) != j.end())
+    {
         load_sections(j.at(s_sectionsSection));
     }
 
-    if (j.find(s_objectSection) != j.end()) {
+    if (j.find(s_objectSection) != j.end())
+    {
         load_objects(j.at(s_objectSection));
     }
 }
 
 void Executable::save_config(const char *file_name)
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Saving config file '%s'...\n", file_name);
     }
 
@@ -340,12 +375,14 @@ void Executable::save_config(const char *file_name)
     {
         std::ifstream fs(file_name);
 
-        if (fs.good()) {
+        if (fs.good())
+        {
             j = nlohmann::json::parse(fs);
         }
     }
 
-    if (j.find(s_configSection) == j.end()) {
+    if (j.find(s_configSection) == j.end())
+    {
         j[s_configSection] = nlohmann::json();
     }
 
@@ -356,17 +393,20 @@ void Executable::save_config(const char *file_name)
     conf["datapadding"] = m_imageData.dataPad;
 
     // Don't dump if we already have a sections for these.
-    if (j.find(s_symbolSection) == j.end()) {
+    if (j.find(s_symbolSection) == j.end())
+    {
         j[s_symbolSection] = nlohmann::json();
         dump_symbols(j.at(s_symbolSection));
     }
 
-    if (j.find(s_sectionsSection) == j.end()) {
+    if (j.find(s_sectionsSection) == j.end())
+    {
         j[s_sectionsSection] = nlohmann::json();
         dump_sections(j.at(s_sectionsSection));
     }
 
-    if (j.find(s_objectSection) == j.end()) {
+    if (j.find(s_objectSection) == j.end())
+    {
         j[s_objectSection] = nlohmann::json();
         dump_objects(j.at(s_objectSection));
     }
@@ -377,7 +417,8 @@ void Executable::save_config(const char *file_name)
 
 void Executable::load_symbols(nlohmann::json &js, bool overwrite_symbols)
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Loading external symbols...\n");
     }
 
@@ -386,16 +427,19 @@ void Executable::load_symbols(nlohmann::json &js, bool overwrite_symbols)
     m_symbolAddressToIndexMap.reserve(newSize);
     m_symbolNameToIndexMap.reserve(newSize);
 
-    for (auto it = js.begin(); it != js.end(); ++it) {
+    for (auto it = js.begin(); it != js.end(); ++it)
+    {
         ExeSymbol symbol;
 
         it->at("name").get_to(symbol.name);
-        if (symbol.name.empty()) {
+        if (symbol.name.empty())
+        {
             continue;
         }
 
         it->at("address").get_to(symbol.address);
-        if (symbol.address == 0) {
+        if (symbol.address == 0)
+        {
             continue;
         }
 
@@ -407,31 +451,38 @@ void Executable::load_symbols(nlohmann::json &js, bool overwrite_symbols)
 
 void Executable::dump_symbols(nlohmann::json &js) const
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Saving symbols...\n");
     }
 
-    for (const ExeSymbol &symbol : m_symbols) {
+    for (const ExeSymbol &symbol : m_symbols)
+    {
         js.push_back({{"name", symbol.name}, {"address", symbol.address}, {"size", symbol.size}});
     }
 }
 
 void Executable::load_sections(nlohmann::json &js)
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Loading section info...\n");
     }
 
-    for (auto it = js.begin(); it != js.end(); ++it) {
+    for (auto it = js.begin(); it != js.end(); ++it)
+    {
         std::string name;
         it->at("name").get_to(name);
 
         // Don't try and load an empty section.
-        if (!name.empty()) {
+        if (!name.empty())
+        {
             StringToIndexMap::const_iterator itSection = m_sectionNameToIndexMap.find(name);
 
-            if (itSection == m_sectionNameToIndexMap.end()) {
-                if (m_verbose) {
+            if (itSection == m_sectionNameToIndexMap.end())
+            {
+                if (m_verbose)
+                {
                     printf("Tried to load section info for section not present in this binary!\n");
                     printf("Section '%s' info was ignored.\n", name.c_str());
                 }
@@ -445,16 +496,19 @@ void Executable::load_sections(nlohmann::json &js)
 
             section.type = to_section_type(type.c_str());
 
-            if (section.type == ExeSectionType::Unknown && m_verbose) {
+            if (section.type == ExeSectionType::Unknown && m_verbose)
+            {
                 printf("Incorrect type specified for section '%s'.\n", name.c_str());
             }
 
             auto it_address = it->find("address");
-            if (it_address != it->end()) {
+            if (it_address != it->end())
+            {
                 it_address->get_to(section.address);
             }
             auto it_size = it->find("size");
-            if (it_size != it->end()) {
+            if (it_size != it->end())
+            {
                 it_size->get_to(section.size);
             }
         }
@@ -463,11 +517,13 @@ void Executable::load_sections(nlohmann::json &js)
 
 void Executable::dump_sections(nlohmann::json &js) const
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Saving section info...\n");
     }
 
-    for (const ExeSectionInfo &section : m_sections) {
+    for (const ExeSectionInfo &section : m_sections)
+    {
         const char *type_str = to_string(section.type);
         js.push_back({{"name", section.name}, {"type", type_str}, {"address", section.address}, {"size", section.size}});
     }
@@ -475,15 +531,18 @@ void Executable::dump_sections(nlohmann::json &js) const
 
 void Executable::load_objects(nlohmann::json &js)
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Loading objects...\n");
     }
 
-    for (auto it = js.begin(); it != js.end(); ++it) {
+    for (auto it = js.begin(); it != js.end(); ++it)
+    {
         std::string obj_name;
         it->at("name").get_to(obj_name);
 
-        if (obj_name.empty()) {
+        if (obj_name.empty())
+        {
             continue;
         }
 
@@ -493,7 +552,8 @@ void Executable::load_objects(nlohmann::json &js)
                 std::find_if(m_targetObjects.begin(), m_targetObjects.end(), [&](const ExeObject &object) {
                     return object.name == obj_name;
                 });
-            if (it_object != m_targetObjects.end()) {
+            if (it_object != m_targetObjects.end())
+            {
                 continue;
             }
         }
@@ -502,7 +562,8 @@ void Executable::load_objects(nlohmann::json &js)
         ExeObject &obj = m_targetObjects.back();
         auto &sections = js.back().at("sections");
 
-        for (auto sec = sections.begin(); sec != sections.end(); ++sec) {
+        for (auto sec = sections.begin(); sec != sections.end(); ++sec)
+        {
             obj.sections.emplace_back();
             ExeObjectSection &section = obj.sections.back();
             sec->at("name").get_to(section.name);
@@ -514,15 +575,18 @@ void Executable::load_objects(nlohmann::json &js)
 
 void Executable::dump_objects(nlohmann::json &js) const
 {
-    if (m_verbose) {
+    if (m_verbose)
+    {
         printf("Saving objects...\n");
     }
 
-    for (ExeObjects::const_iterator it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it) {
+    for (ExeObjects::const_iterator it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it)
+    {
         js.push_back({{"name", it->name}, {"sections", nlohmann::json()}});
         auto &sections = js.back().at("sections");
 
-        for (auto it2 = it->sections.begin(); it2 != it->sections.end(); ++it2) {
+        for (auto it2 = it->sections.begin(); it2 != it->sections.end(); ++it2)
+        {
             sections.push_back({{"name", it2->name}, {"offset", it2->offset}, {"size", it2->size}});
         }
     }

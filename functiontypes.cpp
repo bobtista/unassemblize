@@ -17,13 +17,20 @@ namespace unassemblize
 {
 AsmFormat to_asm_format(const char *str)
 {
-    if (0 == strcasecmp(str, "igas")) {
+    if (0 == strcasecmp(str, "igas"))
+    {
         return AsmFormat::IGAS;
-    } else if (0 == strcasecmp(str, "agas")) {
+    }
+    else if (0 == strcasecmp(str, "agas"))
+    {
         return AsmFormat::AGAS;
-    } else if (0 == strcasecmp(str, "masm")) {
+    }
+    else if (0 == strcasecmp(str, "masm"))
+    {
         return AsmFormat::MASM;
-    } else {
+    }
+    else
+    {
         return AsmFormat::DEFAULT;
     }
     static_assert(size_t(AsmFormat::DEFAULT) == 3, "Enum was changed. Update switch case.");

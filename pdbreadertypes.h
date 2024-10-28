@@ -161,11 +161,16 @@ template<class T>
 ExeSymbol to_exe_symbol(const T &pdb_symbol)
 {
     ExeSymbol exe_symbol;
-    if (!pdb_symbol.decoratedName.empty()) {
+    if (!pdb_symbol.decoratedName.empty())
+    {
         exe_symbol.name = pdb_symbol.decoratedName;
-    } else if (!pdb_symbol.globalName.empty()) {
+    }
+    else if (!pdb_symbol.globalName.empty())
+    {
         exe_symbol.name = pdb_symbol.globalName;
-    } else {
+    }
+    else
+    {
         exe_symbol.name = pdb_symbol.undecoratedName;
     }
     exe_symbol.address = pdb_symbol.address.absVirtual;
@@ -179,7 +184,8 @@ ExeSymbols to_exe_symbols(Iterator begin, Iterator end)
     const size_t size = std::distance(begin, end);
     ExeSymbols symbols;
     symbols.reserve(size);
-    for (; begin != end; ++begin) {
+    for (; begin != end; ++begin)
+    {
         symbols.emplace_back(std::move(to_exe_symbol(*begin)));
     }
     return symbols;
