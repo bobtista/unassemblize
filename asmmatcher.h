@@ -29,8 +29,17 @@ class AsmMatcher
 
     struct LookaheadResult
     {
-        bool is_label = false;
-        bool is_matching = false;
+        AsmMismatchInfo mismatch_info;
+        bool is_label = false; // The lookahead has hit a label.
+        bool is_considered_matching = false; // The lookahead is considered a match. It could be a maybe match.
+    };
+
+    struct SkipSymbolResult
+    {
+        bool skipped() const { return !skipped_prefix.empty(); }
+
+        const char *skipped_str = nullptr;
+        std::string_view skipped_prefix;
     };
 
 public:
@@ -54,18 +63,18 @@ private:
         const InstructionTextArray &opposite_base_array,
         AsmComparisonResult &comparison_result);
 
-    static bool has_mismatch(
-        const AsmInstruction &instruction0,
-        const AsmInstruction &instruction1,
+    // Passing arrays is optional, but recommended for performance reasons.
+    static AsmMismatchInfo create_mismatch_info(
+        const AsmInstruction *instruction0,
+        const AsmInstruction *instruction1,
         const InstructionTextArray *array0 = nullptr,
-        const InstructionTextArray *array1 = nullptr,
-        AsmTextMismatchInfo *out_text_info = nullptr);
+        const InstructionTextArray *array1 = nullptr);
 
     static bool has_jump_len_mismatch(const AsmInstruction &instruction0, const AsmInstruction &instruction1);
-    static AsmTextMismatchInfo compare_asm_text(const std::string &text0, const std::string &text1);
-    static AsmTextMismatchInfo compare_asm_text(const InstructionTextArray &array0, const InstructionTextArray &array1);
-    static bool skip_unknown_symbol(const char *&str);
-    static void skip_known_symbol(const char *&str);
+    static AsmMismatchInfo compare_asm_text(const std::string &text0, const std::string &text1);
+    static AsmMismatchInfo compare_asm_text(const InstructionTextArray &array0, const InstructionTextArray &array1);
+    static SkipSymbolResult skip_unknown_symbol(const char *str);
+    static const char *skip_known_symbol(const char *str);
 
     /*
      * Splits instruction text string to text array.
@@ -75,8 +84,6 @@ private:
     static InstructionTextArray split_instruction_text(const std::string &text);
 
     static AsmInstructionVariant s_nullInstructionVariant;
-    static AsmInstruction s_dummyInstruction;
-    static AsmInstructionLabel s_dummyInstructionLabel;
 };
 
 } // namespace unassemblize

@@ -32,7 +32,7 @@ public:
 
 private:
     static std::string to_string(const AsmInstruction &instruction, size_t indent_len);
-    static std::string to_string(const AsmInstructionLabel &label);
+    static std::string to_string(const AsmLabel &label);
 
     static void truncate_string_inplace(std::string &str, size_t max_len);
     static void front_truncate_string_inplace(std::string &str, size_t max_len);

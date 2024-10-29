@@ -42,8 +42,6 @@ struct AsmInstruction
         jumpLen = 0;
     }
 
-    bool is_empty() const { return address == 0; }
-
     Address64T address; // Position of the instruction within the executable.
     bool isJump : 1; // Instruction is a jump.
     bool isInvalid : 1; // Instruction was not read or formatted correctly.
@@ -54,16 +52,16 @@ struct AsmInstruction
     std::string text; // Instruction mnemonics and operands with address symbol substitution.
 };
 
-struct AsmInstructionLabel
+struct AsmLabel
 {
     std::string label;
 };
 
-struct AsmInstructionNull
+struct AsmNull
 {
 };
 
-using AsmInstructionVariant = std::variant<AsmInstructionNull, AsmInstructionLabel, AsmInstruction>;
+using AsmInstructionVariant = std::variant<AsmLabel, AsmInstruction, AsmNull>;
 using AsmInstructionVariants = std::vector<AsmInstructionVariant>;
 
 class Function;
@@ -149,7 +147,7 @@ private:
     ZydisFormatterFunc get_default_format_operand_ptr() const;
     ZydisFormatterRegisterFunc get_default_print_register() const;
 
-    bool add_pseudo_symbol(Address64T address);
+    bool add_pseudo_symbol(Address64T address, std::string_view prefix);
     const ExeSymbol &get_symbol(Address64T address) const;
     const ExeSymbol &get_symbol_from_image_base(Address64T address) const;
     const ExeSymbol &get_nearest_symbol(Address64T address) const; // #TODO: investigate

@@ -28,13 +28,25 @@ uint32_t get_le32(const uint8_t *data)
 enum class JumpType
 {
     None,
-    Short,
-    Long,
+    Register,
+    Memory,
+    ImmShort,
+    ImmLong,
 };
 
-JumpType IsJump(const ZydisDecodedInstruction *instruction, const ZydisDecodedOperand *operand)
+bool is_call(const ZydisDecodedInstruction *instruction)
 {
-    // Check if the instruction is a jump (JMP, conditional jump, etc.)
+    switch (instruction->mnemonic)
+    {
+        case ZYDIS_MNEMONIC_CALL:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool is_jump(const ZydisDecodedInstruction *instruction)
+{
     switch (instruction->mnemonic)
     {
         case ZYDIS_MNEMONIC_JB:
@@ -59,22 +71,42 @@ JumpType IsJump(const ZydisDecodedInstruction *instruction, const ZydisDecodedOp
         case ZYDIS_MNEMONIC_JRCXZ:
         case ZYDIS_MNEMONIC_JS:
         case ZYDIS_MNEMONIC_JZ:
-            break;
+            return true;
         default:
-            return JumpType::None;
+            return false;
     }
+}
 
-    // Check if the first operand is a relative immediate.
-    if (operand->type == ZYDIS_OPERAND_TYPE_IMMEDIATE && operand->imm.is_relative)
+JumpType get_jump_type(const ZydisDecodedInstruction *instruction, const ZydisDecodedOperand *operand)
+{
+    // Check if the instruction is a jump (JMP, conditional jump, etc.)
+    if (is_jump(instruction))
     {
-        // Short jumps have an 8-bit immediate value (1 byte)
-        if (operand->size == 8)
+        switch (operand->type)
         {
-            return JumpType::Short;
-        }
-        else
-        {
-            return JumpType::Long;
+            case ZYDIS_OPERAND_TYPE_REGISTER:
+                return JumpType::Register;
+            case ZYDIS_OPERAND_TYPE_MEMORY:
+                return JumpType::Memory;
+            case ZYDIS_OPERAND_TYPE_IMMEDIATE:
+                // Check if the first operand is a relative immediate.
+                if (operand->imm.is_relative)
+                {
+                    // Short jumps have an 8-bit immediate value (1 byte)
+                    if (operand->size == 8)
+                    {
+                        return JumpType::ImmShort;
+                    }
+                    else
+                    {
+                        return JumpType::ImmLong;
+                    }
+                }
+                assert(false);
+                break;
+            default:
+                assert(false);
+                break;
         }
     }
 
@@ -217,8 +249,8 @@ ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
             ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-            const JumpType jump_type = IsJump(context->instruction, context->operand);
-            if (jump_type == JumpType::Short)
+            const JumpType jump_type = get_jump_type(context->instruction, context->operand);
+            if (jump_type == JumpType::ImmShort)
             {
                 ZYAN_CHECK(ZyanStringAppendFormat(string, "short "));
             }
@@ -716,7 +748,9 @@ void Function::disassemble(const FunctionSetup &setup)
 
             if (absolute_address >= m_beginAddress && absolute_address < m_endAddress)
             {
-                if (add_pseudo_symbol(absolute_address))
+                const std::string_view prefix = is_call(&instruction.info) ? s_prefix_sub : s_prefix_loc;
+
+                if (add_pseudo_symbol(absolute_address, prefix))
                 {
                     ++label_count;
                 }
@@ -738,7 +772,7 @@ void Function::disassemble(const FunctionSetup &setup)
             const ExeSymbol &symbol = get_symbol(instruction_address);
             if (!symbol.name.empty())
             {
-                AsmInstructionLabel asm_label;
+                AsmLabel asm_label;
                 asm_label.label = symbol.name;
                 m_instructions.emplace_back(std::move(asm_label));
                 ++m_labelCount;
@@ -774,16 +808,16 @@ void Function::disassemble(const FunctionSetup &setup)
         {
             asm_instruction.text = instruction_buffer.c_str();
 
-            const JumpType jump_type = IsJump(&instruction.info, &instruction.operands[0]);
+            const JumpType jump_type = get_jump_type(&instruction.info, &instruction.operands[0]);
 
-            if (jump_type == JumpType::Short)
+            if (jump_type == JumpType::ImmShort)
             {
                 const int64_t offset = instruction.operands[0].imm.value.s;
                 assert(std::abs(offset) < (1 << (sizeof(AsmInstruction::jumpLen) * 8)) / 2);
                 asm_instruction.isJump = true;
                 asm_instruction.jumpLen = offset;
             }
-            else if (jump_type == JumpType::Long)
+            else if (jump_type == JumpType::ImmLong)
             {
                 // Is only stable when jumping within a single function.
                 ZyanU64 jump_address;
@@ -813,7 +847,7 @@ void Function::disassemble(const FunctionSetup &setup)
     m_intermediate = nullptr;
 }
 
-bool Function::add_pseudo_symbol(Address64T address)
+bool Function::add_pseudo_symbol(Address64T address, std::string_view prefix)
 {
     {
         const ExeSymbol &symbol = get_executable().get_symbol(address);
@@ -834,7 +868,7 @@ bool Function::add_pseudo_symbol(Address64T address)
     }
 
     ExeSymbol symbol;
-    symbol.name = fmt::format("{:s}{:x}", s_prefix_loc, address);
+    symbol.name = fmt::format("{:s}{:x}", prefix, address);
     symbol.address = address;
     symbol.size = 0;
 
