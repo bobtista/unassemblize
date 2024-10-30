@@ -12,8 +12,12 @@
  */
 #pragma once
 
+#include "commontypes.h"
 #include <array>
+#include <string>
 #include <string_view>
+#include <variant>
+#include <vector>
 
 namespace unassemblize
 {
@@ -34,5 +38,40 @@ enum class AsmFormat
 };
 
 AsmFormat to_asm_format(const char *str);
+
+/*
+ * Intermediate instruction data between Zydis disassemble and final text generation.
+ */
+struct AsmInstruction
+{
+    AsmInstruction()
+    {
+        address = 0;
+        isJump = false;
+        isInvalid = false;
+        jumpLen = 0;
+    }
+
+    Address64T address; // Position of the instruction within the executable.
+    bool isJump : 1; // Instruction is a jump.
+    bool isInvalid : 1; // Instruction was not read or formatted correctly.
+    union
+    {
+        int16_t jumpLen; // Jump length in bytes.
+    };
+    std::string text; // Instruction mnemonics and operands with address symbol substitution.
+};
+
+struct AsmLabel
+{
+    std::string label;
+};
+
+struct AsmNull
+{
+};
+
+using AsmInstructionVariant = std::variant<AsmLabel, AsmInstruction, AsmNull>;
+using AsmInstructionVariants = std::vector<AsmInstructionVariant>;
 
 } // namespace unassemblize

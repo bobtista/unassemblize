@@ -12,6 +12,7 @@
  */
 #pragma once
 
+#include "commontypes.h"
 #include <list>
 #include <map>
 #include <string>
@@ -20,10 +21,6 @@
 
 namespace unassemblize
 {
-using Address64T = uint64_t;
-using Address32T = uint32_t;
-using IndexT = uint32_t;
-
 enum class ExeSectionType
 {
     Code,
