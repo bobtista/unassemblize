@@ -43,6 +43,7 @@ struct AsmOutputOptions
     AsmFormat format = AsmFormat::IGAS;
     uint64_t start_addr = 0;
     uint64_t end_addr = 0;
+    uint32_t print_indent_len = 4;
 };
 
 enum class MatchBundleType
@@ -60,6 +61,10 @@ struct AsmComparisonOptions
     AsmFormat format = AsmFormat::IGAS;
     size_t bundle_file_idx = 0; // The executable file that will be used to group symbols with.
     MatchBundleType bundle_type = MatchBundleType::None; // The method to group symbols with.
+    uint32_t print_indent_len = 4;
+    uint32_t print_asm_len = 80;
+    uint32_t lookahead_limit = 20;
+    unassemblize::AsmMatchStrictness match_strictness = unassemblize::AsmMatchStrictness::Undecided;
 };
 
 class Runner
@@ -86,9 +91,18 @@ private:
      */
     FunctionMatchCollection build_function_match_collection(size_t bundle_file_idx, MatchBundleType bundle_type) const;
     void disassemble_function_match_collection(FunctionMatchCollection &collection, AsmFormat format) const;
-    AsmComparisonResultBundles build_comparison_results(const FunctionMatchCollection &collection) const;
+
+    AsmComparisonResultBundles
+        build_comparison_results(const FunctionMatchCollection &collection, uint32_t lookahead_limit) const;
+
     static bool output_comparison_results(
-        AsmComparisonResultBundles &result_bundles, const std::string &output_file, const StringPair &exe_filenames);
+        AsmComparisonResultBundles &result_bundles,
+        const std::string &output_file,
+        const StringPair &exe_filenames,
+        AsmMatchStrictness match_strictness,
+        uint32_t asm_len,
+        uint32_t indent_len);
+
     static std::string
         build_cmp_output_path(size_t bundle_idx, const std::string &bundle_name, const std::string &output_file);
 

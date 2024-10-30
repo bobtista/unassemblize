@@ -130,7 +130,7 @@ bool Runner::process_asm_output(const AsmOutputOptions &o)
     const AsmInstructionVariants &instructions = func.get_instructions();
 
     std::string text;
-    AsmPrinter::append_to_string(text, instructions);
+    AsmPrinter::append_to_string(text, instructions, o.print_indent_len);
     fprintf(fp, text.c_str());
     fclose(fp);
 
@@ -203,11 +203,12 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 
     disassemble_function_match_collection(collection, o.format);
 
-    AsmComparisonResultBundles result_bundles = build_comparison_results(collection);
+    AsmComparisonResultBundles result_bundles = build_comparison_results(collection, o.lookahead_limit);
 
     const StringPair exe_filenames = {m_executables[0].get_filename(), m_executables[1].get_filename()};
 
-    ok = output_comparison_results(result_bundles, o.output_file, exe_filenames);
+    ok = output_comparison_results(
+        result_bundles, o.output_file, exe_filenames, o.match_strictness, o.print_asm_len, o.print_indent_len);
 
     return ok;
 }
@@ -304,7 +305,8 @@ void Runner::disassemble_function_match_collection(FunctionMatchCollection &coll
     }
 }
 
-AsmComparisonResultBundles Runner::build_comparison_results(const FunctionMatchCollection &collection) const
+AsmComparisonResultBundles
+    Runner::build_comparison_results(const FunctionMatchCollection &collection, uint32_t lookahead_limit) const
 {
     AsmComparisonResultBundles result_bundles;
 
@@ -324,7 +326,7 @@ AsmComparisonResultBundles Runner::build_comparison_results(const FunctionMatchC
         for (IndexT match_idx : match_bundle.matches)
         {
             const FunctionMatch &match = collection.matches[match_idx];
-            result_bundle.results[result_index++] = AsmMatcher::run_comparison(match);
+            result_bundle.results[result_index++] = AsmMatcher::run_comparison(match, lookahead_limit);
         }
         assert(result_index == result_bundle.results.size());
     }
@@ -332,7 +334,12 @@ AsmComparisonResultBundles Runner::build_comparison_results(const FunctionMatchC
 }
 
 bool Runner::output_comparison_results(
-    AsmComparisonResultBundles &result_bundles, const std::string &output_file, const StringPair &exe_filenames)
+    AsmComparisonResultBundles &result_bundles,
+    const std::string &output_file,
+    const StringPair &exe_filenames,
+    AsmMatchStrictness match_strictness,
+    uint32_t asm_len,
+    uint32_t indent_len)
 {
     size_t file_write_count = 0;
     size_t bundle_idx = 0;
@@ -347,7 +354,7 @@ bool Runner::output_comparison_results(
             for (const AsmComparisonResult &result : result_bundle.results)
             {
                 std::string text;
-                AsmPrinter::append_to_string(text, result, exe_filenames);
+                AsmPrinter::append_to_string(text, result, exe_filenames, match_strictness, asm_len, indent_len);
                 fprintf(fp, text.c_str());
             }
             fclose(fp);

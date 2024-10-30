@@ -17,7 +17,7 @@ namespace unassemblize
 {
 AsmInstructionVariant AsmMatcher::s_nullInstructionVariant(AsmNull{});
 
-AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
+AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match, uint32_t lookahead_limit)
 {
     AsmComparisonResult result;
 
@@ -94,15 +94,15 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
 
             mismatch_info = create_mismatch_info(instruction0, instruction1, &array0, &array1);
 
-            // #TODO: Make this configurable to skip ahead on maybe match?
-            if (mismatch_info.is_mismatch())
+            if (mismatch_info.is_match())
             {
-                // No lookahead if instruction is missing on one side.
-                do_lookahead = (mismatch_info.mismatch_reasons & AsmMismatchInfo::MismatchReason_Missing) == 0;
+                do_lookahead = false;
             }
             else
             {
-                do_lookahead = false;
+                // Lookahead if 'mismatch' or 'maybe mismatch'. Perhaps there is a better match ahead.
+                // No lookahead if instruction is missing on one side.
+                do_lookahead = (mismatch_info.mismatch_reasons & AsmMismatchInfo::MismatchReason_Missing) == 0;
             }
 
             if (do_lookahead)
@@ -112,8 +112,8 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
                 assert(instruction0 != nullptr);
                 assert(instruction1 != nullptr);
 
-                size_t lookahead_limit0 = 20;
-                size_t lookahead_limit1 = 20;
+                size_t lookahead_limit0 = lookahead_limit;
+                size_t lookahead_limit1 = lookahead_limit;
                 size_t k0 = 0;
                 size_t k1 = 0;
                 ++k0;
@@ -136,7 +136,7 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
                             ++k0;
                             ++lookahead_limit0;
                         }
-                        else if (lookahead_result.is_considered_matching)
+                        else if (lookahead_result.is_matching)
                         {
                             // Set new base index and break.
                             mismatch_info = lookahead_result.mismatch_info;
@@ -163,7 +163,7 @@ AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match)
                             ++k1;
                             ++lookahead_limit1;
                         }
-                        else if (lookahead_result.is_considered_matching)
+                        else if (lookahead_result.is_matching)
                         {
                             // Set new base index and break.
                             mismatch_info = lookahead_result.mismatch_info;
@@ -243,11 +243,10 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
         lookahead_result.mismatch_info = create_mismatch_info(
             &lookahead_last_instruction, &opposite_base_instruction, &lookahead_last_array, &opposite_base_array);
 
-        // #TODO: Make this configurable to skip ahead on maybe match?
-        if (!lookahead_result.mismatch_info.is_mismatch())
+        if (lookahead_result.mismatch_info.is_match())
         {
             // Lookahead instruction is matching with base instruction on the other side.
-            lookahead_result.is_considered_matching = true;
+            lookahead_result.is_matching = true;
 
             for (auto it = lookahead_base_it; it < lookahead_last_it; ++it)
             {

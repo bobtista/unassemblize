@@ -124,6 +124,10 @@ int main(int argc, char **argv)
 #define OPT_INPUTTYPE_2 "input2-type"
 #define OPT_ASM_OUTPUT "output"
 #define OPT_CMP_OUTPUT "cmp-output"
+#define OPT_LOOKAHEAD_LIMIT "lookahead-limit"
+#define OPT_MATCH_STRICTNESS "match-strictness"
+#define OPT_PRINT_INDENT_LEN "print-indent-len"
+#define OPT_PRINT_ASM_LEN "print-asm-len"
 #define OPT_FORMAT "format"
 #define OPT_BUNDLE_FILE_ID "bundle-file-id"
 #define OPT_BUNDLE_TYPE "bundle-type"
@@ -144,6 +148,10 @@ int main(int argc, char **argv)
         cxxopts::Option{OPT_INPUTTYPE_2, "Input file 2 type. Default is 'auto'", cxxopts::value<std::string>(), R"(["auto", "exe", "pdb"])"},
         cxxopts::Option{"o," OPT_ASM_OUTPUT, "Filename for single file output. Default is 'auto'", cxxopts::value<std::string>()},
         cxxopts::Option{OPT_CMP_OUTPUT, "Filename for comparison file output. Default is 'auto'", cxxopts::value<std::string>()},
+        cxxopts::Option{OPT_LOOKAHEAD_LIMIT, "Max instruction count for trying to find a matching assembler line ahead. Default is 20.", cxxopts::value<uint32_t>()},
+        cxxopts::Option{OPT_MATCH_STRICTNESS, "Assembler matching strictness. If 'lenient', then unknown to known/unknown symbol pairs are treated as match. If 'strict', then unknown to known/unknown symbol pairs are treated as mismatch. Default is 'undecided'.", cxxopts::value<std::string>(), R"(["lenient", "undecided", "strict"])"},
+        cxxopts::Option{OPT_PRINT_INDENT_LEN, "Character count for indentation of assembler instructions in output report(s). Default is 4.", cxxopts::value<uint32_t>()},
+        cxxopts::Option{OPT_PRINT_ASM_LEN, "Max character count for assembler instructions in comparison report(s). Text is truncated if longer. Default is 80.", cxxopts::value<uint32_t>()},
         cxxopts::Option{"f," OPT_FORMAT, "Assembly output format. Default is 'igas'", cxxopts::value<std::string>(), R"(["igas", "agas", "masm", "default"])"},
         cxxopts::Option{OPT_BUNDLE_FILE_ID, "Input file used to bundle match results with. Default is 1.", cxxopts::value<size_t>(), "[1: 1st input file, 2: 2nd input file]"},
         cxxopts::Option{OPT_BUNDLE_TYPE, "Method used to bundle match results with. Default is 'sourcefile'.", cxxopts::value<std::string>(), R"(["none", "sourcefile", "compiland"])"},
@@ -188,6 +196,10 @@ int main(int argc, char **argv)
     // When output_file is set to "auto", then output file name is chosen for input file name.
     std::string output_file = auto_str;
     std::string cmp_output_file = auto_str;
+    uint32_t lookahead_limit = 20;
+    unassemblize::AsmMatchStrictness match_strictness = unassemblize::AsmMatchStrictness::Undecided;
+    uint32_t print_indent_len = 4;
+    uint32_t print_asm_len = 80;
     unassemblize::AsmFormat format = unassemblize::AsmFormat::IGAS;
     size_t bundle_file_idx = 0;
     unassemblize::MatchBundleType bundle_type = unassemblize::MatchBundleType::SourceFile;
@@ -226,6 +238,22 @@ int main(int argc, char **argv)
         else if (v == OPT_CMP_OUTPUT)
         {
             cmp_output_file = kv.value();
+        }
+        else if (v == OPT_LOOKAHEAD_LIMIT)
+        {
+            lookahead_limit = kv.as<uint32_t>();
+        }
+        else if (v == OPT_MATCH_STRICTNESS)
+        {
+            match_strictness = unassemblize::to_asm_match_strictness(kv.value().c_str());
+        }
+        else if (v == OPT_PRINT_INDENT_LEN)
+        {
+            print_indent_len = kv.as<uint32_t>();
+        }
+        else if (v == OPT_PRINT_ASM_LEN)
+        {
+            print_asm_len = kv.as<uint32_t>();
         }
         else if (v == OPT_FORMAT)
         {
@@ -329,6 +357,7 @@ int main(int argc, char **argv)
             o.format = format;
             o.start_addr = start_addr;
             o.end_addr = end_addr;
+            o.print_indent_len = print_indent_len;
             ok &= runner.process_asm_output(o);
         }
 
@@ -339,6 +368,10 @@ int main(int argc, char **argv)
             o.format = format;
             o.bundle_file_idx = bundle_file_idx;
             o.bundle_type = bundle_type;
+            o.print_indent_len = print_indent_len;
+            o.print_asm_len = print_asm_len;
+            o.lookahead_limit = lookahead_limit;
+            o.match_strictness = match_strictness;
             ok &= runner.process_asm_comparison(o);
         }
     }

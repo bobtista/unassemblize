@@ -31,7 +31,7 @@ class AsmMatcher
     {
         AsmMismatchInfo mismatch_info;
         bool is_label = false; // The lookahead has hit a label.
-        bool is_considered_matching = false; // The lookahead is considered a match. It could be a maybe match.
+        bool is_matching = false; // The lookahead is considered a match. It could be a maybe match.
     };
 
     struct SkipSymbolResult
@@ -47,7 +47,7 @@ public:
      * Runs a comparison on the given FunctionMatch.
      * The returned result will retain a dependency on that FunctionMatch object.
      */
-    static AsmComparisonResult run_comparison(const FunctionMatch &match);
+    static AsmComparisonResult run_comparison(const FunctionMatch &match, uint32_t lookahead_limit);
 
 private:
     /*
