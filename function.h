@@ -23,6 +23,9 @@
 struct ZydisDisassembledInstruction_;
 using ZydisDisassembledInstruction = ZydisDisassembledInstruction_;
 
+struct PdbSourceFileInfo;
+struct PdbSourceLineInfoVector;
+
 namespace unassemblize
 {
 class Function;
@@ -83,7 +86,16 @@ class Function
 public:
     Function() = default;
 
+    /*
+     * Set address range. Must not be called after disassemble, but can be called before.
+     */
     void set_address_range(Address64T begin_address, Address64T end_address);
+
+    /*
+     * Set source file info. Must not be called before disassembler, but can be called after.
+     */
+    void set_source_file(const PdbSourceFileInfo &source_file, const PdbSourceLineInfoVector &source_lines);
+
     /*
      * Disassemble a function from begin to end with the given setup. The address range is free to choose, but it is best
      * used for a single function only. When complete, instruction data will be available.
@@ -91,9 +103,10 @@ public:
     void disassemble(const FunctionSetup &setup, Address64T begin_address, Address64T end_address);
     void disassemble(const FunctionSetup &setup);
 
-    const AsmInstructionVariants &get_instructions() const { return m_instructions; }
     Address64T get_begin_address() const { return m_beginAddress; }
     Address64T get_end_address() const { return m_endAddress; }
+    const std::string &get_source_file_name() const { return m_sourceFileName; }
+    const AsmInstructionVariants &get_instructions() const { return m_instructions; }
     uint32_t get_instruction_count() const { return m_instructionCount; }
     uint32_t get_label_count() const { return m_labelCount; }
 
@@ -150,6 +163,7 @@ private:
     FunctionIntermediate *m_intermediate = nullptr;
     Address64T m_beginAddress = 0;
     Address64T m_endAddress = 0;
+    std::string m_sourceFileName;
     AsmInstructionVariants m_instructions;
     uint32_t m_instructionCount = 0;
     uint32_t m_labelCount = 0;

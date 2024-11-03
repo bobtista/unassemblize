@@ -20,6 +20,8 @@ AsmInstructionVariant AsmMatcher::s_nullInstructionVariant(AsmNull{});
 AsmComparisonResult AsmMatcher::run_comparison(const FunctionMatch &match, uint32_t lookahead_limit)
 {
     AsmComparisonResult result;
+    result.function_pair[0] = &match.functions[0];
+    result.function_pair[1] = &match.functions[1];
 
     const AsmInstructionVariants &instructions0 = match.functions[0].get_instructions();
     const AsmInstructionVariants &instructions1 = match.functions[1].get_instructions();

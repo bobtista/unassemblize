@@ -44,21 +44,30 @@ AsmFormat to_asm_format(const char *str);
  */
 struct AsmInstruction
 {
+    using BytesArray = SizedArray<uint8_t, uint8_t, 11>;
+
     AsmInstruction()
     {
         address = 0;
+        std::fill_n(bytes.elements.data(), bytes.elements.size(), 0);
         isJump = false;
         isInvalid = false;
+        lineNumber = 0;
         jumpLen = 0;
     }
 
+    void set_bytes(const uint8_t *p, size_t size);
+    uint16_t get_line_index() const { return lineNumber - 1; } // Returns ~0 when invalid
+
     Address64T address; // Position of the instruction within the executable.
+    BytesArray bytes;
     bool isJump : 1; // Instruction is a jump.
     bool isInvalid : 1; // Instruction was not read or formatted correctly.
     union
     {
         int16_t jumpLen; // Jump length in bytes.
     };
+    uint16_t lineNumber; // Line number in the source file - if exists.
     std::string text; // Instruction mnemonics and operands with address symbol substitution.
 };
 

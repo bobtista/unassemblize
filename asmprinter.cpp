@@ -95,6 +95,7 @@ void AsmPrinter::append_to_string(
     std::string &str,
     const AsmComparisonResult &comparison,
     const StringPair &exe_filenames,
+    const TextFileContentPair &cpp_texts,
     AsmMatchStrictness match_strictness,
     uint32_t asm_len,
     uint32_t indent_len)
@@ -105,33 +106,59 @@ void AsmPrinter::append_to_string(
     }
 
     constexpr std::string_view eol = "\n";
-    constexpr std::string_view header = "> ";
-    constexpr std::string_view equal = " == ";
-    constexpr std::string_view unequal = " xx ";
-    constexpr std::string_view maybe_equal = " ?? ";
-    constexpr std::string_view left_missing = " >> ";
-    constexpr std::string_view right_missing = " << ";
-    constexpr size_t address_len = 10;
-    constexpr size_t cmp_len = equal.size();
-    constexpr size_t side_count = 2;
     constexpr size_t end_eol_count = 4;
-    const size_t line_len = side_count * (address_len + indent_len + asm_len) + cmp_len + eol.size();
-    static_assert(equal.size() == unequal.size(), "Expects same length");
-    static_assert(equal.size() == maybe_equal.size(), "Expects same length");
-    static_assert(equal.size() == left_missing.size(), "Expects same length");
-    static_assert(equal.size() == right_missing.size(), "Expects same length");
 
-    auto pad_side_line = [=](std::string &line_buf, size_t side_idx) {
-        pad_whitespace_inplace(line_buf, (side_idx + 1) * (address_len + indent_len + asm_len) + side_idx * cmp_len);
+    // Keeps buffer allocated for reuse.
+    m_buffers.lines.clear();
+    m_buffers.lines.resize(comparison.records.size());
+    m_buffers.misc_buf.reserve(1024);
+
+    struct LineRegion
+    {
+        int begin = -1;
+        int end = -1;
     };
+    std::array<LineRegion, 2> assembler_regions;
+    std::array<LineRegion, 2> source_code_regions;
 
-    std::string misc_buf;
-    std::string line_buf;
-    misc_buf.reserve(1024);
-    line_buf.reserve(line_len);
+    {
+        // Create assembler lines in vector.
+        size_t i = 0;
+
+        if (cpp_texts.pair[i] != nullptr)
+        {
+            source_code_regions[i].begin = m_buffers.lines[0].size();
+            append_source_code(m_buffers, comparison.records, *cpp_texts.pair[i], i);
+            source_code_regions[i].end = m_buffers.lines[0].size();
+        }
+
+        append_bytes(m_buffers, comparison.records, i);
+
+        assembler_regions[i].begin = m_buffers.lines[0].size();
+        append_assembler(m_buffers, comparison.records, i, asm_len, indent_len);
+        assembler_regions[i].end = m_buffers.lines[0].size();
+
+        append_comparison(m_buffers, comparison.records, match_strictness);
+        ++i;
+
+        assembler_regions[i].begin = m_buffers.lines[0].size();
+        append_assembler(m_buffers, comparison.records, i, asm_len, indent_len);
+        assembler_regions[i].end = m_buffers.lines[0].size();
+
+        append_bytes(m_buffers, comparison.records, i);
+
+        if (cpp_texts.pair[i] != nullptr)
+        {
+            source_code_regions[i].begin = m_buffers.lines[0].size();
+            append_source_code(m_buffers, comparison.records, *cpp_texts.pair[i], i);
+            source_code_regions[i].end = m_buffers.lines[0].size();
+        }
+    }
 
     {
         // Create misc info.
+        m_buffers.misc_buf.clear();
+
         // The first line is expected to be a label if it is the begin of a function.
         const AsmLabelPair *label = std::get_if<AsmLabelPair>(&comparison.records[0]);
         const std::string name = label != nullptr ? label->pair[0]->label : "_unknown_";
@@ -143,142 +170,81 @@ void AsmPrinter::append_to_string(
         const float similarity = comparison.get_similarity(match_strictness);
         const float max_similarity = comparison.get_max_similarity(match_strictness);
 
-        misc_buf += fmt::format("{:s}{:s}{:s}", header, name, eol);
-        misc_buf += fmt::format("{:s}match count: {:d}", header, match_count);
+        m_buffers.misc_buf += name;
+        m_buffers.misc_buf += eol;
+        m_buffers.misc_buf += fmt::format("match count: {:d}", match_count);
         if (max_match_count != match_count)
         {
-            misc_buf += fmt::format(" or {:d}", max_match_count);
+            m_buffers.misc_buf += fmt::format(" or {:d}", max_match_count);
         }
-        misc_buf += eol;
-        misc_buf += fmt::format("{:s}mismatch count: {:d}", header, mismatch_count);
+        m_buffers.misc_buf += eol;
+        m_buffers.misc_buf += fmt::format("mismatch count: {:d}", mismatch_count);
         if (max_mismatch_count != mismatch_count)
         {
-            misc_buf += fmt::format(" or {:d}", max_mismatch_count);
+            m_buffers.misc_buf += fmt::format(" or {:d}", max_mismatch_count);
         }
-        misc_buf += eol;
-        misc_buf += fmt::format("{:s}similarity: {:.1f} %%", header, similarity * 100.f);
+        m_buffers.misc_buf += eol;
+        m_buffers.misc_buf += fmt::format("similarity: {:.1f} %", similarity * 100.f);
         if (max_similarity != similarity)
         {
-            misc_buf += fmt::format(" or {:.1f} %%", max_similarity * 100.f);
+            m_buffers.misc_buf += fmt::format(" or {:.1f} %", max_similarity * 100.f);
         }
-        misc_buf += eol;
-        misc_buf += header;
-        misc_buf += eol;
+        m_buffers.misc_buf += eol;
+        m_buffers.misc_buf += eol;
+
+        str.append(m_buffers.misc_buf);
     }
 
-    // Create file names.
-    for (size_t i = 0; i < side_count; ++i)
     {
-        std::string filename_copy = exe_filenames[i];
-        front_truncate_inplace(filename_copy, address_len + indent_len + asm_len - header.size());
-        line_buf += header;
-        line_buf += filename_copy;
-        pad_side_line(line_buf, i);
-        if (i != side_count - 1)
+        // Create file names.
+        m_buffers.misc_buf.clear();
+
         {
-            append_whitespace_inplace(line_buf, cmp_len);
+            const LineRegion &region = source_code_regions[0];
+
+            if (region.begin < region.end)
+            {
+                pad_whitespace_inplace(m_buffers.misc_buf, region.begin);
+                std::string filename_copy = cpp_texts.pair[0]->filename;
+                front_truncate_inplace(filename_copy, region.end - region.begin);
+                m_buffers.misc_buf += filename_copy;
+                pad_whitespace_inplace(m_buffers.misc_buf, region.end);
+            }
         }
-        else
+
+        for (size_t i = 0; i < 2; ++i)
         {
-            line_buf += eol;
+            const LineRegion &region = assembler_regions[i];
+
+            assert(region.begin < region.end);
+            pad_whitespace_inplace(m_buffers.misc_buf, region.begin);
+            std::string filename_copy = exe_filenames.pair[i];
+            front_truncate_inplace(filename_copy, region.end - region.begin);
+            m_buffers.misc_buf += filename_copy;
+            pad_whitespace_inplace(m_buffers.misc_buf, region.end);
         }
+
+        {
+            const LineRegion &region = source_code_regions[1];
+
+            if (region.begin < region.end)
+            {
+                pad_whitespace_inplace(m_buffers.misc_buf, region.begin);
+                std::string filename_copy = exe_filenames.pair[1];
+                front_truncate_inplace(filename_copy, region.end - region.begin);
+                m_buffers.misc_buf += filename_copy;
+                pad_whitespace_inplace(m_buffers.misc_buf, region.end);
+            }
+        }
+
+        m_buffers.misc_buf += eol;
+        str.append(m_buffers.misc_buf);
     }
 
-    line_buf += header;
-    line_buf += eol;
-    misc_buf.append(line_buf);
-    line_buf.clear();
-
-    const size_t reserved_len =
-        str.size() + comparison.records.size() * line_len + end_eol_count * eol.size() + misc_buf.size();
-
-    str.reserve(reserved_len);
-    str.append(misc_buf);
-
-    for (const AsmComparisonRecord &record : comparison.records)
+    // Add all lines to output string.
+    for (std::string &line : m_buffers.lines)
     {
-        misc_buf.clear();
-        line_buf.clear();
-
-        if (const AsmLabelPair *label_pair = std::get_if<AsmLabelPair>(&record))
-        {
-            for (size_t i = 0; i < side_count; ++i)
-            {
-                const AsmLabel *label = label_pair->pair[i];
-                if (label != nullptr)
-                {
-                    append_whitespace_inplace(line_buf, address_len);
-                    misc_buf = to_string(*label);
-                    truncate_inplace(misc_buf, asm_len);
-                    line_buf.append(misc_buf);
-                }
-                pad_side_line(line_buf, i);
-                if (i != side_count - 1)
-                {
-                    append_whitespace_inplace(line_buf, cmp_len);
-                }
-            }
-        }
-        else if (const AsmInstructionPair *instruction_pair = std::get_if<AsmInstructionPair>(&record))
-        {
-            for (size_t i = 0; i < side_count; ++i)
-            {
-                const AsmInstruction *instruction = instruction_pair->pair[i];
-                if (instruction != nullptr)
-                {
-                    line_buf.append(fmt::format("{:08x}  ", instruction->address));
-                    misc_buf = to_string(*instruction, indent_len);
-                    truncate_inplace(misc_buf, asm_len + indent_len);
-                    line_buf.append(misc_buf);
-                }
-                pad_side_line(line_buf, i);
-                if (i != side_count - 1)
-                {
-                    const AsmMatchValue match_value = instruction_pair->mismatch_info.get_match_value(match_strictness);
-
-                    switch (match_value)
-                    {
-                        case AsmMatchValue::IsMatch:
-                            line_buf.append(equal);
-                            break;
-
-                        case AsmMatchValue::IsMaybeMatch:
-                            line_buf.append(maybe_equal);
-                            break;
-
-                        case AsmMatchValue::IsMismatch: {
-                            const AsmInstruction *right_instruction = instruction_pair->pair[i + 1];
-                            if (instruction != nullptr && right_instruction != nullptr)
-                            {
-                                line_buf.append(unequal);
-                            }
-                            else if (instruction == nullptr && right_instruction != nullptr)
-                            {
-                                line_buf.append(left_missing);
-                            }
-                            else if (instruction != nullptr && right_instruction == nullptr)
-                            {
-                                line_buf.append(right_missing);
-                            }
-                            else
-                            {
-                                assert(false);
-                            }
-                            break;
-                        }
-                        default:
-                            assert(false);
-                            break;
-                    }
-                }
-            }
-        }
-        else
-        {
-            assert(false);
-        }
-
-        str.append(line_buf);
+        str.append(line);
         str.append(eol);
     }
 
@@ -287,8 +253,220 @@ void AsmPrinter::append_to_string(
     {
         str.append(eol);
     }
+}
 
-    assert(str.size() == reserved_len);
+void AsmPrinter::append_source_code(
+    Buffers &buffers, const AsmComparisonRecords &records, const TextFileContent &cpp_text, size_t side_idx)
+{
+    // #TODO: Make this customizable.
+    constexpr size_t cpp_line_len = 6;
+    constexpr size_t cpp_code_len = 80;
+
+    assert(buffers.lines.size() == records.size());
+
+    const size_t count = records.size();
+    uint16_t last_line_number = 0;
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        const AsmComparisonRecord &record = records[i];
+        std::string &line = buffers.lines[i];
+        const size_t offset = line.size();
+
+        if (const AsmInstructionPair *instruction_pair = std::get_if<AsmInstructionPair>(&record))
+        {
+            const AsmInstruction *instruction = instruction_pair->pair[side_idx];
+            if (instruction != nullptr)
+            {
+                const uint16_t line_idx = instruction->get_line_index();
+
+                if (line_idx < cpp_text.lines.size())
+                {
+                    line.append(fmt::format("{:05d}:", instruction->lineNumber));
+                    if (last_line_number != instruction->lineNumber)
+                    {
+                        last_line_number = instruction->lineNumber;
+                        line.append(cpp_text.lines[line_idx]);
+                    }
+                    truncate_inplace(line, cpp_code_len + cpp_line_len + offset);
+                }
+            }
+        }
+        else if (const AsmLabelPair *label_pair = std::get_if<AsmLabelPair>(&record))
+        {
+            // Does nothing.
+        }
+        else
+        {
+            assert(false);
+        }
+
+        pad_whitespace_inplace(line, cpp_code_len + cpp_line_len + offset);
+    }
+}
+
+void AsmPrinter::append_bytes(Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx)
+{
+    // #TODO: Make it customizable.
+    constexpr size_t bytes_count = AsmInstruction::BytesArray::MaxSize;
+    constexpr size_t bytes_len = bytes_count * (2 + 1);
+
+    assert(buffers.lines.size() == records.size());
+
+    const size_t count = records.size();
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        const AsmComparisonRecord &record = records[i];
+        std::string &line = buffers.lines[i];
+        const size_t offset = line.size();
+
+        if (const AsmInstructionPair *instruction_pair = std::get_if<AsmInstructionPair>(&record))
+        {
+            const AsmInstruction *instruction = instruction_pair->pair[side_idx];
+            if (instruction != nullptr)
+            {
+                const size_t count = std::min<size_t>(bytes_count, instruction->bytes.size);
+
+                for (size_t b = 0; b < count; ++b)
+                {
+                    line += fmt::format("{:02x} ", instruction->bytes.elements[b]);
+                }
+            }
+        }
+        else if (const AsmLabelPair *label_pair = std::get_if<AsmLabelPair>(&record))
+        {
+            // Does nothing.
+        }
+        else
+        {
+            assert(false);
+        }
+
+        pad_whitespace_inplace(line, bytes_len + offset);
+    }
+}
+
+void AsmPrinter::append_assembler(
+    Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t asm_len, uint32_t indent_len)
+{
+    static constexpr size_t address_len = 10;
+
+    assert(buffers.lines.size() == records.size());
+
+    const size_t count = records.size();
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        const AsmComparisonRecord &record = records[i];
+        std::string &line = buffers.lines[i];
+        const size_t offset = line.size();
+
+        buffers.misc_buf.clear();
+
+        if (const AsmInstructionPair *instruction_pair = std::get_if<AsmInstructionPair>(&record))
+        {
+            const AsmInstruction *instruction = instruction_pair->pair[side_idx];
+            if (instruction != nullptr)
+            {
+                line.append(fmt::format("{:08x}  ", instruction->address));
+                assert(line.size() - offset == address_len);
+                buffers.misc_buf = to_string(*instruction, indent_len);
+                truncate_inplace(buffers.misc_buf, asm_len + indent_len);
+                line.append(buffers.misc_buf);
+            }
+        }
+        else if (const AsmLabelPair *label_pair = std::get_if<AsmLabelPair>(&record))
+        {
+            const AsmLabel *label = label_pair->pair[side_idx];
+            if (label != nullptr)
+            {
+                append_whitespace_inplace(line, address_len);
+                buffers.misc_buf = to_string(*label);
+                truncate_inplace(buffers.misc_buf, asm_len + indent_len);
+                line.append(buffers.misc_buf);
+            }
+        }
+        else
+        {
+            assert(false);
+        }
+
+        pad_whitespace_inplace(line, address_len + indent_len + asm_len + offset);
+    }
+}
+
+void AsmPrinter::append_comparison(
+    Buffers &buffers, const AsmComparisonRecords &records, AsmMatchStrictness match_strictness)
+{
+    constexpr std::string_view equal = " == ";
+    constexpr std::string_view unequal = " xx ";
+    constexpr std::string_view maybe_equal = " ?? ";
+    constexpr std::string_view left_missing = " >> ";
+    constexpr std::string_view right_missing = " << ";
+    static_assert(equal.size() == unequal.size(), "Expects same length");
+    static_assert(equal.size() == maybe_equal.size(), "Expects same length");
+    static_assert(equal.size() == left_missing.size(), "Expects same length");
+    static_assert(equal.size() == right_missing.size(), "Expects same length");
+
+    assert(buffers.lines.size() == records.size());
+
+    const size_t count = records.size();
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        const AsmComparisonRecord &record = records[i];
+        std::string &line = buffers.lines[i];
+
+        if (const AsmInstructionPair *instruction_pair = std::get_if<AsmInstructionPair>(&record))
+        {
+            const AsmMatchValue match_value = instruction_pair->mismatch_info.get_match_value(match_strictness);
+
+            switch (match_value)
+            {
+                case AsmMatchValue::IsMatch:
+                    line.append(equal);
+                    break;
+
+                case AsmMatchValue::IsMaybeMatch:
+                    line.append(maybe_equal);
+                    break;
+
+                case AsmMatchValue::IsMismatch: {
+                    const AsmInstruction *instruction0 = instruction_pair->pair[0];
+                    const AsmInstruction *instruction1 = instruction_pair->pair[1];
+                    if (instruction0 != nullptr && instruction1 != nullptr)
+                    {
+                        line.append(unequal);
+                    }
+                    else if (instruction0 == nullptr && instruction1 != nullptr)
+                    {
+                        line.append(left_missing);
+                    }
+                    else if (instruction0 != nullptr && instruction1 == nullptr)
+                    {
+                        line.append(right_missing);
+                    }
+                    else
+                    {
+                        assert(false);
+                    }
+                    break;
+                }
+                default:
+                    assert(false);
+                    break;
+            }
+        }
+        else if (const AsmLabelPair *label_pair = std::get_if<AsmLabelPair>(&record))
+        {
+            append_whitespace_inplace(line, equal.size());
+        }
+        else
+        {
+            assert(false);
+        }
+    }
 }
 
 void AsmPrinter::truncate_inplace(std::string &str, size_t max_len)

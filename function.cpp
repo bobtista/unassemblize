@@ -11,6 +11,7 @@
  *            LICENSE
  */
 #include "function.h"
+#include "pdbreadertypes.h"
 #include <Zycore/Format.h>
 #include <Zydis/Zydis.h>
 #include <fmt/core.h>
@@ -30,6 +31,7 @@ enum class JumpType
     None,
     Register,
     Memory,
+    Pointer,
     ImmShort,
     ImmLong,
 };
@@ -88,6 +90,8 @@ JumpType get_jump_type(const ZydisDecodedInstruction *instruction, const ZydisDe
                 return JumpType::Register;
             case ZYDIS_OPERAND_TYPE_MEMORY:
                 return JumpType::Memory;
+            case ZYDIS_OPERAND_TYPE_POINTER:
+                return JumpType::Pointer;
             case ZYDIS_OPERAND_TYPE_IMMEDIATE:
                 // Check if the first operand is a relative immediate.
                 if (operand->imm.is_relative)
@@ -661,8 +665,42 @@ ZyanStatus Function::UnasmDisassembleCustom(
 
 void Function::set_address_range(Address64T begin_address, Address64T end_address)
 {
+    assert(m_instructions.empty());
+
     m_beginAddress = begin_address;
     m_endAddress = end_address;
+}
+
+void Function::set_source_file(const PdbSourceFileInfo &source_file, const PdbSourceLineInfoVector &source_lines)
+{
+    assert(m_beginAddress != 0);
+    assert(!m_instructions.empty());
+    assert(!source_lines.empty());
+    assert(source_lines.back().offset + source_lines.back().length == m_endAddress - m_beginAddress);
+
+    m_sourceFileName = source_file.name;
+    size_t source_line_index = 0;
+
+    for (AsmInstructionVariant &variant : m_instructions)
+    {
+        if (AsmInstruction *instruction = std::get_if<AsmInstruction>(&variant))
+        {
+            const size_t count = source_lines.size();
+
+            for (; source_line_index < count; ++source_line_index)
+            {
+                const PdbSourceLineInfo &source_line = source_lines[source_line_index];
+
+                if (instruction->address >= m_beginAddress + source_line.offset
+                    && instruction->address < m_beginAddress + source_line.offset + source_line.length)
+                {
+                    instruction->lineNumber = source_line.lineNumber;
+                    break;
+                }
+            }
+            assert(instruction->lineNumber != 0);
+        }
+    }
 }
 
 void Function::disassemble(const FunctionSetup &setup, Address64T begin_address, Address64T end_address)
@@ -779,9 +817,6 @@ void Function::disassemble(const FunctionSetup &setup)
             }
         }
 
-        AsmInstruction asm_instruction;
-        asm_instruction.address = runtime_address;
-
         const ZyanStatus status = UnasmDisassembleCustom(
             setup.m_formatter,
             setup.m_decoder,
@@ -791,6 +826,10 @@ void Function::disassemble(const FunctionSetup &setup)
             instruction,
             instruction_buffer,
             this);
+
+        AsmInstruction asm_instruction;
+        asm_instruction.address = runtime_address;
+        asm_instruction.set_bytes(section_data + instruction_section_offset, instruction.info.length);
 
         runtime_address += instruction.info.length;
         section_offset += instruction.info.length;

@@ -40,12 +40,6 @@ struct FunctionMatchBundle
 };
 using FunctionMatchBundles = std::vector<FunctionMatchBundle>;
 
-struct FunctionMatchCollection
-{
-    FunctionMatches matches;
-    FunctionMatchBundles bundles;
-};
-
 enum class AsmMatchStrictness
 {
     Lenient, // Unknown to known/unknown symbol pairs are treated as match.
@@ -113,6 +107,7 @@ struct AsmComparisonResult
     // Returns 0..1
     float get_max_similarity(AsmMatchStrictness strictness) const;
 
+    std::array<const Function *, 2> function_pair = {nullptr, nullptr};
     AsmComparisonRecords records;
     uint32_t label_count = 0;
     uint32_t match_count = 0;
@@ -128,6 +123,20 @@ struct AsmComparisonResultBundle
 };
 using AsmComparisonResultBundles = std::vector<AsmComparisonResultBundle>;
 
-using StringPair = std::array<std::string, 2>;
+struct StringPair
+{
+    std::array<std::string, 2> pair;
+};
+
+struct TextFileContent
+{
+    std::string filename;
+    std::vector<std::string> lines;
+};
+
+struct TextFileContentPair
+{
+    std::array<const TextFileContent *, 2> pair;
+};
 
 } // namespace unassemblize

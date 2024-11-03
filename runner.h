@@ -69,6 +69,24 @@ struct AsmComparisonOptions
 
 class Runner
 {
+    class FileContentStorage
+    {
+        using FileContentMap = std::map<std::string, TextFileContent>;
+
+    public:
+        FileContentStorage();
+
+        const TextFileContent *find_content(const std::string &name) const;
+        bool load_content(const std::string &name);
+        size_t size() const;
+        void clear();
+
+    private:
+        FileContentMap m_filesMap;
+        mutable FileContentMap::const_iterator m_lastFileIt;
+        mutable std::string m_lastFileName;
+    };
+
 public:
     bool process_exe(const ExeSaveLoadOptions &o, size_t file_idx);
     bool process_pdb(const PdbSaveLoadOptions &o, size_t file_idx);
@@ -89,14 +107,25 @@ private:
      * Builds function match collection.
      * All function objects are not disassembled for performance reasons, but are prepared.
      */
-    FunctionMatchCollection build_function_match_collection(size_t bundle_file_idx, MatchBundleType bundle_type) const;
-    void disassemble_function_match_collection(FunctionMatchCollection &collection, AsmFormat format) const;
+    void build_function_matches(FunctionMatches &matches, StringToIndexMapT &function_name_to_index_map) const;
 
-    AsmComparisonResultBundles
-        build_comparison_results(const FunctionMatchCollection &collection, uint32_t lookahead_limit) const;
+    void build_function_bundles(
+        FunctionMatchBundles &bundles,
+        const FunctionMatches &matches,
+        const StringToIndexMapT &function_name_to_index,
+        size_t bundle_file_idx,
+        MatchBundleType bundle_type) const;
+
+    void disassemble_function_matches(FunctionMatches &matches, AsmFormat format) const;
+
+    void build_function_source_lines(FunctionMatches &matches, const StringToIndexMapT &function_name_to_index_map);
+
+    AsmComparisonResultBundles build_comparison_results(
+        const FunctionMatches &matches, const FunctionMatchBundles &bundles, uint32_t lookahead_limit) const;
 
     static bool output_comparison_results(
         AsmComparisonResultBundles &result_bundles,
+        MatchBundleType bundle_type,
         const std::string &output_file,
         const StringPair &exe_filenames,
         AsmMatchStrictness match_strictness,

@@ -19,6 +19,12 @@ namespace unassemblize
 {
 class AsmPrinter
 {
+    struct Buffers
+    {
+        std::vector<std::string> lines;
+        std::string misc_buf;
+    };
+
 public:
     /*
      * Appends texts from instruction data to a string.
@@ -28,10 +34,11 @@ public:
     /*
      * Appends texts from instruction data of a comparison result to a string.
      */
-    static void append_to_string(
+    void append_to_string(
         std::string &str,
         const AsmComparisonResult &comparison,
         const StringPair &exe_filenames,
+        const TextFileContentPair &cpp_texts,
         AsmMatchStrictness match_strictness,
         uint32_t asm_len,
         uint32_t indent_len);
@@ -40,10 +47,21 @@ private:
     static std::string to_string(const AsmInstruction &instruction, size_t indent_len);
     static std::string to_string(const AsmLabel &label);
 
+    static void append_source_code(
+        Buffers &buffers, const AsmComparisonRecords &records, const TextFileContent &cpp_text, size_t side_idx);
+    static void append_bytes(Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx);
+    static void append_assembler(
+        Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t asm_len, uint32_t indent_len);
+    static void
+        append_comparison(Buffers &buffers, const AsmComparisonRecords &records, AsmMatchStrictness match_strictness);
+
     static void truncate_inplace(std::string &str, size_t max_len);
     static void front_truncate_inplace(std::string &str, size_t max_len);
     static void pad_whitespace_inplace(std::string &str, size_t len);
     static void append_whitespace_inplace(std::string &str, size_t len);
+
+private:
+    Buffers m_buffers;
 };
 
 } // namespace unassemblize

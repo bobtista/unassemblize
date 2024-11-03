@@ -12,6 +12,7 @@
  */
 #include "functiontypes.h"
 #include "strings.h"
+#include <assert.h>
 
 namespace unassemblize
 {
@@ -34,6 +35,14 @@ AsmFormat to_asm_format(const char *str)
         return AsmFormat::DEFAULT;
     }
     static_assert(size_t(AsmFormat::DEFAULT) == 3, "Enum was changed. Update switch case.");
+}
+
+void AsmInstruction::set_bytes(const uint8_t *p, size_t size)
+{
+    assert(size <= bytes.elements.size());
+    const size_t max_bytes = std::min<size_t>(bytes.elements.size(), size);
+    memcpy(bytes.elements.data(), p, max_bytes);
+    bytes.size = uint8_t(max_bytes);
 }
 
 } // namespace unassemblize
