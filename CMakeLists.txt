@@ -44,11 +44,14 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/lief-project/LIEF.git
     GIT_TAG        2d9855fc7f9d4ce6325245f8b75c98eb7663db60
 )
-set(LEIF_EXAMPLES OFF)
-set(LEIF_INSTALL OFF)
+set(LIEF_EXAMPLES OFF)
+set(LIEF_INSTALL OFF)
 set(LIEF_C_API OFF)
 set(LIEF_PYTHON_API OFF)
 set(LIEF_TESTS OFF)
+set(LIEF_ART OFF)
+set(LIEF_DEX OFF)
+set(LIEF_VDEX OFF)
 FetchContent_MakeAvailable(lief)
 
 FetchContent_Declare(
@@ -59,27 +62,33 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(json)
 
 FetchContent_Declare(fmt
-  GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-  GIT_TAG        0c9fce2ffefecfdce794e1859584e25877b7b592
+    GIT_REPOSITORY https://github.com/fmtlib/fmt.git
+    GIT_TAG        0c9fce2ffefecfdce794e1859584e25877b7b592
 )
 FetchContent_MakeAvailable(fmt)
 
 FetchContent_Declare(cxxopts
-  GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
-  GIT_TAG        3bf268481da8208d171d8908e6491459de3651d7
+    GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
+    GIT_TAG        3bf268481da8208d171d8908e6491459de3651d7
 )
 FetchContent_MakeAvailable(cxxopts)
 
 set(GIT_PRE_CONFIGURE_FILE "gitinfo.cpp.in")
 set(GIT_POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp")
+
 include(GitWatcher)
+include(imgui.cmake)
+if(WINDOWS)
 include(FindDiaSDK.cmake)
+endif()
 
 add_executable(unassemblize)
 
 target_sources(unassemblize PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp
     gitinfo.h
+    FindDiaSDK.cmake
+    imgui.cmake
     src/asmmatcher.cpp
     src/asmmatcher.h
     src/asmmatchertypes.cpp
@@ -104,11 +113,38 @@ target_sources(unassemblize PRIVATE
     src/runner.h
     src/util.cpp
     src/util.h
+    src/version.cpp
+    src/version.h
+    src/imguiclient/imguiwin32.cpp
+    src/imguiclient/imguiwin32.h
 )
-target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json fmt::fmt cxxopts::cxxopts ${DIASDK_LIBRARIES})
-target_include_directories(unassemblize PRIVATE . ${DIASDK_INCLUDE_DIRS})
+
+target_link_libraries(unassemblize PRIVATE
+    Zydis
+    LIEF::LIEF
+    nlohmann_json
+    fmt::fmt
+    cxxopts::cxxopts
+)
+
+target_include_directories(unassemblize PRIVATE
+    .
+    src
+)
 
 if(WINDOWS)
-    target_sources(unassemblize PRIVATE wincompat/strings.h)
-    target_include_directories(unassemblize PRIVATE wincompat)
+    target_sources(unassemblize PRIVATE
+        wincompat/strings.h
+    )
+
+    target_link_libraries(unassemblize PRIVATE
+        d3d9.lib # How does it find it???
+        imgui_win32
+        ${DIASDK_LIBRARIES}
+    )
+
+    target_include_directories(unassemblize PRIVATE
+        wincompat
+        ${DIASDK_INCLUDE_DIRS}
+    )
 endif()

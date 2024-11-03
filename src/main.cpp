@@ -10,9 +10,9 @@
  *            A full copy of the GNU General Public License can be found in
  *            LICENSE
  */
-#include "gitinfo.h"
 #include "runner.h"
 #include "util.h"
+#include "version.h"
 #include <assert.h>
 #include <cxxopts.hpp>
 #include <filesystem>
@@ -20,18 +20,9 @@
 #include <stdio.h>
 #include <strings.h>
 
-void print_version()
-{
-    char revision[12] = {0};
-    const char *version = GitTag[0] == 'v' ? GitTag : GitShortSHA1;
-
-    if (GitTag[0] != 'v')
-    {
-        snprintf(revision, sizeof(revision), "r%d ", GitRevision);
-    }
-
-    printf("unassemblize %s%s%s by The Assembly Armada\n", revision, GitUncommittedChanges ? "~" : "", version);
-}
+#ifdef WIN32
+#include "imguiclient/imguiwin32.h"
+#endif
 
 const char *const auto_str = "auto"; // When output is set to "auto", then output name is chosen for input file name.
 
@@ -117,7 +108,7 @@ InputType get_input_type(const std::string &input_file, const std::string &input
 
 int main(int argc, char **argv)
 {
-    print_version();
+    printf(create_version_string().c_str());
 
     cxxopts::Options options("unassemblize", "x86 Unassembly tool");
 
@@ -145,6 +136,7 @@ int main(int argc, char **argv)
 #define OPT_DUMPSYMS "dumpsyms"
 #define OPT_VERBOSE "verbose"
 #define OPT_HELP "help"
+#define OPT_GUI "gui"
 
     // clang-format off
     options.add_options("main", {
@@ -172,6 +164,7 @@ int main(int argc, char **argv)
         cxxopts::Option{"d," OPT_DUMPSYMS, "Dumps symbols stored in a executable or pdb to the config file."},
         cxxopts::Option{"v," OPT_VERBOSE, "Verbose output on current state of the program."},
         cxxopts::Option{"h," OPT_HELP, "Displays this help."},
+        cxxopts::Option{"g," OPT_GUI, "Open with graphical user interface"},
         });
     // clang-format on
     static_assert(size_t(unassemblize::AsmFormat::DEFAULT) == 3, "Enum was changed. Update command line options.");
@@ -223,6 +216,7 @@ int main(int argc, char **argv)
     bool print_secs = false;
     bool dump_syms = false;
     bool verbose = false;
+    bool gui = false;
 
     for (const cxxopts::KeyValue &kv : result.arguments())
     {
@@ -319,6 +313,22 @@ int main(int argc, char **argv)
         {
             verbose = kv.as<bool>();
         }
+        else if (v == OPT_GUI)
+        {
+            gui = kv.as<bool>();
+        }
+    }
+
+    if (gui)
+    {
+#ifdef WIN32
+        unassemblize::gui::ImGuiWin32 gui;
+        unassemblize::gui::ImGuiError error = gui.run();
+        return int(error);
+#else
+        printf("Gui not implemented.\n");
+        return 1;
+#endif
     }
 
     if (input_file[0].empty())
