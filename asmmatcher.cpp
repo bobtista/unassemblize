@@ -340,8 +340,8 @@ AsmMismatchInfo AsmMatcher::compare_asm_text(const InstructionTextArray &array0,
 
     for (size_t i = 0; i < array0.size || i < array1.size; ++i)
     {
-        const std::string &word0 = (i < array0.size) ? array0.inner[i] : dummy;
-        const std::string &word1 = (i < array1.size) ? array1.inner[i] : dummy;
+        const std::string &word0 = (i < array0.size) ? array0.elements[i] : dummy;
+        const std::string &word1 = (i < array1.size) ? array1.elements[i] : dummy;
         const char *c0 = word0.c_str();
         const char *c1 = word1.c_str();
         int in_quote = -1;
@@ -506,10 +506,10 @@ AsmMatcher::InstructionTextArray AsmMatcher::split_instruction_text(const std::s
                 ++c;
             // Increment word index.
             ++index;
-            assert(index < arr.inner.size());
+            assert(index < arr.elements.size());
             continue;
         }
-        arr.inner[index].push_back(*c);
+        arr.elements[index].push_back(*c);
     }
     arr.size = index + 1;
     return arr;

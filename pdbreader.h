@@ -25,7 +25,6 @@ namespace unassemblize
 {
 class PdbReader
 {
-    using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
     using Address64ToIndexMapT = std::unordered_map<Address64T, IndexT>;
 
 public:

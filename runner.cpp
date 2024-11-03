@@ -229,7 +229,6 @@ FunctionMatchCollection Runner::build_function_match_collection(size_t bundle_fi
     // #TODO: If performance is a concern in UI, then build matches per some requested source files or compilands.
     // Currently all function matches are prepared, but not disassembled.
 
-    using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
     FunctionMatchCollection collection;
     StringToIndexMapT function_name_to_index;
     collection.matches.reserve(512);

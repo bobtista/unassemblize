@@ -18,13 +18,7 @@ namespace unassemblize
 {
 class AsmMatcher
 {
-    template<class E, size_t Size>
-    struct SizeableArray
-    {
-        std::array<E, Size> inner;
-        size_t size = 0;
-    };
-    using InstructionTextArray = SizeableArray<std::string, 4>;
+    using InstructionTextArray = SizedArray<std::string, size_t, 4>;
     using InstructionTextArrays = std::vector<InstructionTextArray>;
 
     struct LookaheadResult
