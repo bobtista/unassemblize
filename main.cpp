@@ -131,6 +131,9 @@ int main(int argc, char **argv)
 #define OPT_MATCH_STRICTNESS "match-strictness"
 #define OPT_PRINT_INDENT_LEN "print-indent-len"
 #define OPT_PRINT_ASM_LEN "print-asm-len"
+#define OPT_PRINT_BYTE_COUNT "print-byte-count"
+#define OPT_PRINT_SOURCECODE_LEN "print-sourcecode-len"
+#define OPT_PRINT_SOURCELINE_LEN "print-sourceline-len"
 #define OPT_FORMAT "format"
 #define OPT_BUNDLE_FILE_ID "bundle-file-id"
 #define OPT_BUNDLE_TYPE "bundle-type"
@@ -155,6 +158,9 @@ int main(int argc, char **argv)
         cxxopts::Option{OPT_MATCH_STRICTNESS, "Assembler matching strictness. If 'lenient', then unknown to known/unknown symbol pairs are treated as match. If 'strict', then unknown to known/unknown symbol pairs are treated as mismatch. Default is 'undecided'.", cxxopts::value<std::string>(), R"(["lenient", "undecided", "strict"])"},
         cxxopts::Option{OPT_PRINT_INDENT_LEN, "Character count for indentation of assembler instructions in output report(s). Default is 4.", cxxopts::value<uint32_t>()},
         cxxopts::Option{OPT_PRINT_ASM_LEN, "Max character count for assembler instructions in comparison report(s). Text is truncated if longer. Default is 80.", cxxopts::value<uint32_t>()},
+        cxxopts::Option{OPT_PRINT_BYTE_COUNT, "Max byte count in comparison report(s). Text is truncated if longer. Default is 11.", cxxopts::value<uint32_t>()},
+        cxxopts::Option{OPT_PRINT_SOURCECODE_LEN, "Max character count for source code in comparison report(s). Text is truncated if longer. Default is 80.", cxxopts::value<uint32_t>()},
+        cxxopts::Option{OPT_PRINT_SOURCELINE_LEN, "Max character count for source line in comparison report(s). Text is truncated if longer. Default is 5.", cxxopts::value<uint32_t>()},
         cxxopts::Option{"f," OPT_FORMAT, "Assembly output format. Default is 'igas'", cxxopts::value<std::string>(), R"(["igas", "agas", "masm", "default"])"},
         cxxopts::Option{OPT_BUNDLE_FILE_ID, "Input file used to bundle match results with. Default is 1.", cxxopts::value<size_t>(), "[1: 1st input file, 2: 2nd input file]"},
         cxxopts::Option{OPT_BUNDLE_TYPE, "Method used to bundle match results with. Default is 'sourcefile'.", cxxopts::value<std::string>(), R"(["none", "sourcefile", "compiland"])"},
@@ -203,6 +209,9 @@ int main(int argc, char **argv)
     unassemblize::AsmMatchStrictness match_strictness = unassemblize::AsmMatchStrictness::Undecided;
     uint32_t print_indent_len = 4;
     uint32_t print_asm_len = 80;
+    uint32_t print_byte_count = 11;
+    uint32_t print_sourcecode_len = 80;
+    uint32_t print_sourceline_len = 5;
     unassemblize::AsmFormat format = unassemblize::AsmFormat::IGAS;
     size_t bundle_file_idx = 0;
     unassemblize::MatchBundleType bundle_type = unassemblize::MatchBundleType::SourceFile;
@@ -257,6 +266,18 @@ int main(int argc, char **argv)
         else if (v == OPT_PRINT_ASM_LEN)
         {
             print_asm_len = kv.as<uint32_t>();
+        }
+        else if (v == OPT_PRINT_BYTE_COUNT)
+        {
+            print_byte_count = kv.as<uint32_t>();
+        }
+        else if (v == OPT_PRINT_SOURCECODE_LEN)
+        {
+            print_sourcecode_len = kv.as<uint32_t>();
+        }
+        else if (v == OPT_PRINT_SOURCELINE_LEN)
+        {
+            print_sourceline_len = kv.as<uint32_t>();
         }
         else if (v == OPT_FORMAT)
         {
@@ -373,6 +394,9 @@ int main(int argc, char **argv)
             o.bundle_type = bundle_type;
             o.print_indent_len = print_indent_len;
             o.print_asm_len = print_asm_len;
+            o.print_byte_count = print_byte_count;
+            o.print_sourcecode_len = print_sourcecode_len;
+            o.print_sourceline_len = print_sourceline_len;
             o.lookahead_limit = lookahead_limit;
             o.match_strictness = match_strictness;
             ok &= runner.process_asm_comparison(o);

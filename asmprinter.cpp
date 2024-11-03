@@ -97,8 +97,11 @@ void AsmPrinter::append_to_string(
     const StringPair &exe_filenames,
     const TextFileContentPair &cpp_texts,
     AsmMatchStrictness match_strictness,
+    uint32_t indent_len,
     uint32_t asm_len,
-    uint32_t indent_len)
+    uint32_t byte_count,
+    uint32_t sourcecode_len,
+    uint32_t sourceline_len)
 {
     if (comparison.records.empty())
     {
@@ -123,16 +126,20 @@ void AsmPrinter::append_to_string(
 
     {
         // Create assembler lines in vector.
+        const uint32_t source_len = sourcecode_len + sourceline_len;
         size_t i = 0;
 
-        if (cpp_texts.pair[i] != nullptr)
+        if (source_len > 0 && cpp_texts.pair[i] != nullptr)
         {
             source_code_regions[i].begin = m_buffers.lines[0].size();
-            append_source_code(m_buffers, comparison.records, *cpp_texts.pair[i], i);
+            append_source_code(m_buffers, comparison.records, *cpp_texts.pair[i], i, sourcecode_len, sourceline_len);
             source_code_regions[i].end = m_buffers.lines[0].size();
         }
 
-        append_bytes(m_buffers, comparison.records, i);
+        if (byte_count > 0)
+        {
+            append_bytes(m_buffers, comparison.records, i, byte_count);
+        }
 
         assembler_regions[i].begin = m_buffers.lines[0].size();
         append_assembler(m_buffers, comparison.records, i, asm_len, indent_len);
@@ -145,12 +152,15 @@ void AsmPrinter::append_to_string(
         append_assembler(m_buffers, comparison.records, i, asm_len, indent_len);
         assembler_regions[i].end = m_buffers.lines[0].size();
 
-        append_bytes(m_buffers, comparison.records, i);
+        if (byte_count > 0)
+        {
+            append_bytes(m_buffers, comparison.records, i, byte_count);
+        }
 
-        if (cpp_texts.pair[i] != nullptr)
+        if (source_len > 0 && cpp_texts.pair[i] != nullptr)
         {
             source_code_regions[i].begin = m_buffers.lines[0].size();
-            append_source_code(m_buffers, comparison.records, *cpp_texts.pair[i], i);
+            append_source_code(m_buffers, comparison.records, *cpp_texts.pair[i], i, sourcecode_len, sourceline_len);
             source_code_regions[i].end = m_buffers.lines[0].size();
         }
     }
@@ -256,13 +266,17 @@ void AsmPrinter::append_to_string(
 }
 
 void AsmPrinter::append_source_code(
-    Buffers &buffers, const AsmComparisonRecords &records, const TextFileContent &cpp_text, size_t side_idx)
+    Buffers &buffers,
+    const AsmComparisonRecords &records,
+    const TextFileContent &cpp_text,
+    size_t side_idx,
+    uint32_t sourcecode_len,
+    uint32_t sourceline_len)
 {
-    // #TODO: Make this customizable.
-    constexpr size_t cpp_line_len = 6;
-    constexpr size_t cpp_code_len = 80;
-
     assert(buffers.lines.size() == records.size());
+
+    if (sourceline_len > 0)
+        sourceline_len += 1; // +1 for colon.
 
     const size_t count = records.size();
     uint16_t last_line_number = 0;
@@ -282,13 +296,20 @@ void AsmPrinter::append_source_code(
 
                 if (line_idx < cpp_text.lines.size())
                 {
-                    line.append(fmt::format("{:05d}:", instruction->lineNumber));
+                    buffers.misc_buf.assign(fmt::format("{:05d}:", instruction->lineNumber));
+                    if (buffers.misc_buf.size() > sourceline_len)
+                    {
+                        buffers.misc_buf.erase(0, buffers.misc_buf.size() - sourceline_len);
+                    }
+                    line.append(buffers.misc_buf);
+
                     if (last_line_number != instruction->lineNumber)
                     {
                         last_line_number = instruction->lineNumber;
-                        line.append(cpp_text.lines[line_idx]);
+                        buffers.misc_buf.assign(cpp_text.lines[line_idx]);
+                        truncate_inplace(buffers.misc_buf, sourcecode_len);
+                        line.append(buffers.misc_buf);
                     }
-                    truncate_inplace(line, cpp_code_len + cpp_line_len + offset);
                 }
             }
         }
@@ -301,18 +322,16 @@ void AsmPrinter::append_source_code(
             assert(false);
         }
 
-        pad_whitespace_inplace(line, cpp_code_len + cpp_line_len + offset);
+        pad_whitespace_inplace(line, sourceline_len + sourcecode_len + offset);
     }
 }
 
-void AsmPrinter::append_bytes(Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx)
+void AsmPrinter::append_bytes(Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t byte_count)
 {
-    // #TODO: Make it customizable.
-    constexpr size_t bytes_count = AsmInstruction::BytesArray::MaxSize;
-    constexpr size_t bytes_len = bytes_count * (2 + 1);
-
     assert(buffers.lines.size() == records.size());
 
+    byte_count = std::min<uint32_t>(byte_count, AsmInstruction::BytesArray::MaxSize);
+    const size_t bytes_len = byte_count * (2 + 1);
     const size_t count = records.size();
 
     for (size_t i = 0; i < count; ++i)
@@ -326,9 +345,9 @@ void AsmPrinter::append_bytes(Buffers &buffers, const AsmComparisonRecords &reco
             const AsmInstruction *instruction = instruction_pair->pair[side_idx];
             if (instruction != nullptr)
             {
-                const size_t count = std::min<size_t>(bytes_count, instruction->bytes.size);
+                const size_t usable_byte_count = std::min<size_t>(byte_count, instruction->bytes.size);
 
-                for (size_t b = 0; b < count; ++b)
+                for (size_t b = 0; b < usable_byte_count; ++b)
                 {
                     line += fmt::format("{:02x} ", instruction->bytes.elements[b]);
                 }
@@ -350,9 +369,12 @@ void AsmPrinter::append_bytes(Buffers &buffers, const AsmComparisonRecords &reco
 void AsmPrinter::append_assembler(
     Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t asm_len, uint32_t indent_len)
 {
-    static constexpr size_t address_len = 10;
+    constexpr size_t address_len = 8;
 
     assert(buffers.lines.size() == records.size());
+
+    if (asm_len > 0)
+        asm_len += indent_len;
 
     const size_t count = records.size();
 
@@ -362,18 +384,20 @@ void AsmPrinter::append_assembler(
         std::string &line = buffers.lines[i];
         const size_t offset = line.size();
 
-        buffers.misc_buf.clear();
-
         if (const AsmInstructionPair *instruction_pair = std::get_if<AsmInstructionPair>(&record))
         {
             const AsmInstruction *instruction = instruction_pair->pair[side_idx];
             if (instruction != nullptr)
             {
-                line.append(fmt::format("{:08x}  ", instruction->address));
+                line.append(fmt::format("{:08x}", instruction->address));
                 assert(line.size() - offset == address_len);
-                buffers.misc_buf = to_string(*instruction, indent_len);
-                truncate_inplace(buffers.misc_buf, asm_len + indent_len);
-                line.append(buffers.misc_buf);
+
+                if (asm_len > 0)
+                {
+                    buffers.misc_buf.assign(to_string(*instruction, indent_len));
+                    truncate_inplace(buffers.misc_buf, asm_len);
+                    line.append(buffers.misc_buf);
+                }
             }
         }
         else if (const AsmLabelPair *label_pair = std::get_if<AsmLabelPair>(&record))
@@ -382,9 +406,13 @@ void AsmPrinter::append_assembler(
             if (label != nullptr)
             {
                 append_whitespace_inplace(line, address_len);
-                buffers.misc_buf = to_string(*label);
-                truncate_inplace(buffers.misc_buf, asm_len + indent_len);
-                line.append(buffers.misc_buf);
+
+                if (asm_len > 0)
+                {
+                    buffers.misc_buf.assign(to_string(*label));
+                    truncate_inplace(buffers.misc_buf, asm_len);
+                    line.append(buffers.misc_buf);
+                }
             }
         }
         else
@@ -392,7 +420,7 @@ void AsmPrinter::append_assembler(
             assert(false);
         }
 
-        pad_whitespace_inplace(line, address_len + indent_len + asm_len + offset);
+        pad_whitespace_inplace(line, address_len + asm_len + offset);
     }
 }
 
@@ -471,25 +499,23 @@ void AsmPrinter::append_comparison(
 
 void AsmPrinter::truncate_inplace(std::string &str, size_t max_len)
 {
-    max_len = std::max<size_t>(max_len, 2);
     if (str.size() > max_len)
     {
         str.resize(max_len);
         // End string on 2 dots to clarify that it has been truncated.
-        str[max_len - 1] = '.';
-        str[max_len - 2] = '.';
+        for (int i = 0; max_len != 0 && i < 2; ++i, --max_len)
+            str[max_len - 1] = '.';
     }
 }
 
 void AsmPrinter::front_truncate_inplace(std::string &str, size_t max_len)
 {
-    max_len = std::max<size_t>(max_len, 2);
     if (str.size() > max_len)
     {
         str.erase(0, str.size() - max_len);
         // Begin string on 2 dots to clarify that it has been truncated.
-        str[0] = '.';
-        str[1] = '.';
+        for (int i = 0; max_len != 0 && i < 2; ++i, --max_len)
+            str[i] = '.';
     }
 }
 

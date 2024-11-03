@@ -63,6 +63,9 @@ struct AsmComparisonOptions
     MatchBundleType bundle_type = MatchBundleType::None; // The method to group symbols with.
     uint32_t print_indent_len = 4;
     uint32_t print_asm_len = 80;
+    uint32_t print_byte_count = 11;
+    uint32_t print_sourcecode_len = 80;
+    uint32_t print_sourceline_len = 5;
     uint32_t lookahead_limit = 20;
     unassemblize::AsmMatchStrictness match_strictness = unassemblize::AsmMatchStrictness::Undecided;
 };
@@ -143,8 +146,11 @@ private:
         const std::string &output_file,
         const StringPair &exe_filenames,
         AsmMatchStrictness match_strictness,
+        uint32_t indent_len,
         uint32_t asm_len,
-        uint32_t indent_len);
+        uint32_t byte_count,
+        uint32_t sourcecode_len,
+        uint32_t sourceline_len);
 
     static std::string
         build_cmp_output_path(size_t bundle_idx, const std::string &bundle_name, const std::string &output_file);

@@ -40,16 +40,24 @@ public:
         const StringPair &exe_filenames,
         const TextFileContentPair &cpp_texts,
         AsmMatchStrictness match_strictness,
+        uint32_t indent_len,
         uint32_t asm_len,
-        uint32_t indent_len);
+        uint32_t byte_count,
+        uint32_t sourcecode_len,
+        uint32_t sourceline_len);
 
 private:
     static std::string to_string(const AsmInstruction &instruction, size_t indent_len);
     static std::string to_string(const AsmLabel &label);
 
     static void append_source_code(
-        Buffers &buffers, const AsmComparisonRecords &records, const TextFileContent &cpp_text, size_t side_idx);
-    static void append_bytes(Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx);
+        Buffers &buffers,
+        const AsmComparisonRecords &records,
+        const TextFileContent &cpp_text,
+        size_t side_idx,
+        uint32_t sourcecode_len,
+        uint32_t sourceline_len);
+    static void append_bytes(Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t byte_count);
     static void append_assembler(
         Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t asm_len, uint32_t indent_len);
     static void

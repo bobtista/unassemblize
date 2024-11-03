@@ -230,7 +230,10 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 
     disassemble_function_matches(matches, o.format);
 
-    build_function_source_lines(matches, functionNameToMatchIndexMap);
+    if (o.print_sourceline_len + o.print_sourcecode_len > 0)
+    {
+        build_function_source_lines(matches, functionNameToMatchIndexMap);
+    }
 
     functionNameToMatchIndexMap.swap(StringToIndexMapT());
 
@@ -245,8 +248,11 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
         o.output_file,
         exe_filenames,
         o.match_strictness,
+        o.print_indent_len,
         o.print_asm_len,
-        o.print_indent_len);
+        o.print_byte_count,
+        o.print_sourcecode_len,
+        o.print_sourceline_len);
 
     return ok;
 }
@@ -450,8 +456,11 @@ bool Runner::output_comparison_results(
     const std::string &output_file,
     const StringPair &exe_filenames,
     AsmMatchStrictness match_strictness,
+    uint32_t indent_len,
     uint32_t asm_len,
-    uint32_t indent_len)
+    uint32_t byte_count,
+    uint32_t sourcecode_len,
+    uint32_t sourceline_len)
 {
     size_t file_write_count = 0;
     size_t bundle_idx = 0;
@@ -491,7 +500,17 @@ bool Runner::output_comparison_results(
                 cpp_texts.pair[1] = cpp_files.find_content(source_file1);
 
                 text.clear();
-                printer.append_to_string(text, result, exe_filenames, cpp_texts, match_strictness, asm_len, indent_len);
+                printer.append_to_string(
+                    text,
+                    result,
+                    exe_filenames,
+                    cpp_texts,
+                    match_strictness,
+                    indent_len,
+                    asm_len,
+                    byte_count,
+                    sourcecode_len,
+                    sourceline_len);
                 fs.write(text.data(), text.size());
             }
             ++file_write_count;
