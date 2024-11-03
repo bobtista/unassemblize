@@ -1,7 +1,7 @@
 /**
  * @file
  *
- * @brief ImGui shell for win32
+ * @brief ImGui App core
  *
  * @copyright Unassemblize is free software: you can redistribute it and/or
  *            modify it under the terms of the GNU General Public License
@@ -12,23 +12,30 @@
  */
 #pragma once
 
-#include <memory>
+#include "imgui.h"
 
 namespace unassemblize::gui
 {
-enum class ImGuiStatus;
-class ImGuiApp;
+enum class ImGuiStatus
+{
+    Ok,
+    Error,
+};
 
-class ImGuiWin32
+class ImGuiApp
 {
 public:
-    ImGuiWin32();
-    ~ImGuiWin32();
+    ImGuiStatus pre_platform_init();
+    ImGuiStatus post_platform_init();
+    void shutdown();
+    ImGuiStatus update();
 
-    ImGuiStatus run();
+    const ImVec4 &get_clear_color() const { return m_clear_color; }
 
 private:
-    std::unique_ptr<ImGuiApp> m_app;
+    ImVec4 m_clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+    bool m_show_another_window = false;
+    bool m_show_demo_window = true;
 };
 
 } // namespace unassemblize::gui

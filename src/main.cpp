@@ -323,7 +323,7 @@ int main(int argc, char **argv)
     {
 #ifdef WIN32
         unassemblize::gui::ImGuiWin32 gui;
-        unassemblize::gui::ImGuiError error = gui.run();
+        unassemblize::gui::ImGuiStatus error = gui.run();
         return int(error);
 #else
         printf("Gui not implemented.\n");
