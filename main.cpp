@@ -88,25 +88,28 @@ InputType get_input_type(const std::string &input_file, const std::string &input
 {
     InputType type = InputType::None;
 
-    if (0 == strcasecmp(input_type.c_str(), auto_str))
+    if (!input_file.empty())
     {
-        std::string input_file_ext = util::get_file_ext(input_file);
-        if (0 == strcasecmp(input_file_ext.c_str(), "pdb"))
+        if (0 == strcasecmp(input_type.c_str(), auto_str))
         {
-            type = InputType::Pdb;
+            std::string input_file_ext = util::get_file_ext(input_file);
+            if (0 == strcasecmp(input_file_ext.c_str(), "pdb"))
+            {
+                type = InputType::Pdb;
+            }
+            else
+            {
+                type = InputType::Exe;
+            }
         }
-        else
+        else if (0 == strcasecmp(input_type.c_str(), "exe"))
         {
             type = InputType::Exe;
         }
-    }
-    else if (0 == strcasecmp(input_type.c_str(), "exe"))
-    {
-        type = InputType::Exe;
-    }
-    else if (0 == strcasecmp(input_type.c_str(), "pdb"))
-    {
-        type = InputType::Pdb;
+        else if (0 == strcasecmp(input_type.c_str(), "pdb"))
+        {
+            type = InputType::Pdb;
+        }
     }
 
     return type;
