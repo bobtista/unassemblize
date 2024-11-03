@@ -246,7 +246,7 @@ bool PdbReader::read_symbols()
     m_symbols.shrink_to_fit();
 
     m_sourceFileNameToIndexMap.clear();
-    m_addressToSymbolsMap.clear();
+    m_symbolAddressToIndexMap.clear();
 
 #if 0 // Collects all functions that are missing in public & global symbols.
     std::vector<PdbFunctionInfo *> missingFunctions;
@@ -667,13 +667,21 @@ void PdbReader::read_compiland_function(
         if (SUCCEEDED(m_pDiaSymbol->findChildrenExByVA(SymTagPublicSymbol, NULL, nsNone, dwVA, &pEnumSymbols)))
         {
             // Note: There can be more than one public symbol for a function.
-            IDiaSymbol *pSymbol;
+            IDiaSymbol *pChildSymbol;
             ULONG celt = 0;
 
-            while (SUCCEEDED(pEnumSymbols->Next(1, &pSymbol, &celt)) && (celt == 1))
+            while (SUCCEEDED(pEnumSymbols->Next(1, &pChildSymbol, &celt)) && (celt == 1))
             {
-                read_public_function(functionInfo, pSymbol);
-                pSymbol->Release();
+                // findChildrenExByVA may return unrelated symbols in proximity of the search address.
+                // Therefore, skip child symbols with addresses that do not match the search address.
+                ULONGLONG dwChildVA;
+                if (pChildSymbol->get_virtualAddress(&dwChildVA) != S_OK)
+                    continue;
+                if (dwChildVA != dwVA)
+                    continue;
+
+                read_public_function(functionInfo, pChildSymbol);
+                pChildSymbol->Release();
             }
 
             pEnumSymbols->Release();
@@ -852,7 +860,7 @@ bool PdbReader::read_publics()
         LONG count = 0;
         pEnumSymbols->get_Count(&count);
         m_symbols.reserve(m_symbols.size() + count);
-        m_addressToSymbolsMap.reserve(m_addressToSymbolsMap.size() + count);
+        m_symbolAddressToIndexMap.reserve(m_symbolAddressToIndexMap.size() + count);
     }
 
     IDiaSymbol *pSymbol;
@@ -895,7 +903,7 @@ bool PdbReader::read_globals()
     if (ok)
     {
         m_symbols.reserve(m_symbols.size() + combinedCount);
-        m_addressToSymbolsMap.reserve(m_addressToSymbolsMap.size() + combinedCount);
+        m_symbolAddressToIndexMap.reserve(m_symbolAddressToIndexMap.size() + combinedCount);
 
         for (size_t i = 0; i < enumSymbolsPtrs.size(); ++i)
         {
@@ -1024,13 +1032,13 @@ bool PdbReader::add_or_update_symbol(PdbSymbolInfo &&symbolInfo)
         return false;
     }
 
-    Address64ToIndexMapT::iterator it = m_addressToSymbolsMap.find(address);
+    Address64ToIndexMapT::iterator it = m_symbolAddressToIndexMap.find(address);
 
-    if (it == m_addressToSymbolsMap.end())
+    if (it == m_symbolAddressToIndexMap.end())
     {
         const IndexT index = static_cast<IndexT>(m_symbols.size());
         m_symbols.emplace_back(std::move(symbolInfo));
-        m_addressToSymbolsMap[address] = index;
+        m_symbolAddressToIndexMap[address] = index;
     }
     else
     {

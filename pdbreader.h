@@ -87,7 +87,7 @@ private:
      * Intermediate structures used during Pdb read.
      */
     StringToIndexMapT m_sourceFileNameToIndexMap;
-    Address64ToIndexMapT m_addressToSymbolsMap;
+    Address64ToIndexMapT m_symbolAddressToIndexMap;
     IDiaDataSource *m_pDiaSource = nullptr;
     IDiaSession *m_pDiaSession = nullptr;
     IDiaSymbol *m_pDiaSymbol = nullptr;
