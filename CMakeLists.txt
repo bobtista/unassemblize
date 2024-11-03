@@ -80,30 +80,30 @@ add_executable(unassemblize)
 target_sources(unassemblize PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp
     gitinfo.h
-    asmmatcher.cpp
-    asmmatcher.h
-    asmmatchertypes.cpp
-    asmmatchertypes.h
-    asmprinter.cpp
-    asmprinter.h
-    commontypes.h
-    executable.cpp
-    executable.h
-    executabletypes.cpp
-    executabletypes.h
-    function.cpp
-    function.h
-    functiontypes.cpp
-    functiontypes.h
-    main.cpp
-    pdbreader.cpp
-    pdbreader.h
-    pdbreadertypes.cpp
-    pdbreadertypes.h
-    runner.cpp
-    runner.h
-    util.cpp
-    util.h
+    src/asmmatcher.cpp
+    src/asmmatcher.h
+    src/asmmatchertypes.cpp
+    src/asmmatchertypes.h
+    src/asmprinter.cpp
+    src/asmprinter.h
+    src/commontypes.h
+    src/executable.cpp
+    src/executable.h
+    src/executabletypes.cpp
+    src/executabletypes.h
+    src/function.cpp
+    src/function.h
+    src/functiontypes.cpp
+    src/functiontypes.h
+    src/main.cpp
+    src/pdbreader.cpp
+    src/pdbreader.h
+    src/pdbreadertypes.cpp
+    src/pdbreadertypes.h
+    src/runner.cpp
+    src/runner.h
+    src/util.cpp
+    src/util.h
 )
 target_link_libraries(unassemblize PRIVATE Zydis LIEF::LIEF nlohmann_json fmt::fmt cxxopts::cxxopts ${DIASDK_LIBRARIES})
 target_include_directories(unassemblize PRIVATE . ${DIASDK_INCLUDE_DIRS})
