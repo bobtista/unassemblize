@@ -13,10 +13,13 @@
 #include "pdbreader.h"
 #include "util.h"
 #include <array>
-#include <dia2.h>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
+
+#ifdef PDB_READER_WIN32
+#include <dia2.h>
+#endif
 
 namespace unassemblize
 {
@@ -25,17 +28,25 @@ const char *const s_sourceFiles = "pdb_source_files";
 const char *const s_functions = "pdb_functions";
 const char *const s_exe = "pdb_exe";
 
-PdbReader::PdbReader() : m_dwMachineType(CV_CFL_80386) {}
+PdbReader::PdbReader()
+#ifdef PDB_READER_WIN32
+    :
+    m_dwMachineType(CV_CFL_80386)
+#endif
+{
+}
 
 bool PdbReader::read(const std::string &pdb_file)
 {
     bool success = false;
 
+#ifdef PDB_READER_WIN32
     if (load(pdb_file))
     {
         success = read_symbols();
     }
     unload();
+#endif
 
     return success;
 }
@@ -123,6 +134,8 @@ bool PdbReader::save_config(const std::string &file_name, bool overwrite_section
 
     return true;
 }
+
+#ifdef PDB_READER_WIN32
 
 bool PdbReader::load(const std::string &pdb_file)
 {
@@ -1067,5 +1080,7 @@ bool PdbReader::add_or_update_symbol(PdbSymbolInfo &&symbolInfo)
 
     return true;
 }
+
+#endif
 
 } // namespace unassemblize

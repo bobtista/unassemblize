@@ -14,18 +14,26 @@
 
 #include "pdbreadertypes.h"
 
+#ifdef WIN32
+#define PDB_READER_WIN32
+#endif
+
+#ifdef PDB_READER_WIN32
 struct IDiaDataSource;
 struct IDiaEnumSourceFiles;
 struct IDiaLineNumber;
 struct IDiaSession;
 struct IDiaSourceFile;
 struct IDiaSymbol;
+#endif
 
 namespace unassemblize
 {
 class PdbReader
 {
+#ifdef PDB_READER_WIN32
     using Address64ToIndexMapT = std::unordered_map<Address64T, IndexT>;
+#endif
 
 public:
     PdbReader();
@@ -46,6 +54,7 @@ public:
     bool save_config(const std::string &file_name, bool overwrite_sections = false);
 
 private:
+#ifdef PDB_READER_WIN32
     bool load(const std::string &pdb_file);
     void unload();
 
@@ -80,8 +89,10 @@ private:
      */
     const std::string &get_relevant_symbol_name(const std::string &name1, const std::string &name2);
     bool add_or_update_symbol(PdbSymbolInfo &&symbolInfo);
+#endif
 
 private:
+#ifdef PDB_READER_WIN32
     /*
      * Intermediate structures used during Pdb read.
      */
@@ -92,6 +103,7 @@ private:
     IDiaSymbol *m_pDiaSymbol = nullptr;
     uint32_t m_dwMachineType = 0;
     bool m_coInitialized = false;
+#endif
     bool m_verbose = false;
 
     /*
