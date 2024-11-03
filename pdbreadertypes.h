@@ -75,10 +75,11 @@ struct PdbAddress
 
 struct PdbSourceLineInfo
 {
-    uint32_t lineNumber = 0; // Line number in document
-    uint32_t offset = 0; // Offset from function address
-    uint32_t length = 0; // Length of asm bytes
+    uint16_t lineNumber = 0; // Line number in document
+    uint16_t offset = 0; // Offset from function address
+    uint16_t length = 0; // Length of asm bytes
 };
+using PdbSourceLineInfoVector = std::vector<PdbSourceLineInfo>;
 
 // #TODO: Use just one name string?
 struct PdbSymbolInfo
@@ -110,7 +111,7 @@ struct PdbFunctionInfo
     std::string undecoratedName; // public: enum NameKeyType __thiscall NameKeyGenerator::nameToLowercaseKey(char const *)
     std::string globalName; // NameKeyGenerator::nameToLowercaseKey
 
-    std::vector<PdbSourceLineInfo> sourceLines;
+    PdbSourceLineInfoVector sourceLines;
 };
 using PdbFunctionInfoVector = std::vector<PdbFunctionInfo>;
 

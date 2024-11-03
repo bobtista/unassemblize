@@ -833,9 +833,9 @@ void PdbReader::read_line(PdbFunctionInfo &functionInfo, IDiaLineNumber *pLine)
     {
         functionInfo.sourceLines.emplace_back();
         PdbSourceLineInfo &lineInfo = functionInfo.sourceLines.back();
-        lineInfo.lineNumber = dwLinenum;
-        lineInfo.offset = dwVA - functionInfo.address.absVirtual;
-        lineInfo.length = dwLength;
+        lineInfo.lineNumber = down_cast<uint16_t>(dwLinenum);
+        lineInfo.offset = down_cast<uint16_t>(dwVA - functionInfo.address.absVirtual);
+        lineInfo.length = down_cast<uint16_t>(dwLength);
     }
 }
 
