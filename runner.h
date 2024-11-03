@@ -112,9 +112,23 @@ private:
     void build_function_bundles(
         FunctionMatchBundles &bundles,
         const FunctionMatches &matches,
-        const StringToIndexMapT &function_name_to_index,
+        const StringToIndexMapT &function_name_to_index_map,
         size_t bundle_file_idx,
         MatchBundleType bundle_type) const;
+
+    template<class SourceInfoVectorT>
+    static void build_bundles(
+        FunctionMatchBundles &bundles,
+        const PdbFunctionInfoVector &functions,
+        const SourceInfoVectorT &sources,
+        const StringToIndexMapT &function_name_to_index_map);
+
+    template<class SourceInfoT>
+    static void build_bundle(
+        FunctionMatchBundle &bundle,
+        const PdbFunctionInfoVector &functions,
+        const SourceInfoT &source,
+        const StringToIndexMapT &function_name_to_index_map);
 
     void disassemble_function_matches(FunctionMatches &matches, AsmFormat format) const;
 

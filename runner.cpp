@@ -211,57 +211,6 @@ bool Runner::process_asm_output(const AsmOutputOptions &o)
     return true;
 }
 
-namespace
-{
-template<class SourceInfoVectorT>
-void build_bundles(
-    FunctionMatchBundles &bundles,
-    const PdbFunctionInfoVector &functions,
-    const SourceInfoVectorT &sources,
-    const StringToIndexMapT &function_name_to_index_map)
-{
-    if (!sources.empty())
-    {
-        const IndexT sources_count = sources.size();
-        bundles.resize(sources_count);
-
-        for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx)
-        {
-            const typename SourceInfoVectorT::value_type &source = sources[source_idx];
-            FunctionMatchBundle &bundle = bundles[source_idx];
-            build_bundle(bundle, functions, source, function_name_to_index_map);
-        }
-    }
-}
-
-template<class SourceInfoT>
-void build_bundle(
-    FunctionMatchBundle &bundle,
-    const PdbFunctionInfoVector &functions,
-    const SourceInfoT &source,
-    const StringToIndexMapT &function_name_to_index_map)
-{
-    const IndexT function_count = source.functionIds.size();
-    bundle.name = source.name;
-    bundle.matches.reserve(function_count);
-
-    for (IndexT function_idx = 0; function_idx < function_count; ++function_idx)
-    {
-        const PdbFunctionInfo &functionInfo = functions[source.functionIds[function_idx]];
-        StringToIndexMapT::const_iterator it = function_name_to_index_map.find(functionInfo.decoratedName);
-        if (it != function_name_to_index_map.end())
-        {
-            bundle.matches.push_back(it->second);
-        }
-        else
-        {
-            // Can track unmatched functions here ...
-        }
-    }
-}
-
-} // namespace
-
 bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 {
     if (!asm_comparison_ready())
@@ -381,6 +330,53 @@ void Runner::build_function_bundles(
         for (size_t i = 0; i < count; ++i)
         {
             bundle.matches[i] = i;
+        }
+    }
+}
+
+template<class SourceInfoVectorT>
+void Runner::build_bundles(
+    FunctionMatchBundles &bundles,
+    const PdbFunctionInfoVector &functions,
+    const SourceInfoVectorT &sources,
+    const StringToIndexMapT &function_name_to_index_map)
+{
+    if (!sources.empty())
+    {
+        const IndexT sources_count = sources.size();
+        bundles.resize(sources_count);
+
+        for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx)
+        {
+            const typename SourceInfoVectorT::value_type &source = sources[source_idx];
+            FunctionMatchBundle &bundle = bundles[source_idx];
+            build_bundle(bundle, functions, source, function_name_to_index_map);
+        }
+    }
+}
+
+template<class SourceInfoT>
+void Runner::build_bundle(
+    FunctionMatchBundle &bundle,
+    const PdbFunctionInfoVector &functions,
+    const SourceInfoT &source,
+    const StringToIndexMapT &function_name_to_index_map)
+{
+    const IndexT function_count = source.functionIds.size();
+    bundle.name = source.name;
+    bundle.matches.reserve(function_count);
+
+    for (IndexT function_idx = 0; function_idx < function_count; ++function_idx)
+    {
+        const PdbFunctionInfo &functionInfo = functions[source.functionIds[function_idx]];
+        StringToIndexMapT::const_iterator it = function_name_to_index_map.find(functionInfo.decoratedName);
+        if (it != function_name_to_index_map.end())
+        {
+            bundle.matches.push_back(it->second);
+        }
+        else
+        {
+            // Can track unmatched functions here ...
         }
     }
 }
