@@ -155,3 +155,7 @@ if(WINDOWS)
         ${DIASDK_INCLUDE_DIRS}
     )
 endif()
+
+target_compile_definitions(unassemblize PRIVATE
+    $<$<CONFIG:MinSizeRel,Release,RelWithDebInfo>:RELEASE=1> # Can we do this nicer?
+)

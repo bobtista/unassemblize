@@ -812,7 +812,7 @@ void PdbReader::read_source_file_for_compiland(PdbCompilandInfo &compilandInfo, 
     if (pSourceFile->get_fileName(&name) == S_OK)
     {
         std::string n = util::to_utf8(name);
-        StringToIndexMapT::iterator it = m_sourceFileNameToIndexMap.find(n);
+        StringToIndexMapT::const_iterator it = m_sourceFileNameToIndexMap.find(n);
         assert(it != m_sourceFileNameToIndexMap.end());
 
         compilandInfo.sourceFileIds.push_back(it->second);
@@ -827,7 +827,7 @@ void PdbReader::read_source_file_for_function(PdbFunctionInfo &functionInfo, Ind
     if (pSourceFile->get_fileName(&name) == S_OK)
     {
         std::string n = util::to_utf8(name);
-        StringToIndexMapT::iterator it = m_sourceFileNameToIndexMap.find(n);
+        StringToIndexMapT::const_iterator it = m_sourceFileNameToIndexMap.find(n);
         assert(it != m_sourceFileNameToIndexMap.end());
 
         assert(functionInfo.sourceFileId == -1);
