@@ -11,6 +11,7 @@
  *            LICENSE
  */
 #include "imguiapp.h"
+#include "ImGuiFileDialog.h"
 #include "options.h"
 
 namespace unassemblize::gui
@@ -84,7 +85,10 @@ ImGuiStatus ImGuiApp::update()
     // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to
     // learn more about Dear ImGui!).
     if (m_show_demo_window)
+    {
         ImGui::ShowDemoWindow(&m_show_demo_window);
+        show_demo_filedialog();
+    }
 
     // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
     {
@@ -125,5 +129,31 @@ ImGuiStatus ImGuiApp::update()
 
     return ImGuiStatus::Ok;
 }
+
+void ImGuiApp::show_demo_filedialog()
+{
+    // open Dialog Simple
+    if (ImGui::Button("Open File Dialog"))
+    {
+        IGFD::FileDialogConfig config;
+        config.path = ".";
+        ImGuiFileDialog::Instance()->OpenDialog("ChooseFileDlgKey", "Choose File", ".cpp,.h,.hpp", config);
+    }
+    // display
+    if (ImGuiFileDialog::Instance()->Display("ChooseFileDlgKey"))
+    {
+        if (ImGuiFileDialog::Instance()->IsOk())
+        {
+            std::string filePathName = ImGuiFileDialog::Instance()->GetFilePathName();
+            std::string filePath = ImGuiFileDialog::Instance()->GetCurrentPath();
+            // action
+        }
+
+        // close
+        ImGuiFileDialog::Instance()->Close();
+    }
+}
+
+void ImGuiApp::show_app() {}
 
 } // namespace unassemblize::gui

@@ -78,6 +78,7 @@ set(GIT_POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp")
 
 include(GitWatcher)
 include(imgui.cmake)
+include(imguifiledialog.cmake)
 if(WINDOWS)
 include(FindDiaSDK.cmake)
 endif()
@@ -89,6 +90,7 @@ target_sources(unassemblize PRIVATE
     gitinfo.h
     FindDiaSDK.cmake
     imgui.cmake
+    imguifiledialog.cmake
     src/asmmatcher.cpp
     src/asmmatcher.h
     src/asmmatchertypes.cpp
@@ -144,6 +146,7 @@ if(WINDOWS)
     target_link_libraries(unassemblize PRIVATE
         d3d9.lib # How does it find it???
         imgui_win32
+        ImGuiFileDialog
         ${DIASDK_LIBRARIES}
     )
 

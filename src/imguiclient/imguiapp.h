@@ -38,6 +38,9 @@ public:
     const ImVec4 &get_clear_color() const { return m_clear_color; }
 
 private:
+    void show_demo_filedialog();
+    void show_app();
+
     ImVec4 m_clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
     bool m_show_another_window = false;
     bool m_show_demo_window = true;

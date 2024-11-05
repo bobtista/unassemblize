@@ -35,4 +35,4 @@ CPackSourceConfig.cmake
 *.bak
 thumbs.db
 /CMakeUserPresets.json
-/imgui
+/3rdparty
