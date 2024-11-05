@@ -30,6 +30,7 @@ endif()
 
 include(FetchContent)
 
+# TODO: How can we move this to 3rdparty without error?
 FetchContent_Declare(
     zydis
     GIT_REPOSITORY https://github.com/zyantific/zydis.git
@@ -39,6 +40,7 @@ set(ZYDIS_BUILD_EXAMPLES OFF)
 set(ZYDIS_FEATURE_ENCODER OFF)
 FetchContent_MakeAvailable(zydis)
 
+# TODO: How can we move this to 3rdparty without error?
 FetchContent_Declare(
     lief
     GIT_REPOSITORY https://github.com/lief-project/LIEF.git
@@ -58,20 +60,30 @@ FetchContent_Declare(
     json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG        bc889afb4c5bf1c0d8ee29ef35eaaf4c8bef8a5d
+    SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/nlohmann_json
 )
 FetchContent_MakeAvailable(json)
 
 FetchContent_Declare(fmt
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
     GIT_TAG        0c9fce2ffefecfdce794e1859584e25877b7b592
+    SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/fmt
 )
 FetchContent_MakeAvailable(fmt)
 
 FetchContent_Declare(cxxopts
     GIT_REPOSITORY https://github.com/jarro2783/cxxopts.git
     GIT_TAG        3bf268481da8208d171d8908e6491459de3651d7
+    SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/cxxopts
 )
 FetchContent_MakeAvailable(cxxopts)
+
+FetchContent_Declare(readerwriterqueue
+    GIT_REPOSITORY https://github.com/xezon/readerwriterqueue
+    GIT_TAG        master
+    SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/readerwriterqueue
+)
+FetchContent_MakeAvailable(readerwriterqueue)
 
 set(GIT_PRE_CONFIGURE_FILE "gitinfo.cpp.in")
 set(GIT_POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp")
@@ -131,6 +143,7 @@ target_link_libraries(unassemblize PRIVATE
     nlohmann_json
     fmt::fmt
     cxxopts::cxxopts
+    readerwriterqueue
 )
 
 target_include_directories(unassemblize PRIVATE
