@@ -12,14 +12,12 @@
  */
 #pragma once
 
-#include "asmmatchertypes.h"
 #include "executable.h"
+#include "options.h"
 #include "pdbreader.h"
 
 namespace unassemblize
 {
-inline constexpr size_t MAX_INPUT_FILES = 2;
-
 struct ExeSaveLoadOptions
 {
     std::string input_file;
@@ -46,15 +44,6 @@ struct AsmOutputOptions
     uint32_t print_indent_len = 4;
 };
 
-enum class MatchBundleType
-{
-    Compiland, // Functions will be bundled by the compilands they belong to.
-    SourceFile, // Functions will be bundled by the source files they belong to (.h .cpp).
-    None, // Functions will be bundled into one.
-};
-
-MatchBundleType to_match_bundle_type(const char *str);
-
 struct AsmComparisonOptions
 {
     std::string output_file;
@@ -67,11 +56,13 @@ struct AsmComparisonOptions
     uint32_t print_sourcecode_len = 80;
     uint32_t print_sourceline_len = 5;
     uint32_t lookahead_limit = 20;
-    unassemblize::AsmMatchStrictness match_strictness = unassemblize::AsmMatchStrictness::Undecided;
+    AsmMatchStrictness match_strictness = AsmMatchStrictness::Undecided;
 };
 
 class Runner
 {
+    static constexpr size_t MAX_INPUT_FILES = CommandLineOptions::MAX_INPUT_FILES;
+
     class FileContentStorage
     {
         using FileContentMap = std::map<std::string, TextFileContent>;

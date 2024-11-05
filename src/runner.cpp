@@ -22,23 +22,6 @@
 
 namespace unassemblize
 {
-MatchBundleType to_match_bundle_type(const char *str)
-{
-    if (0 == strcasecmp(str, "compiland"))
-    {
-        return MatchBundleType::Compiland;
-    }
-    else if (0 == strcasecmp(str, "sourcefile"))
-    {
-        return MatchBundleType::SourceFile;
-    }
-    else
-    {
-        return MatchBundleType::None;
-    }
-    static_assert(size_t(MatchBundleType::None) == 2, "Enum was changed. Update conditions.");
-}
-
 Runner::FileContentStorage::FileContentStorage()
 {
     m_lastFileIt = m_filesMap.end();

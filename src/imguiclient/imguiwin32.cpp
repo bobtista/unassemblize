@@ -49,7 +49,7 @@ ImGuiWin32::ImGuiWin32() {}
 
 ImGuiWin32::~ImGuiWin32() {}
 
-ImGuiStatus ImGuiWin32::run()
+ImGuiStatus ImGuiWin32::run(const CommandLineOptions &clo)
 {
     // Create application window
     // ImGui_ImplWin32_EnableDpiAwareness();
@@ -104,7 +104,7 @@ ImGuiStatus ImGuiWin32::run()
     m_app.reset(new ImGuiApp);
 
     {
-        const ImGuiStatus error = m_app->pre_platform_init();
+        const ImGuiStatus error = m_app->pre_platform_init(clo);
         if (error != ImGuiStatus::Ok)
             return error;
     }

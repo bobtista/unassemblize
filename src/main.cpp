@@ -11,100 +11,15 @@
  *            LICENSE
  */
 #include "runner.h"
-#include "util.h"
 #include "version.h"
 #include <assert.h>
 #include <cxxopts.hpp>
-#include <filesystem>
 #include <iostream>
 #include <stdio.h>
-#include <strings.h>
 
 #ifdef WIN32
 #include "imguiclient/imguiwin32.h"
 #endif
-
-const char *const auto_str = "auto"; // When output is set to "auto", then output name is chosen for input file name.
-
-enum class InputType
-{
-    None,
-    Exe,
-    Pdb,
-};
-
-std::string get_config_file_name(const std::string &input_file, const std::string &config_file)
-{
-    if (0 == strcasecmp(config_file.c_str(), auto_str))
-    {
-        // path/program.config.json
-        std::filesystem::path path = input_file;
-        path.replace_extension("config.json");
-        return path.string();
-    }
-    return config_file;
-}
-
-std::string get_asm_output_file_name(const std::string &input_file, const std::string &output_file)
-{
-    if (0 == strcasecmp(output_file.c_str(), auto_str))
-    {
-        // path/program.S
-        std::filesystem::path path = input_file;
-        path.replace_extension("S");
-        return path.string();
-    }
-    return output_file;
-}
-
-std::string
-    get_cmp_output_file_name(const std::string &input_file0, const std::string &input_file1, const std::string &output_file)
-{
-    if (0 == strcasecmp(output_file.c_str(), auto_str))
-    {
-        // path0/program0_program1_cmp.txt
-        std::filesystem::path path0 = input_file0;
-        std::filesystem::path path1 = input_file1;
-        std::filesystem::path path = path0.parent_path();
-        path /= path0.stem();
-        path += "_";
-        path += path1.stem();
-        path += "_cmp.txt";
-        return path.string();
-    }
-    return output_file;
-}
-
-InputType get_input_type(const std::string &input_file, const std::string &input_type)
-{
-    InputType type = InputType::None;
-
-    if (!input_file.empty())
-    {
-        if (0 == strcasecmp(input_type.c_str(), auto_str))
-        {
-            std::string input_file_ext = util::get_file_ext(input_file);
-            if (0 == strcasecmp(input_file_ext.c_str(), "pdb"))
-            {
-                type = InputType::Pdb;
-            }
-            else
-            {
-                type = InputType::Exe;
-            }
-        }
-        else if (0 == strcasecmp(input_type.c_str(), "exe"))
-        {
-            type = InputType::Exe;
-        }
-        else if (0 == strcasecmp(input_type.c_str(), "pdb"))
-        {
-            type = InputType::Pdb;
-        }
-    }
-
-    return type;
-}
 
 int main(int argc, char **argv)
 {
@@ -189,141 +104,117 @@ int main(int argc, char **argv)
         return 0;
     }
 
-    constexpr size_t MAX_INPUT_FILES = unassemblize::MAX_INPUT_FILES;
-
-    std::string input_file[MAX_INPUT_FILES];
-    // When input_file_type is set to "auto", then input file type is chosen by file extension.
-    std::string input_type[MAX_INPUT_FILES];
-    std::fill_n(input_type, MAX_INPUT_FILES, auto_str);
-    // When output_file is set to "auto", then output file name is chosen for input file name.
-    std::string output_file = auto_str;
-    std::string cmp_output_file = auto_str;
-    uint32_t lookahead_limit = 20;
-    unassemblize::AsmMatchStrictness match_strictness = unassemblize::AsmMatchStrictness::Undecided;
-    uint32_t print_indent_len = 4;
-    uint32_t print_asm_len = 80;
-    uint32_t print_byte_count = 11;
-    uint32_t print_sourcecode_len = 80;
-    uint32_t print_sourceline_len = 5;
-    unassemblize::AsmFormat format = unassemblize::AsmFormat::IGAS;
-    size_t bundle_file_idx = 0;
-    unassemblize::MatchBundleType bundle_type = unassemblize::MatchBundleType::SourceFile;
-    // When config file is set to "auto", then config file name is chosen for input file name.
-    std::string config_file[MAX_INPUT_FILES];
-    std::fill_n(config_file, MAX_INPUT_FILES, auto_str);
-    uint64_t start_addr = 0x00000000;
-    uint64_t end_addr = 0x00000000;
-    bool print_secs = false;
-    bool dump_syms = false;
-    bool verbose = false;
-    bool gui = false;
+    CommandLineOptions clo;
 
     for (const cxxopts::KeyValue &kv : result.arguments())
     {
         const std::string &v = kv.key();
         if (v == OPT_INPUT)
         {
-            input_file[0] = kv.value();
+            clo.input_file[0].set_from_command_line(kv.value());
         }
         else if (v == OPT_INPUT_2)
         {
-            input_file[1] = kv.value();
+            clo.input_file[1].set_from_command_line(kv.value());
         }
         else if (v == OPT_INPUTTYPE)
         {
-            input_type[0] = kv.value();
+            clo.input_type[0].set_from_command_line(kv.value());
         }
         else if (v == OPT_INPUTTYPE_2)
         {
-            input_type[1] = kv.value();
+            clo.input_type[1].set_from_command_line(kv.value());
         }
         else if (v == OPT_ASM_OUTPUT)
         {
-            output_file = kv.value();
+            clo.output_file.set_from_command_line(kv.value());
         }
         else if (v == OPT_CMP_OUTPUT)
         {
-            cmp_output_file = kv.value();
+            clo.cmp_output_file.set_from_command_line(kv.value());
         }
         else if (v == OPT_LOOKAHEAD_LIMIT)
         {
-            lookahead_limit = kv.as<uint32_t>();
+            clo.lookahead_limit.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_MATCH_STRICTNESS)
         {
-            match_strictness = unassemblize::to_asm_match_strictness(kv.value().c_str());
+            const auto type = unassemblize::to_asm_match_strictness(kv.value().c_str());
+            clo.match_strictness.set_from_command_line(type);
         }
         else if (v == OPT_PRINT_INDENT_LEN)
         {
-            print_indent_len = kv.as<uint32_t>();
+            clo.print_indent_len.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_PRINT_ASM_LEN)
         {
-            print_asm_len = kv.as<uint32_t>();
+            clo.print_asm_len.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_PRINT_BYTE_COUNT)
         {
-            print_byte_count = kv.as<uint32_t>();
+            clo.print_byte_count.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_PRINT_SOURCECODE_LEN)
         {
-            print_sourcecode_len = kv.as<uint32_t>();
+            clo.print_sourcecode_len.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_PRINT_SOURCELINE_LEN)
         {
-            print_sourceline_len = kv.as<uint32_t>();
+            clo.print_sourceline_len.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_FORMAT)
         {
-            format = unassemblize::to_asm_format(kv.value().c_str());
+            const auto type = unassemblize::to_asm_format(kv.value().c_str());
+            clo.format.set_from_command_line(type);
         }
         else if (v == OPT_BUNDLE_FILE_ID)
         {
-            bundle_file_idx = kv.as<size_t>() - 1;
+            clo.bundle_file_idx.set_from_command_line(kv.as<size_t>() - 1);
         }
         else if (v == OPT_BUNDLE_TYPE)
         {
-            bundle_type = unassemblize::to_match_bundle_type(kv.value().c_str());
+            const auto type = unassemblize::to_match_bundle_type(kv.value().c_str());
+            clo.bundle_type.set_from_command_line(type);
         }
         else if (v == OPT_CONFIG)
         {
-            config_file[0] = kv.value();
+            clo.config_file[0].set_from_command_line(kv.value());
         }
         else if (v == OPT_CONFIG_2)
         {
-            config_file[1] = kv.value();
+            clo.config_file[1].set_from_command_line(kv.value());
         }
         else if (v == OPT_START)
         {
-            start_addr = strtoull(kv.value().c_str(), nullptr, 16);
+            clo.start_addr.set_from_command_line(strtoull(kv.value().c_str(), nullptr, 16));
         }
         else if (v == OPT_END)
         {
-            end_addr = strtoull(kv.value().c_str(), nullptr, 16);
+            clo.end_addr.set_from_command_line(strtoull(kv.value().c_str(), nullptr, 16));
         }
         else if (v == OPT_LISTSECTIONS)
         {
-            print_secs = kv.as<bool>();
+            clo.print_secs.set_from_command_line(kv.as<bool>());
         }
         else if (v == OPT_DUMPSYMS)
         {
-            dump_syms = kv.as<bool>();
+            clo.dump_syms.set_from_command_line(kv.as<bool>());
         }
         else if (v == OPT_VERBOSE)
         {
-            verbose = kv.as<bool>();
+            clo.verbose.set_from_command_line(kv.as<bool>());
         }
         else if (v == OPT_GUI)
         {
-            gui = kv.as<bool>();
+            clo.gui.set_from_command_line(kv.as<bool>());
         }
     }
 
-    if (gui)
+    if (clo.gui)
     {
 #ifdef WIN32
         unassemblize::gui::ImGuiWin32 gui;
-        unassemblize::gui::ImGuiStatus error = gui.run();
+        unassemblize::gui::ImGuiStatus error = gui.run(clo);
         return int(error);
 #else
         printf("Gui not implemented.\n");
@@ -331,7 +222,7 @@ int main(int argc, char **argv)
 #endif
     }
 
-    if (input_file[0].empty())
+    if (clo.input_file[0].v.empty())
     {
         printf("Missing input file command line argument. Exiting...\n");
         return 1;
@@ -340,75 +231,76 @@ int main(int argc, char **argv)
     bool ok = true;
     unassemblize::Runner runner;
 
-    for (size_t file_idx = 0; file_idx < MAX_INPUT_FILES && ok; ++file_idx)
+    for (size_t file_idx = 0; file_idx < CommandLineOptions::MAX_INPUT_FILES && ok; ++file_idx)
     {
-        const InputType type = get_input_type(input_file[file_idx], input_type[file_idx]);
+        const InputType type = get_input_type(clo.input_file[file_idx], clo.input_type[file_idx]);
 
         if (InputType::Exe == type)
         {
             unassemblize::ExeSaveLoadOptions o;
-            o.input_file = input_file[file_idx];
-            o.config_file = get_config_file_name(o.input_file, config_file[file_idx]);
-            o.print_secs = print_secs;
-            o.dump_syms = dump_syms;
-            o.verbose = verbose;
+            o.input_file = clo.input_file[file_idx];
+            o.config_file = get_config_file_name(o.input_file, clo.config_file[file_idx]);
+            o.print_secs = clo.print_secs;
+            o.dump_syms = clo.dump_syms;
+            o.verbose = clo.verbose;
             ok &= runner.process_exe(o, file_idx);
         }
         else if (InputType::Pdb == type)
         {
             {
                 unassemblize::PdbSaveLoadOptions o;
-                o.input_file = input_file[file_idx];
-                o.config_file = get_config_file_name(o.input_file, config_file[file_idx]);
-                o.dump_syms = dump_syms;
-                o.verbose = verbose;
+                o.input_file = clo.input_file[file_idx];
+                o.config_file = get_config_file_name(o.input_file, clo.config_file[file_idx]);
+                o.dump_syms = clo.dump_syms;
+                o.verbose = clo.verbose;
                 ok &= runner.process_pdb(o, file_idx);
             }
             if (ok)
             {
                 unassemblize::ExeSaveLoadOptions o;
                 o.input_file = runner.get_exe_file_name_from_pdb(file_idx);
-                o.config_file = get_config_file_name(o.input_file, config_file[file_idx]);
-                o.print_secs = print_secs;
-                o.dump_syms = dump_syms;
-                o.verbose = verbose;
+                o.config_file = get_config_file_name(o.input_file, clo.config_file[file_idx]);
+                o.print_secs = clo.print_secs;
+                o.dump_syms = clo.dump_syms;
+                o.verbose = clo.verbose;
                 ok &= runner.process_exe(o, file_idx);
             }
         }
         else if (file_idx == 0)
         {
-            printf("Unrecognized input file type '%s'. Exiting...\n", input_type[file_idx].c_str());
+            printf("Unrecognized input file type '%s'. Exiting...\n", clo.input_type[file_idx].v.c_str());
             return 1;
         }
     }
 
     if (ok)
     {
-        if (!output_file.empty())
+        if (!clo.output_file.v.empty())
         {
             unassemblize::AsmOutputOptions o;
-            o.output_file = get_asm_output_file_name(runner.get_exe_filename(0), output_file);
-            o.format = format;
-            o.start_addr = start_addr;
-            o.end_addr = end_addr;
-            o.print_indent_len = print_indent_len;
+            o.output_file = get_asm_output_file_name(runner.get_exe_filename(0), clo.output_file);
+            o.format = clo.format;
+            o.start_addr = clo.start_addr;
+            o.end_addr = clo.end_addr;
+            o.print_indent_len = clo.print_indent_len;
             ok &= runner.process_asm_output(o);
         }
 
         if (runner.asm_comparison_ready())
         {
             unassemblize::AsmComparisonOptions o;
-            o.output_file = get_cmp_output_file_name(runner.get_exe_filename(0), runner.get_exe_filename(1), output_file);
-            o.format = format;
-            o.bundle_file_idx = bundle_file_idx;
-            o.bundle_type = bundle_type;
-            o.print_indent_len = print_indent_len;
-            o.print_asm_len = print_asm_len;
-            o.print_byte_count = print_byte_count;
-            o.print_sourcecode_len = print_sourcecode_len;
-            o.print_sourceline_len = print_sourceline_len;
-            o.lookahead_limit = lookahead_limit;
-            o.match_strictness = match_strictness;
+            o.output_file =
+                get_cmp_output_file_name(runner.get_exe_filename(0), runner.get_exe_filename(1), clo.output_file);
+            o.format = clo.format;
+            o.bundle_file_idx = clo.bundle_file_idx;
+            o.bundle_type = clo.bundle_type;
+            o.print_indent_len = clo.print_indent_len;
+            o.print_asm_len = clo.print_asm_len;
+            o.print_byte_count = clo.print_byte_count;
+            o.print_sourcecode_len = clo.print_sourcecode_len;
+            o.print_sourceline_len = clo.print_sourceline_len;
+            o.lookahead_limit = clo.lookahead_limit;
+            o.match_strictness = clo.match_strictness;
             ok &= runner.process_asm_comparison(o);
         }
     }

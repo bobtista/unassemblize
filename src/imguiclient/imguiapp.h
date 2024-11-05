@@ -14,6 +14,8 @@
 
 #include "imgui.h"
 
+struct CommandLineOptions;
+
 namespace unassemblize::gui
 {
 enum class ImGuiStatus
@@ -25,7 +27,10 @@ enum class ImGuiStatus
 class ImGuiApp
 {
 public:
-    ImGuiStatus pre_platform_init();
+    ImGuiApp() = default;
+    ~ImGuiApp() = default;
+
+    ImGuiStatus pre_platform_init(const CommandLineOptions &clo);
     ImGuiStatus post_platform_init();
     void shutdown();
     ImGuiStatus update();

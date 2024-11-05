@@ -11,10 +11,11 @@
  *            LICENSE
  */
 #include "imguiapp.h"
+#include "options.h"
 
 namespace unassemblize::gui
 {
-ImGuiStatus ImGuiApp::pre_platform_init()
+ImGuiStatus ImGuiApp::pre_platform_init(const CommandLineOptions &clo)
 {
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();

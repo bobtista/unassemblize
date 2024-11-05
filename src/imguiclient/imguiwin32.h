@@ -14,6 +14,8 @@
 
 #include <memory>
 
+struct CommandLineOptions;
+
 namespace unassemblize::gui
 {
 enum class ImGuiStatus;
@@ -25,7 +27,7 @@ public:
     ImGuiWin32();
     ~ImGuiWin32();
 
-    ImGuiStatus run();
+    ImGuiStatus run(const CommandLineOptions &clo);
 
 private:
     std::unique_ptr<ImGuiApp> m_app;

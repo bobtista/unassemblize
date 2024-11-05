@@ -40,6 +40,15 @@ struct FunctionMatchBundle
 };
 using FunctionMatchBundles = std::vector<FunctionMatchBundle>;
 
+enum class MatchBundleType
+{
+    Compiland, // Functions will be bundled by the compilands they belong to.
+    SourceFile, // Functions will be bundled by the source files they belong to (.h .cpp).
+    None, // Functions will be bundled into one.
+};
+
+MatchBundleType to_match_bundle_type(const char *str);
+
 enum class AsmMatchStrictness
 {
     Lenient, // Unknown to known/unknown symbol pairs are treated as match.

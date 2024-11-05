@@ -105,6 +105,8 @@ target_sources(unassemblize PRIVATE
     src/functiontypes.cpp
     src/functiontypes.h
     src/main.cpp
+    src/options.cpp
+    src/options.h
     src/pdbreader.cpp
     src/pdbreader.h
     src/pdbreadertypes.cpp
