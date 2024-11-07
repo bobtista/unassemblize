@@ -153,7 +153,7 @@ bool Executable::read(const std::string &exe_file)
     return true;
 }
 
-bool Executable::is_ready() const
+bool Executable::is_loaded() const
 {
     return m_binary.get() != nullptr;
 }

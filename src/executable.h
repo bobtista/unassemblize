@@ -42,7 +42,7 @@ public:
     void load_config(const char *file_name, bool overwrite_symbols = false);
     void save_config(const char *file_name);
 
-    bool is_ready() const;
+    bool is_loaded() const;
     const std::string &get_filename() const;
     const ExeSections &get_sections() const;
     const ExeSectionInfo *find_section(uint64_t address) const;

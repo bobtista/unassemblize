@@ -131,6 +131,8 @@ target_sources(unassemblize PRIVATE
     src/util.h
     src/version.cpp
     src/version.h
+    src/workqueue.cpp
+    src/workqueue.h
     src/imguiclient/imguiapp.cpp
     src/imguiclient/imguiapp.h
     src/imguiclient/imguiwin32.cpp

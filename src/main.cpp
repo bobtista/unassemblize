@@ -228,72 +228,89 @@ int main(int argc, char **argv)
         return 1;
     }
 
-    bool ok = true;
-    unassemblize::Runner runner;
+    std::array<std::unique_ptr<unassemblize::Executable>, 2> executable_pair;
+    std::array<std::unique_ptr<unassemblize::PdbReader>, 2> pdb_reader_pair;
 
-    for (size_t file_idx = 0; file_idx < CommandLineOptions::MAX_INPUT_FILES && ok; ++file_idx)
+    bool ok = true;
+
+    for (size_t idx = 0; idx < executable_pair.size() && ok; ++idx)
     {
-        const InputType type = get_input_type(clo.input_file[file_idx], clo.input_type[file_idx]);
+        const InputType type = get_input_type(clo.input_file[idx], clo.input_type[idx]);
 
         if (InputType::Exe == type)
         {
-            unassemblize::ExeSaveLoadOptions o;
-            o.input_file = clo.input_file[file_idx];
-            o.config_file = get_config_file_name(o.input_file, clo.config_file[file_idx]);
+            const std::string &input_file = clo.input_file[idx];
+            const std::string config_file = get_config_file_name(input_file, clo.config_file[idx]);
+            unassemblize::ExeSaveLoadOptions o(input_file, config_file);
             o.print_secs = clo.print_secs;
             o.dump_syms = clo.dump_syms;
             o.verbose = clo.verbose;
-            ok &= runner.process_exe(o, file_idx);
+            executable_pair[idx] = unassemblize::Runner::process_exe(o);
+            ok &= executable_pair[idx] != nullptr;
         }
         else if (InputType::Pdb == type)
         {
             {
-                unassemblize::PdbSaveLoadOptions o;
-                o.input_file = clo.input_file[file_idx];
-                o.config_file = get_config_file_name(o.input_file, clo.config_file[file_idx]);
+                const std::string &input_file = clo.input_file[idx];
+                const std::string config_file = get_config_file_name(input_file, clo.config_file[idx]);
+                unassemblize::PdbSaveLoadOptions o(input_file, config_file);
                 o.dump_syms = clo.dump_syms;
                 o.verbose = clo.verbose;
-                ok &= runner.process_pdb(o, file_idx);
+                pdb_reader_pair[idx] = unassemblize::Runner::process_pdb(o);
+                ok &= pdb_reader_pair[idx] != nullptr;
             }
             if (ok)
             {
-                unassemblize::ExeSaveLoadOptions o;
-                o.input_file = runner.get_exe_file_name_from_pdb(file_idx);
-                o.config_file = get_config_file_name(o.input_file, clo.config_file[file_idx]);
+                const unassemblize::PdbExeInfo &exe_info = pdb_reader_pair[idx]->get_exe_info();
+                const std::string &input_file = unassemblize::Runner::create_exe_filename(exe_info);
+                const std::string config_file = get_config_file_name(input_file, clo.config_file[idx]);
+                unassemblize::ExeSaveLoadOptions o(input_file, config_file);
+                o.pdb_reader = pdb_reader_pair[idx].get();
                 o.print_secs = clo.print_secs;
                 o.dump_syms = clo.dump_syms;
                 o.verbose = clo.verbose;
-                ok &= runner.process_exe(o, file_idx);
+                executable_pair[idx] = unassemblize::Runner::process_exe(o);
+                ok &= executable_pair[idx] != nullptr;
             }
         }
-        else if (file_idx == 0)
+        else if (idx == 0)
         {
-            printf("Unrecognized input file type '%s'. Exiting...\n", clo.input_type[file_idx].v.c_str());
+            printf("Unrecognized input file type '%s'. Exiting...\n", clo.input_type[idx].v.c_str());
             return 1;
         }
     }
 
     if (ok)
     {
-        if (!clo.output_file.v.empty())
+        const unassemblize::Executable *executable0 = executable_pair[0].get();
+        const unassemblize::Executable *executable1 = executable_pair[1].get();
+
+        if (executable0 != nullptr && !clo.output_file.v.empty())
         {
-            unassemblize::AsmOutputOptions o;
-            o.output_file = get_asm_output_file_name(runner.get_exe_filename(0), clo.output_file);
+            const std::string output_file = get_asm_output_file_name(executable0->get_filename(), clo.output_file);
+            unassemblize::AsmOutputOptions o(*executable0, output_file, clo.start_addr, clo.end_addr);
             o.format = clo.format;
-            o.start_addr = clo.start_addr;
-            o.end_addr = clo.end_addr;
             o.print_indent_len = clo.print_indent_len;
-            ok &= runner.process_asm_output(o);
+            ok &= unassemblize::Runner::process_asm_output(o);
         }
 
-        if (runner.asm_comparison_ready())
+        if (executable0 != nullptr && executable1 != nullptr)
         {
-            unassemblize::AsmComparisonOptions o;
-            o.output_file =
-                get_cmp_output_file_name(runner.get_exe_filename(0), runner.get_exe_filename(1), clo.output_file);
+            assert(executable0->is_loaded());
+            assert(executable1->is_loaded());
+
+            const std::string output_file =
+                get_cmp_output_file_name(executable0->get_filename(), executable1->get_filename(), clo.output_file);
+
+            unassemblize::ExecutablePair executable_pair2 = {executable0, executable1};
+            unassemblize::PdbReaderPair pdb_reader_pair2 = {pdb_reader_pair[0].get(), pdb_reader_pair[1].get()};
+
+            unassemblize::AsmComparisonOptions o(executable_pair2, pdb_reader_pair2, output_file);
             o.format = clo.format;
-            o.bundle_file_idx = clo.bundle_file_idx;
-            o.bundle_type = clo.bundle_type;
+            if (clo.bundle_file_idx < 2)
+                o.bundling_pdb_reader = pdb_reader_pair[clo.bundle_file_idx].get();
+            if (o.bundling_pdb_reader != nullptr)
+                o.bundle_type = clo.bundle_type;
             o.print_indent_len = clo.print_indent_len;
             o.print_asm_len = clo.print_asm_len;
             o.print_byte_count = clo.print_byte_count;
@@ -301,7 +318,7 @@ int main(int argc, char **argv)
             o.print_sourceline_len = clo.print_sourceline_len;
             o.lookahead_limit = clo.lookahead_limit;
             o.match_strictness = clo.match_strictness;
-            ok &= runner.process_asm_comparison(o);
+            ok &= unassemblize::Runner::process_asm_comparison(o);
         }
     }
     return ok ? 0 : 1;

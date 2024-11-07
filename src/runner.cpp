@@ -96,81 +96,88 @@ void Runner::FileContentStorage::clear()
     m_lastFileName.clear();
 }
 
-bool Runner::process_exe(const ExeSaveLoadOptions &o, size_t file_idx)
+std::unique_ptr<Executable> Runner::process_exe(const ExeSaveLoadOptions &o)
 {
-    assert(file_idx < MAX_INPUT_FILES);
-    Executable &executable = m_executables[file_idx];
+    auto executable = std::make_unique<Executable>();
 
     if (o.verbose)
     {
         printf("Parsing exe file '%s'...\n", o.input_file.c_str());
     }
 
-    executable.set_verbose(o.verbose);
+    executable->set_verbose(o.verbose);
 
-    if (!executable.read(o.input_file))
+    if (!executable->read(o.input_file))
     {
-        return false;
+        executable.reset();
+        return executable;
     }
 
     if (o.print_secs)
     {
-        print_sections(executable);
+        print_sections(*executable);
     }
 
     constexpr bool pdb_symbols_overwrite_exe_symbols = true;
     constexpr bool cfg_symbols_overwrite_exe_pdb_symbols = true;
 
-    const PdbReader &pdbReader = m_pdbReaders[file_idx];
-    const PdbSymbolInfoVector &pdb_symbols = pdbReader.get_symbols();
-
-    if (!pdb_symbols.empty())
+    if (o.pdb_reader != nullptr)
     {
-        executable.add_symbols(pdb_symbols, pdb_symbols_overwrite_exe_symbols);
+        const PdbSymbolInfoVector &pdb_symbols = o.pdb_reader->get_symbols();
+
+        if (!pdb_symbols.empty())
+        {
+            executable->add_symbols(pdb_symbols, pdb_symbols_overwrite_exe_symbols);
+        }
     }
 
     if (o.dump_syms)
     {
-        executable.save_config(o.config_file.c_str());
+        executable->save_config(o.config_file.c_str());
     }
     else
     {
-        executable.load_config(o.config_file.c_str(), cfg_symbols_overwrite_exe_pdb_symbols);
+        executable->load_config(o.config_file.c_str(), cfg_symbols_overwrite_exe_pdb_symbols);
     }
 
-    return true;
+    return executable;
 }
 
-bool Runner::process_pdb(const PdbSaveLoadOptions &o, size_t file_idx)
+std::unique_ptr<PdbReader> Runner::process_pdb(const PdbSaveLoadOptions &o)
 {
-    assert(file_idx < MAX_INPUT_FILES);
-    PdbReader &pdbReader = m_pdbReaders[file_idx];
+    auto pdb_reader = std::make_unique<PdbReader>();
 
-    pdbReader.set_verbose(o.verbose);
+    pdb_reader->set_verbose(o.verbose);
 
     // Currently does not read back config file here.
 
-    if (!pdbReader.read(o.input_file))
+    if (!pdb_reader->read(o.input_file))
     {
-        return false;
+        pdb_reader.reset();
+        return pdb_reader;
     }
 
     if (o.dump_syms)
     {
-        pdbReader.save_config(o.config_file);
+        pdb_reader->save_config(o.config_file);
     }
 
-    return true;
+    return pdb_reader;
 }
 
 bool Runner::process_asm_output(const AsmOutputOptions &o)
 {
+    if (!(o.start_addr < o.end_addr))
+    {
+        return false;
+    }
+
     if (o.format == AsmFormat::MASM)
     {
         return false;
     }
 
-    if (!m_executables[0].is_ready())
+    if (!o.executable.is_loaded())
     {
         return false;
     }
@@ -181,8 +188,7 @@ bool Runner::process_asm_output(const AsmOutputOptions &o)
         return false;
     }
 
-    const Executable &exe = m_executables[0];
-    const FunctionSetup setup(exe, o.format);
+    const FunctionSetup setup(o.executable, o.format);
     Function func;
     func.disassemble(setup, o.start_addr, o.end_addr);
     const AsmInstructionVariants &instructions = func.get_instructions();
@@ -196,10 +202,8 @@ bool Runner::process_asm_output(const AsmOutputOptions &o)
 
 bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 {
-    if (!asm_comparison_ready())
-    {
-        return false;
-    }
+    assert(o.executable_pair[0] != nullptr && o.executable_pair[0]->is_loaded());
+    assert(o.executable_pair[1] != nullptr && o.executable_pair[1]->is_loaded());
 
     bool ok = true;
 
@@ -207,15 +211,15 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
     FunctionMatchBundles bundles;
     StringToIndexMapT functionNameToMatchIndexMap;
 
-    build_function_matches(matches, functionNameToMatchIndexMap);
+    build_function_matches(matches, functionNameToMatchIndexMap, o.executable_pair);
 
-    build_function_bundles(bundles, matches, functionNameToMatchIndexMap, o.bundle_file_idx, o.bundle_type);
+    build_function_bundles(bundles, matches, functionNameToMatchIndexMap, o.bundle_type, o.bundling_pdb_reader);
 
-    disassemble_function_matches(matches, o.format);
+    disassemble_function_matches(matches, o.executable_pair, o.format);
 
     if (o.print_sourceline_len + o.print_sourcecode_len > 0)
     {
-        build_function_source_lines(matches, functionNameToMatchIndexMap);
+        build_function_source_lines(matches, functionNameToMatchIndexMap, o.pdb_reader_pair);
     }
 
     functionNameToMatchIndexMap.swap(StringToIndexMapT());
@@ -223,7 +227,8 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
     AsmComparisonResultBundles result_bundles = build_comparison_results(matches, bundles, o.lookahead_limit);
 
     StringPair exe_filenames;
-    exe_filenames.pair = {m_executables[0].get_filename(), m_executables[1].get_filename()};
+    for (size_t i = 0; i < o.executable_pair.size(); ++i)
+        exe_filenames.pair[i] = o.executable_pair[i]->get_filename();
 
     ok = output_comparison_results(
         result_bundles,
@@ -240,16 +245,15 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
     return ok;
 }
 
-void Runner::build_function_matches(FunctionMatches &matches, StringToIndexMapT &function_name_to_index_map) const
+void Runner::build_function_matches(
+    FunctionMatches &matches, StringToIndexMapT &function_name_to_index_map, ExecutablePair executable_pair)
 {
-    assert(asm_comparison_ready());
-
-    const size_t less_idx = m_executables[0].get_symbols().size() < m_executables[1].get_symbols().size() ? 0 : 1;
-    const size_t more_idx = (less_idx + 1) % 2;
-    const ExeSymbols &less_symbols = m_executables[less_idx].get_symbols();
+    const size_t less_idx = executable_pair[0]->get_symbols().size() < executable_pair[1]->get_symbols().size() ? 0 : 1;
+    const size_t more_idx = (less_idx + 1) % executable_pair.size();
+    const ExeSymbols &less_symbols = executable_pair[less_idx]->get_symbols();
 
     auto in_code_section = [&](size_t idx, const ExeSymbol &symbol) -> bool {
-        const ExeSectionInfo *code_section = m_executables[idx].get_code_section();
+        const ExeSectionInfo *code_section = executable_pair[idx]->get_code_section();
         return symbol.address >= code_section->address && symbol.address < code_section->address + code_section->size;
     };
 
@@ -265,7 +269,7 @@ void Runner::build_function_matches(FunctionMatches &matches, StringToIndexMapT 
         {
             continue;
         }
-        const ExeSymbol &more_symbol = m_executables[more_idx].get_symbol(less_symbol.name);
+        const ExeSymbol &more_symbol = executable_pair[more_idx]->get_symbol(less_symbol.name);
         if (more_symbol.name.empty() || !in_code_section(more_idx, more_symbol))
         {
             continue;
@@ -284,27 +288,28 @@ void Runner::build_function_bundles(
     FunctionMatchBundles &bundles,
     const FunctionMatches &matches,
     const StringToIndexMapT &function_name_to_index_map,
-    size_t bundle_file_idx,
-    MatchBundleType bundle_type) const
+    MatchBundleType bundle_type,
+    const PdbReader *bundling_pdb_reader)
 {
-    if (bundle_file_idx < 2)
+    switch (bundle_type)
     {
-        switch (bundle_type)
-        {
-            case MatchBundleType::Compiland: {
-                const PdbFunctionInfoVector &functions = m_pdbReaders[bundle_file_idx].get_functions();
-                const PdbCompilandInfoVector &compilands = m_pdbReaders[bundle_file_idx].get_compilands();
+        case MatchBundleType::Compiland: {
+            assert(bundling_pdb_reader != nullptr);
 
-                build_bundles(bundles, functions, compilands, function_name_to_index_map);
-                break;
-            }
-            case MatchBundleType::SourceFile: {
-                const PdbFunctionInfoVector &functions = m_pdbReaders[bundle_file_idx].get_functions();
-                const PdbSourceFileInfoVector &sources = m_pdbReaders[bundle_file_idx].get_source_files();
+            const PdbFunctionInfoVector &functions = bundling_pdb_reader->get_functions();
+            const PdbCompilandInfoVector &compilands = bundling_pdb_reader->get_compilands();
 
-                build_bundles(bundles, functions, sources, function_name_to_index_map);
-                break;
-            }
+            build_bundles(bundles, functions, compilands, function_name_to_index_map);
+            break;
+        }
+        case MatchBundleType::SourceFile: {
+            assert(bundling_pdb_reader != nullptr);
+
+            const PdbFunctionInfoVector &functions = bundling_pdb_reader->get_functions();
+            const PdbSourceFileInfoVector &sources = bundling_pdb_reader->get_source_files();
+
+            build_bundles(bundles, functions, sources, function_name_to_index_map);
+            break;
         }
     }
 
@@ -370,10 +375,10 @@ void Runner::build_bundle(
     }
 }
 
-void Runner::disassemble_function_matches(FunctionMatches &matches, AsmFormat format) const
+void Runner::disassemble_function_matches(FunctionMatches &matches, ExecutablePair executable_pair, AsmFormat format)
 {
-    const FunctionSetup setup0(m_executables[0], format);
-    const FunctionSetup setup1(m_executables[1], format);
+    const FunctionSetup setup0(*executable_pair[0], format);
+    const FunctionSetup setup1(*executable_pair[1], format);
 
     for (FunctionMatch &match : matches)
     {
@@ -382,12 +387,16 @@ void Runner::disassemble_function_matches(FunctionMatches &matches, AsmFormat fo
     }
 }
 
-void Runner::build_function_source_lines(FunctionMatches &matches, const StringToIndexMapT &function_name_to_index_map)
+void Runner::build_function_source_lines(
+    FunctionMatches &matches, const StringToIndexMapT &function_name_to_index_map, PdbReaderPair pdb_reader_pair)
 {
-    for (size_t i = 0; i < MAX_INPUT_FILES; ++i)
+    for (size_t i = 0; i < pdb_reader_pair.size(); ++i)
     {
-        const PdbFunctionInfoVector &functions = m_pdbReaders[i].get_functions();
-        const PdbSourceFileInfoVector &sources = m_pdbReaders[i].get_source_files();
+        if (pdb_reader_pair[i] == nullptr)
+            continue;
+
+        const PdbFunctionInfoVector &functions = pdb_reader_pair[i]->get_functions();
+        const PdbSourceFileInfoVector &sources = pdb_reader_pair[i]->get_source_files();
 
         for (const PdbSourceFileInfo &source : sources)
         {
@@ -406,7 +415,7 @@ void Runner::build_function_source_lines(FunctionMatches &matches, const StringT
 }
 
 AsmComparisonResultBundles Runner::build_comparison_results(
-    const FunctionMatches &matches, const FunctionMatchBundles &bundles, uint32_t lookahead_limit) const
+    const FunctionMatches &matches, const FunctionMatchBundles &bundles, uint32_t lookahead_limit)
 {
     AsmComparisonResultBundles result_bundles;
 
@@ -510,29 +519,14 @@ bool Runner::output_comparison_results(
     return file_write_count == result_bundles.size();
 }
 
-bool Runner::asm_comparison_ready() const
+std::string Runner::create_exe_filename(const PdbExeInfo &info)
 {
-    static_assert(MAX_INPUT_FILES >= 2, "Expects at least two input files to work with");
+    assert(!info.exeFileName.empty());
+    assert(!info.pdbFilePath.empty());
 
-    return m_executables[0].is_ready() && m_executables[1].is_ready();
-}
-
-const std::string &Runner::get_exe_filename(size_t file_idx) const
-{
-    assert(file_idx < MAX_INPUT_FILES);
-    return m_executables[file_idx].get_filename();
-}
-
-std::string Runner::get_exe_file_name_from_pdb(size_t file_idx) const
-{
-    assert(file_idx < MAX_INPUT_FILES);
-    const PdbExeInfo &exe_info = m_pdbReaders[file_idx].get_exe_info();
-    assert(!exe_info.exeFileName.empty());
-    assert(!exe_info.pdbFilePath.empty());
-
-    std::filesystem::path path = exe_info.pdbFilePath;
+    std::filesystem::path path = info.pdbFilePath;
     path = path.parent_path();
-    path /= exe_info.exeFileName;
+    path /= info.exeFileName;
     if (!path.has_extension())
     {
         path += ".exe";

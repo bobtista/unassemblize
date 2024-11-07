@@ -20,8 +20,14 @@ namespace unassemblize
 {
 struct ExeSaveLoadOptions
 {
-    std::string input_file;
-    std::string config_file;
+    ExeSaveLoadOptions(const std::string &input_file, const std::string &config_file) :
+        input_file(input_file), config_file(config_file)
+    {
+    }
+
+    const std::string input_file;
+    const std::string config_file;
+    const PdbReader *pdb_reader = nullptr;
     bool print_secs = false;
     bool dump_syms = false;
     bool verbose = false;
@@ -29,27 +35,49 @@ struct ExeSaveLoadOptions
 
 struct PdbSaveLoadOptions
 {
-    std::string input_file;
-    std::string config_file;
+    PdbSaveLoadOptions(const std::string &input_file, const std::string &config_file) :
+        input_file(input_file), config_file(config_file)
+    {
+    }
+
+    const std::string input_file;
+    const std::string config_file;
     bool dump_syms = false;
     bool verbose = false;
 };
 
 struct AsmOutputOptions
 {
-    std::string output_file;
+    AsmOutputOptions(const Executable &executable, const std::string &output_file, uint64_t start_addr, uint64_t end_addr) :
+        executable(executable), output_file(output_file), start_addr(start_addr), end_addr(end_addr)
+    {
+    }
+
+    const Executable &executable;
+    const std::string output_file;
+    const uint64_t start_addr;
+    const uint64_t end_addr;
     AsmFormat format = AsmFormat::IGAS;
-    uint64_t start_addr = 0;
-    uint64_t end_addr = 0;
     uint32_t print_indent_len = 4;
 };
 
+using ExecutablePair = std::array<const Executable *, 2>;
+using PdbReaderPair = std::array<const PdbReader *, 2>;
+
 struct AsmComparisonOptions
 {
-    std::string output_file;
+    AsmComparisonOptions(ExecutablePair executable_pair, PdbReaderPair pdb_reader_pair, const std::string &output_file) :
+        executable_pair(executable_pair), pdb_reader_pair(pdb_reader_pair), output_file(output_file)
+    {
+    }
+
+    const ExecutablePair executable_pair;
+    const PdbReaderPair pdb_reader_pair;
+    const std::string output_file;
     AsmFormat format = AsmFormat::IGAS;
-    size_t bundle_file_idx = 0; // The executable file that will be used to group symbols with.
     MatchBundleType bundle_type = MatchBundleType::None; // The method to group symbols with.
+    // Pdb Reader used to group symbols with. Must not be null if bundle_type is not 'None'.
+    const PdbReader *bundling_pdb_reader = nullptr;
     uint32_t print_indent_len = 4;
     uint32_t print_asm_len = 80;
     uint32_t print_byte_count = 11;
@@ -61,8 +89,6 @@ struct AsmComparisonOptions
 
 class Runner
 {
-    static constexpr size_t MAX_INPUT_FILES = CommandLineOptions::MAX_INPUT_FILES;
-
     class FileContentStorage
     {
         using FileContentMap = std::map<std::string, TextFileContent>;
@@ -82,33 +108,38 @@ class Runner
     };
 
 public:
-    bool process_exe(const ExeSaveLoadOptions &o, size_t file_idx);
-    bool process_pdb(const PdbSaveLoadOptions &o, size_t file_idx);
+    Runner() = delete;
+
+    static std::unique_ptr<Executable> process_exe(const ExeSaveLoadOptions &o);
+    static std::unique_ptr<PdbReader> process_pdb(const PdbSaveLoadOptions &o);
 
     /**
      * Disassembles a range of bytes and outputs the format as though it were a single function.
      * Addresses should be the absolute addresses when the binary is loaded at its preferred base address.
      */
-    bool process_asm_output(const AsmOutputOptions &o);
-    bool process_asm_comparison(const AsmComparisonOptions &o);
+    static bool process_asm_output(const AsmOutputOptions &o);
+    static bool process_asm_comparison(const AsmComparisonOptions &o);
 
-    bool asm_comparison_ready() const;
-    const std::string &get_exe_filename(size_t file_idx) const;
-    std::string get_exe_file_name_from_pdb(size_t file_idx) const;
+    static std::string create_exe_filename(const PdbExeInfo &info);
 
 private:
+    // clang-format off
+
     /*
      * Builds function match collection.
      * All function objects are not disassembled for performance reasons, but are prepared.
      */
-    void build_function_matches(FunctionMatches &matches, StringToIndexMapT &function_name_to_index_map) const;
+    static void build_function_matches(
+        FunctionMatches &matches,
+        StringToIndexMapT &function_name_to_index_map,
+        ExecutablePair executable_pair);
 
-    void build_function_bundles(
+    static void build_function_bundles(
         FunctionMatchBundles &bundles,
         const FunctionMatches &matches,
         const StringToIndexMapT &function_name_to_index_map,
-        size_t bundle_file_idx,
-        MatchBundleType bundle_type) const;
+        MatchBundleType bundle_type,
+        const PdbReader *bundling_pdb_reader);
 
     template<class SourceInfoVectorT>
     static void build_bundles(
@@ -124,12 +155,20 @@ private:
         const SourceInfoT &source,
         const StringToIndexMapT &function_name_to_index_map);
 
-    void disassemble_function_matches(FunctionMatches &matches, AsmFormat format) const;
+    static void disassemble_function_matches(
+        FunctionMatches &matches,
+        ExecutablePair executable_pair,
+        AsmFormat format);
 
-    void build_function_source_lines(FunctionMatches &matches, const StringToIndexMapT &function_name_to_index_map);
+    static void build_function_source_lines(
+        FunctionMatches &matches,
+        const StringToIndexMapT &function_name_to_index_map,
+        PdbReaderPair pdb_reader_pair);
 
-    AsmComparisonResultBundles build_comparison_results(
-        const FunctionMatches &matches, const FunctionMatchBundles &bundles, uint32_t lookahead_limit) const;
+    static AsmComparisonResultBundles build_comparison_results(
+        const FunctionMatches &matches,
+        const FunctionMatchBundles &bundles,
+        uint32_t lookahead_limit);
 
     static bool output_comparison_results(
         AsmComparisonResultBundles &result_bundles,
@@ -143,14 +182,14 @@ private:
         uint32_t sourcecode_len,
         uint32_t sourceline_len);
 
-    static std::string
-        build_cmp_output_path(size_t bundle_idx, const std::string &bundle_name, const std::string &output_file);
+    static std::string build_cmp_output_path(
+        size_t bundle_idx,
+        const std::string &bundle_name,
+        const std::string &output_file);
 
     static void print_sections(Executable &exe);
 
-private:
-    std::array<Executable, MAX_INPUT_FILES> m_executables;
-    std::array<PdbReader, MAX_INPUT_FILES> m_pdbReaders;
+    // clang-format on
 };
 
 } // namespace unassemblize
