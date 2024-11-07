@@ -26,9 +26,13 @@ const char *const s_objectSection = "objects";
 
 ExeSymbol Executable::s_emptySymbol;
 
-Executable::Executable() {}
+Executable::Executable()
+{
+}
 
-Executable::~Executable() {}
+Executable::~Executable()
+{
+}
 
 bool Executable::read(const std::string &exe_file)
 {

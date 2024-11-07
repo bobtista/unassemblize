@@ -45,9 +45,13 @@ void CleanupDeviceD3D();
 void ResetDevice();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-ImGuiWin32::ImGuiWin32() {}
+ImGuiWin32::ImGuiWin32()
+{
+}
 
-ImGuiWin32::~ImGuiWin32() {}
+ImGuiWin32::~ImGuiWin32()
+{
+}
 
 ImGuiStatus ImGuiWin32::run(const CommandLineOptions &clo)
 {

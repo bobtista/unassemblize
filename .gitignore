@@ -1,3 +1,8 @@
+.*
+!.clang-format
+!.gitattributes
+!.gitignore
+
 *.user
 *.ncb
 /build*
@@ -22,8 +27,6 @@ CPackSourceConfig.cmake
 *.sln
 *.vcxproj*
 *.vcproj
-.cproject
-.project
 *~
 !*.exe
 *.lastbuildstate

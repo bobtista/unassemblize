@@ -124,6 +124,8 @@ void ImGuiApp::show_demo_filedialog()
     }
 }
 
-void ImGuiApp::show_app() {}
+void ImGuiApp::show_app()
+{
+}
 
 } // namespace unassemblize::gui
