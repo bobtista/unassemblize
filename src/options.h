@@ -17,20 +17,23 @@
 #include <string_view>
 
 // When output is set to "auto", then output name is chosen for input file name.
-inline constexpr char *auto_str = "auto";
+inline constexpr char *const auto_str = "auto";
 
 enum class InputType
 {
-    None,
     Exe,
     Pdb,
+    None,
 };
+
+inline constexpr char *const s_input_type_names[] = {"exe", "pdb", "none"};
 
 // clang-format off
 std::string get_config_file_name(const std::string &input_file, const std::string &config_file);
 std::string get_asm_output_file_name(const std::string &input_file, const std::string &output_file);
 std::string get_cmp_output_file_name(const std::string &input_file0, const std::string &input_file1, const std::string &output_file);
-InputType get_input_type(const std::string &input_file, const std::string &input_type);
+InputType to_input_type(const char *str);
+InputType get_input_type(const std::string &input_file, const std::string& input_type);
 // clang-format on
 
 template<typename T>
@@ -68,7 +71,6 @@ struct CommandLineOptions
     }
 
     CommandLineType<std::string> input_file[MAX_INPUT_FILES];
-    // When input_file_type is set to "auto", then input file type is chosen by file extension.
     CommandLineType<std::string> input_type[MAX_INPUT_FILES];
     // When output_file is set to "auto", then output file name is chosen for input file name.
     CommandLineType<std::string> output_file = auto_str;

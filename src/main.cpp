@@ -14,17 +14,66 @@
 #include "version.h"
 #include <assert.h>
 #include <cxxopts.hpp>
+#include <fmt/core.h>
 #include <iostream>
 #include <stdio.h>
 
 #ifdef WIN32
 #include "imguiclient/imguiwin32.h"
+#include <Windows.h>
 #endif
 
-int main(int argc, char **argv)
+void CreateConsole()
 {
-    printf(create_version_string().c_str());
+#ifdef WIN32
+    if (::AllocConsole() == FALSE)
+    {
+        return;
+    }
 
+    // std::cout, std::clog, std::cerr, std::cin
+    FILE *fDummy;
+    freopen_s(&fDummy, "CONOUT$", "w", stdout);
+    freopen_s(&fDummy, "CONOUT$", "w", stderr);
+    freopen_s(&fDummy, "CONIN$", "r", stdin);
+    std::cout.clear();
+    std::clog.clear();
+    std::cerr.clear();
+    std::cin.clear();
+
+    // std::wcout, std::wclog, std::wcerr, std::wcin
+    HANDLE hConOut = ::CreateFileA(
+        "CONOUT$",
+        GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    HANDLE hConIn = ::CreateFileA(
+        "CONIN$",
+        GENERIC_READ | GENERIC_WRITE,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        NULL);
+    ::SetStdHandle(STD_OUTPUT_HANDLE, hConOut);
+    ::SetStdHandle(STD_ERROR_HANDLE, hConOut);
+    ::SetStdHandle(STD_INPUT_HANDLE, hConIn);
+    std::wcout.clear();
+    std::wclog.clear();
+    std::wcerr.clear();
+    std::wcin.clear();
+#endif
+}
+
+static CommandLineOptions g_options;
+static std::string g_parseError;
+static std::string g_helpString;
+
+void parse_options(int argc, char **argv)
+{
     cxxopts::Options options("unassemblize", "x86 Unassembly tool");
 
 #define OPT_INPUT "input"
@@ -88,143 +137,172 @@ int main(int argc, char **argv)
     options.parse_positional({"input", "input2"});
 
     cxxopts::ParseResult result;
+
     try
     {
         result = options.parse(argc, argv);
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Error parsing options: " << e.what() << std::endl;
-        return 1;
+        g_parseError = fmt::format("Error parsing options: {:s}", e.what());
+        return;
     }
 
     if (result.count("help") != 0)
     {
-        std::cout << options.help() << std::endl;
-        return 0;
+        g_helpString = options.help();
+        return;
     }
-
-    CommandLineOptions clo;
 
     for (const cxxopts::KeyValue &kv : result.arguments())
     {
         const std::string &v = kv.key();
         if (v == OPT_INPUT)
         {
-            clo.input_file[0].set_from_command_line(kv.value());
+            g_options.input_file[0].set_from_command_line(kv.value());
         }
         else if (v == OPT_INPUT_2)
         {
-            clo.input_file[1].set_from_command_line(kv.value());
+            g_options.input_file[1].set_from_command_line(kv.value());
         }
         else if (v == OPT_INPUTTYPE)
         {
-            clo.input_type[0].set_from_command_line(kv.value());
+            g_options.input_type[0].set_from_command_line(kv.value());
         }
         else if (v == OPT_INPUTTYPE_2)
         {
-            clo.input_type[1].set_from_command_line(kv.value());
+            g_options.input_type[1].set_from_command_line(kv.value());
         }
         else if (v == OPT_ASM_OUTPUT)
         {
-            clo.output_file.set_from_command_line(kv.value());
+            g_options.output_file.set_from_command_line(kv.value());
         }
         else if (v == OPT_CMP_OUTPUT)
         {
-            clo.cmp_output_file.set_from_command_line(kv.value());
+            g_options.cmp_output_file.set_from_command_line(kv.value());
         }
         else if (v == OPT_LOOKAHEAD_LIMIT)
         {
-            clo.lookahead_limit.set_from_command_line(kv.as<uint32_t>());
+            g_options.lookahead_limit.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_MATCH_STRICTNESS)
         {
             const auto type = unassemblize::to_asm_match_strictness(kv.value().c_str());
-            clo.match_strictness.set_from_command_line(type);
+            g_options.match_strictness.set_from_command_line(type);
         }
         else if (v == OPT_PRINT_INDENT_LEN)
         {
-            clo.print_indent_len.set_from_command_line(kv.as<uint32_t>());
+            g_options.print_indent_len.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_PRINT_ASM_LEN)
         {
-            clo.print_asm_len.set_from_command_line(kv.as<uint32_t>());
+            g_options.print_asm_len.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_PRINT_BYTE_COUNT)
         {
-            clo.print_byte_count.set_from_command_line(kv.as<uint32_t>());
+            g_options.print_byte_count.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_PRINT_SOURCECODE_LEN)
         {
-            clo.print_sourcecode_len.set_from_command_line(kv.as<uint32_t>());
+            g_options.print_sourcecode_len.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_PRINT_SOURCELINE_LEN)
         {
-            clo.print_sourceline_len.set_from_command_line(kv.as<uint32_t>());
+            g_options.print_sourceline_len.set_from_command_line(kv.as<uint32_t>());
         }
         else if (v == OPT_FORMAT)
         {
             const auto type = unassemblize::to_asm_format(kv.value().c_str());
-            clo.format.set_from_command_line(type);
+            g_options.format.set_from_command_line(type);
         }
         else if (v == OPT_BUNDLE_FILE_ID)
         {
-            clo.bundle_file_idx.set_from_command_line(kv.as<size_t>() - 1);
+            g_options.bundle_file_idx.set_from_command_line(kv.as<size_t>() - 1);
         }
         else if (v == OPT_BUNDLE_TYPE)
         {
             const auto type = unassemblize::to_match_bundle_type(kv.value().c_str());
-            clo.bundle_type.set_from_command_line(type);
+            g_options.bundle_type.set_from_command_line(type);
         }
         else if (v == OPT_CONFIG)
         {
-            clo.config_file[0].set_from_command_line(kv.value());
+            g_options.config_file[0].set_from_command_line(kv.value());
         }
         else if (v == OPT_CONFIG_2)
         {
-            clo.config_file[1].set_from_command_line(kv.value());
+            g_options.config_file[1].set_from_command_line(kv.value());
         }
         else if (v == OPT_START)
         {
-            clo.start_addr.set_from_command_line(strtoull(kv.value().c_str(), nullptr, 16));
+            g_options.start_addr.set_from_command_line(strtoull(kv.value().c_str(), nullptr, 16));
         }
         else if (v == OPT_END)
         {
-            clo.end_addr.set_from_command_line(strtoull(kv.value().c_str(), nullptr, 16));
+            g_options.end_addr.set_from_command_line(strtoull(kv.value().c_str(), nullptr, 16));
         }
         else if (v == OPT_LISTSECTIONS)
         {
-            clo.print_secs.set_from_command_line(kv.as<bool>());
+            g_options.print_secs.set_from_command_line(kv.as<bool>());
         }
         else if (v == OPT_DUMPSYMS)
         {
-            clo.dump_syms.set_from_command_line(kv.as<bool>());
+            g_options.dump_syms.set_from_command_line(kv.as<bool>());
         }
         else if (v == OPT_VERBOSE)
         {
-            clo.verbose.set_from_command_line(kv.as<bool>());
+            g_options.verbose.set_from_command_line(kv.as<bool>());
         }
         else if (v == OPT_GUI)
         {
-            clo.gui.set_from_command_line(kv.as<bool>());
+            g_options.gui.set_from_command_line(kv.as<bool>());
         }
     }
+}
 
-    if (clo.gui)
+int main(int argc, char **argv)
+{
+    parse_options(argc, argv);
+
+    bool gui_error = false;
+
+    if (g_options.gui)
     {
 #ifdef WIN32
         unassemblize::gui::ImGuiWin32 gui;
-        unassemblize::gui::ImGuiStatus error = gui.run(clo);
-        return int(error);
+        unassemblize::gui::ImGuiStatus status = gui.run(g_options);
+        return int(status);
 #else
-        printf("Gui not implemented.\n");
-        return 1;
+        gui_error = true;
 #endif
     }
-
-    if (clo.input_file[0].v.empty())
+    else
     {
-        printf("Missing input file command line argument. Exiting...\n");
+        CreateConsole();
+    }
+
+    std::cout << create_version_string() << std::endl;
+
+    if (!g_parseError.empty())
+    {
+        std::cerr << g_parseError << std::endl;
+        return 1;
+    }
+
+    if (!g_helpString.empty())
+    {
+        std::cout << g_helpString << std::endl;
+        return 0;
+    }
+
+    if (gui_error)
+    {
+        std::cerr << "Gui not implemented. Exiting..." << std::endl;
+        return 1;
+    }
+
+    if (g_options.input_file[0].v.empty())
+    {
+        std::cerr << "Missing input file argument. Exiting..." << std::endl;
         return 1;
     }
 
@@ -235,27 +313,27 @@ int main(int argc, char **argv)
 
     for (size_t idx = 0; idx < executable_pair.size() && ok; ++idx)
     {
-        const InputType type = get_input_type(clo.input_file[idx], clo.input_type[idx]);
+        const InputType type = get_input_type(g_options.input_file[idx], g_options.input_type[idx]);
 
         if (InputType::Exe == type)
         {
-            const std::string &input_file = clo.input_file[idx];
-            const std::string config_file = get_config_file_name(input_file, clo.config_file[idx]);
+            const std::string &input_file = g_options.input_file[idx];
+            const std::string config_file = get_config_file_name(input_file, g_options.config_file[idx]);
             unassemblize::ExeSaveLoadOptions o(input_file, config_file);
-            o.print_secs = clo.print_secs;
-            o.dump_syms = clo.dump_syms;
-            o.verbose = clo.verbose;
+            o.print_secs = g_options.print_secs;
+            o.dump_syms = g_options.dump_syms;
+            o.verbose = g_options.verbose;
             executable_pair[idx] = unassemblize::Runner::process_exe(o);
             ok &= executable_pair[idx] != nullptr;
         }
         else if (InputType::Pdb == type)
         {
             {
-                const std::string &input_file = clo.input_file[idx];
-                const std::string config_file = get_config_file_name(input_file, clo.config_file[idx]);
+                const std::string &input_file = g_options.input_file[idx];
+                const std::string config_file = get_config_file_name(input_file, g_options.config_file[idx]);
                 unassemblize::PdbSaveLoadOptions o(input_file, config_file);
-                o.dump_syms = clo.dump_syms;
-                o.verbose = clo.verbose;
+                o.dump_syms = g_options.dump_syms;
+                o.verbose = g_options.verbose;
                 pdb_reader_pair[idx] = unassemblize::Runner::process_pdb(o);
                 ok &= pdb_reader_pair[idx] != nullptr;
             }
@@ -263,19 +341,23 @@ int main(int argc, char **argv)
             {
                 const unassemblize::PdbExeInfo &exe_info = pdb_reader_pair[idx]->get_exe_info();
                 const std::string &input_file = unassemblize::Runner::create_exe_filename(exe_info);
-                const std::string config_file = get_config_file_name(input_file, clo.config_file[idx]);
+                const std::string config_file = get_config_file_name(input_file, g_options.config_file[idx]);
                 unassemblize::ExeSaveLoadOptions o(input_file, config_file);
                 o.pdb_reader = pdb_reader_pair[idx].get();
-                o.print_secs = clo.print_secs;
-                o.dump_syms = clo.dump_syms;
-                o.verbose = clo.verbose;
+                o.print_secs = g_options.print_secs;
+                o.dump_syms = g_options.dump_syms;
+                o.verbose = g_options.verbose;
                 executable_pair[idx] = unassemblize::Runner::process_exe(o);
                 ok &= executable_pair[idx] != nullptr;
             }
         }
         else if (idx == 0)
         {
-            printf("Unrecognized input file type '%s'. Exiting...\n", clo.input_type[idx].v.c_str());
+            std::string text = fmt::format(
+                "Unrecognized input type '{:s}' for input file '{:s}'. Exiting...",
+                g_options.input_type[idx].v,
+                g_options.input_file[idx].v);
+            std::cerr << text << std::endl;
             return 1;
         }
     }
@@ -285,12 +367,12 @@ int main(int argc, char **argv)
         const unassemblize::Executable *executable0 = executable_pair[0].get();
         const unassemblize::Executable *executable1 = executable_pair[1].get();
 
-        if (executable0 != nullptr && !clo.output_file.v.empty())
+        if (executable0 != nullptr && !g_options.output_file.v.empty())
         {
-            const std::string output_file = get_asm_output_file_name(executable0->get_filename(), clo.output_file);
-            unassemblize::AsmOutputOptions o(*executable0, output_file, clo.start_addr, clo.end_addr);
-            o.format = clo.format;
-            o.print_indent_len = clo.print_indent_len;
+            const std::string output_file = get_asm_output_file_name(executable0->get_filename(), g_options.output_file);
+            unassemblize::AsmOutputOptions o(*executable0, output_file, g_options.start_addr, g_options.end_addr);
+            o.format = g_options.format;
+            o.print_indent_len = g_options.print_indent_len;
             ok &= unassemblize::Runner::process_asm_output(o);
         }
 
@@ -300,24 +382,24 @@ int main(int argc, char **argv)
             assert(executable1->is_loaded());
 
             const std::string output_file =
-                get_cmp_output_file_name(executable0->get_filename(), executable1->get_filename(), clo.output_file);
+                get_cmp_output_file_name(executable0->get_filename(), executable1->get_filename(), g_options.output_file);
 
             unassemblize::ExecutablePair executable_pair2 = {executable0, executable1};
             unassemblize::PdbReaderPair pdb_reader_pair2 = {pdb_reader_pair[0].get(), pdb_reader_pair[1].get()};
 
             unassemblize::AsmComparisonOptions o(executable_pair2, pdb_reader_pair2, output_file);
-            o.format = clo.format;
-            if (clo.bundle_file_idx < 2)
-                o.bundling_pdb_reader = pdb_reader_pair[clo.bundle_file_idx].get();
+            o.format = g_options.format;
+            if (g_options.bundle_file_idx < 2)
+                o.bundling_pdb_reader = pdb_reader_pair[g_options.bundle_file_idx].get();
             if (o.bundling_pdb_reader != nullptr)
-                o.bundle_type = clo.bundle_type;
-            o.print_indent_len = clo.print_indent_len;
-            o.print_asm_len = clo.print_asm_len;
-            o.print_byte_count = clo.print_byte_count;
-            o.print_sourcecode_len = clo.print_sourcecode_len;
-            o.print_sourceline_len = clo.print_sourceline_len;
-            o.lookahead_limit = clo.lookahead_limit;
-            o.match_strictness = clo.match_strictness;
+                o.bundle_type = g_options.bundle_type;
+            o.print_indent_len = g_options.print_indent_len;
+            o.print_asm_len = g_options.print_asm_len;
+            o.print_byte_count = g_options.print_byte_count;
+            o.print_sourcecode_len = g_options.print_sourcecode_len;
+            o.print_sourceline_len = g_options.print_sourceline_len;
+            o.lookahead_limit = g_options.lookahead_limit;
+            o.match_strictness = g_options.match_strictness;
             ok &= unassemblize::Runner::process_asm_comparison(o);
         }
     }

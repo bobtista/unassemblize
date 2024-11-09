@@ -95,6 +95,11 @@ if(WINDOWS)
 include(FindDiaSDK.cmake)
 endif()
 
+if(WINDOWS)
+# No console by default.
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+endif()
+
 add_executable(unassemblize)
 
 target_sources(unassemblize PRIVATE

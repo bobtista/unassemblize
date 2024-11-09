@@ -57,6 +57,24 @@ std::string
     return output_file;
 }
 
+InputType to_input_type(const char *str)
+{
+    if (0 == strcasecmp(str, s_input_type_names[size_t(InputType::Pdb)]))
+    {
+        return InputType::Pdb;
+    }
+    else if (0 == strcasecmp(str, s_input_type_names[size_t(InputType::Exe)]))
+    {
+        return InputType::Exe;
+    }
+    else
+    {
+        printf("Unrecognized input type '%s'. Defaulting to 'None'", str);
+        return InputType::None;
+    }
+    static_assert(size_t(InputType::None) == 2, "Enum was changed. Update conditions.");
+}
+
 InputType get_input_type(const std::string &input_file, const std::string &input_type)
 {
     InputType type = InputType::None;
@@ -75,15 +93,10 @@ InputType get_input_type(const std::string &input_file, const std::string &input
                 type = InputType::Exe;
             }
         }
-        else if (0 == strcasecmp(input_type.c_str(), "exe"))
+        else
         {
-            type = InputType::Exe;
-        }
-        else if (0 == strcasecmp(input_type.c_str(), "pdb"))
-        {
-            type = InputType::Pdb;
+            type = to_input_type(input_type.c_str());
         }
     }
-
     return type;
 }

@@ -25,8 +25,13 @@ MatchBundleType to_match_bundle_type(const char *str)
     {
         return MatchBundleType::SourceFile;
     }
+    else if (0 == strcasecmp(str, "none"))
+    {
+        return MatchBundleType::None;
+    }
     else
     {
+        printf("Unrecognized match bundle type '%s'. Defaulting to 'None'", str);
         return MatchBundleType::None;
     }
     static_assert(size_t(MatchBundleType::None) == 2, "Enum was changed. Update conditions.");
@@ -95,6 +100,7 @@ AsmMatchStrictness to_asm_match_strictness(const char *str)
     }
     else
     {
+        printf("Unrecognized asm match to_asm_match_strictness '%s'. Defaulting to 'Undecided'", str);
         return AsmMatchStrictness::Undecided;
     }
 }

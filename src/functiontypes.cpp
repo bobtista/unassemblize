@@ -30,8 +30,13 @@ AsmFormat to_asm_format(const char *str)
     {
         return AsmFormat::MASM;
     }
+    else if (0 == strcasecmp(str, "default"))
+    {
+        return AsmFormat::DEFAULT;
+    }
     else
     {
+        printf("Unrecognized asm format '%s'. Defaulting to 'DEFAULT'", str);
         return AsmFormat::DEFAULT;
     }
     static_assert(size_t(AsmFormat::DEFAULT) == 3, "Enum was changed. Update switch case.");
