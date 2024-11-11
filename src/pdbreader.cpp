@@ -71,7 +71,7 @@ bool PdbReader::load_config(const std::string &file_name)
     {
         std::ifstream fs(file_name);
 
-        if (!fs.good())
+        if (fs.fail())
         {
             return false;
         }
@@ -84,7 +84,7 @@ bool PdbReader::load_config(const std::string &file_name)
     return true;
 }
 
-void PdbReader::save_json(nlohmann::json &js, bool overwrite_sections)
+void PdbReader::save_json(nlohmann::json &js, bool overwrite_sections) const
 {
     // Don't dump if we already have sections for these.
 
@@ -106,7 +106,7 @@ void PdbReader::save_json(nlohmann::json &js, bool overwrite_sections)
     }
 }
 
-bool PdbReader::save_config(const std::string &file_name, bool overwrite_sections)
+bool PdbReader::save_config(const std::string &file_name, bool overwrite_sections) const
 {
     if (m_verbose)
     {
@@ -119,7 +119,7 @@ bool PdbReader::save_config(const std::string &file_name, bool overwrite_section
     {
         std::ifstream fs(file_name);
 
-        if (fs.good())
+        if (!fs.fail())
         {
             js = nlohmann::json::parse(fs);
         }
@@ -127,12 +127,10 @@ bool PdbReader::save_config(const std::string &file_name, bool overwrite_section
 
     save_json(js, overwrite_sections);
 
-    {
-        std::ofstream fs(file_name);
-        fs << std::setw(2) << js << std::endl;
-    }
+    std::ofstream fs(file_name);
+    fs << std::setw(2) << js << std::endl;
 
-    return true;
+    return !fs.fail();
 }
 
 #ifdef PDB_READER_WIN32

@@ -50,8 +50,8 @@ public:
 
     void load_json(const nlohmann::json &js);
     bool load_config(const std::string &file_name);
-    void save_json(nlohmann::json &js, bool overwrite_sections = false);
-    bool save_config(const std::string &file_name, bool overwrite_sections = false);
+    void save_json(nlohmann::json &js, bool overwrite_sections = false) const;
+    bool save_config(const std::string &file_name, bool overwrite_sections = false) const;
 
 private:
 #ifdef PDB_READER_WIN32

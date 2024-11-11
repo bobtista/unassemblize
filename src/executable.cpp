@@ -325,7 +325,7 @@ void Executable::add_symbol(const ExeSymbol &symbol, bool overwrite)
     }
 }
 
-void Executable::load_config(const char *file_name, bool overwrite_symbols)
+bool Executable::load_config(const char *file_name, bool overwrite_symbols)
 {
     if (m_verbose)
     {
@@ -334,9 +334,9 @@ void Executable::load_config(const char *file_name, bool overwrite_symbols)
 
     std::ifstream fs(file_name);
 
-    if (!fs.good())
+    if (fs.fail())
     {
-        return;
+        return false;
     }
 
     nlohmann::json j = nlohmann::json::parse(fs);
@@ -364,9 +364,11 @@ void Executable::load_config(const char *file_name, bool overwrite_symbols)
     {
         load_objects(j.at(s_objectSection));
     }
+
+    return true;
 }
 
-void Executable::save_config(const char *file_name)
+bool Executable::save_config(const char *file_name) const
 {
     if (m_verbose)
     {
@@ -379,7 +381,7 @@ void Executable::save_config(const char *file_name)
     {
         std::ifstream fs(file_name);
 
-        if (fs.good())
+        if (!fs.fail())
         {
             j = nlohmann::json::parse(fs);
         }
@@ -417,6 +419,8 @@ void Executable::save_config(const char *file_name)
 
     std::ofstream fs(file_name);
     fs << std::setw(4) << j << std::endl;
+
+    return !fs.fail();
 }
 
 void Executable::load_symbols(nlohmann::json &js, bool overwrite_symbols)

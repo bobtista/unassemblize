@@ -39,8 +39,8 @@ public:
 
     bool read(const std::string &exe_file);
 
-    void load_config(const char *file_name, bool overwrite_symbols = false);
-    void save_config(const char *file_name);
+    bool load_config(const char *file_name, bool overwrite_symbols = false);
+    bool save_config(const char *file_name) const;
 
     bool is_loaded() const;
     const std::string &get_filename() const;
