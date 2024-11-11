@@ -18,6 +18,7 @@
 
 // When output is set to "auto", then output name is chosen for input file name.
 inline constexpr char *const auto_str = "auto";
+bool is_auto_str(const std::string &str);
 
 enum class InputType
 {

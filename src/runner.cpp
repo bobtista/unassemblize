@@ -18,7 +18,6 @@
 #include <fmt/core.h>
 #include <fstream>
 #include <inttypes.h>
-#include <strings.h>
 
 namespace unassemblize
 {

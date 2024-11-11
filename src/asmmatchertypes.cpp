@@ -11,21 +11,21 @@
  *            LICENSE
  */
 #include "asmmatchertypes.h"
-#include <strings.h>
+#include "util.h"
 
 namespace unassemblize
 {
 MatchBundleType to_match_bundle_type(const char *str)
 {
-    if (0 == strcasecmp(str, "compiland"))
+    if (util::equals_nocase(str, "compiland"))
     {
         return MatchBundleType::Compiland;
     }
-    else if (0 == strcasecmp(str, "sourcefile"))
+    else if (util::equals_nocase(str, "sourcefile"))
     {
         return MatchBundleType::SourceFile;
     }
-    else if (0 == strcasecmp(str, "none"))
+    else if (util::equals_nocase(str, "none"))
     {
         return MatchBundleType::None;
     }
@@ -86,15 +86,15 @@ bool AsmMismatchInfo::is_maybe_mismatch() const
 
 AsmMatchStrictness to_asm_match_strictness(const char *str)
 {
-    if (0 == strcasecmp(str, "lenient"))
+    if (util::equals_nocase(str, "lenient"))
     {
         return AsmMatchStrictness::Lenient;
     }
-    else if (0 == strcasecmp(str, "undecided"))
+    else if (util::equals_nocase(str, "undecided"))
     {
         return AsmMatchStrictness::Undecided;
     }
-    else if (0 == strcasecmp(str, "strict"))
+    else if (util::equals_nocase(str, "strict"))
     {
         return AsmMatchStrictness::Strict;
     }

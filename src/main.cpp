@@ -340,7 +340,7 @@ int main(int argc, char **argv)
             if (ok)
             {
                 const unassemblize::PdbExeInfo &exe_info = pdb_reader_pair[idx]->get_exe_info();
-                const std::string &input_file = unassemblize::Runner::create_exe_filename(exe_info);
+                const std::string input_file = unassemblize::Runner::create_exe_filename(exe_info);
                 const std::string config_file = get_config_file_name(input_file, g_options.config_file[idx]);
                 unassemblize::ExeSaveLoadOptions o(input_file, config_file);
                 o.pdb_reader = pdb_reader_pair[idx].get();

@@ -11,26 +11,26 @@
  *            LICENSE
  */
 #include "functiontypes.h"
-#include "strings.h"
+#include "util.h"
 #include <assert.h>
 
 namespace unassemblize
 {
 AsmFormat to_asm_format(const char *str)
 {
-    if (0 == strcasecmp(str, "igas"))
+    if (util::equals_nocase(str, "igas"))
     {
         return AsmFormat::IGAS;
     }
-    else if (0 == strcasecmp(str, "agas"))
+    else if (util::equals_nocase(str, "agas"))
     {
         return AsmFormat::AGAS;
     }
-    else if (0 == strcasecmp(str, "masm"))
+    else if (util::equals_nocase(str, "masm"))
     {
         return AsmFormat::MASM;
     }
-    else if (0 == strcasecmp(str, "default"))
+    else if (util::equals_nocase(str, "default"))
     {
         return AsmFormat::DEFAULT;
     }

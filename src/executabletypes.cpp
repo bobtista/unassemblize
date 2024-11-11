@@ -11,17 +11,17 @@
  *            LICENSE
  */
 #include "executabletypes.h"
-#include "strings.h"
+#include "util.h"
 
 namespace unassemblize
 {
 ExeSectionType to_section_type(const char *str)
 {
-    if (0 == strcasecmp(str, "code"))
+    if (util::equals_nocase(str, "code"))
     {
         return ExeSectionType::Code;
     }
-    else if (0 == strcasecmp(str, "data"))
+    else if (util::equals_nocase(str, "data"))
     {
         return ExeSectionType::Data;
     }

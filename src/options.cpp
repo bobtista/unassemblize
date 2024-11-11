@@ -11,14 +11,23 @@
  *            LICENSE
  */
 #include "options.h"
-#include "strings.h"
 #include "util.h"
 #include <filesystem>
 
+bool is_auto_str(const std::string &str)
+{
+    return util::equals_nocase(str, auto_str);
+}
+
 std::string get_config_file_name(const std::string &input_file, const std::string &config_file)
 {
-    if (0 == strcasecmp(config_file.c_str(), auto_str))
+    if (is_auto_str(config_file))
     {
+        if (input_file.empty())
+        {
+            return std::string();
+        }
+
         // path/program.config.json
         std::filesystem::path path = input_file;
         path.replace_extension("config.json");
@@ -29,8 +38,13 @@ std::string get_config_file_name(const std::string &input_file, const std::strin
 
 std::string get_asm_output_file_name(const std::string &input_file, const std::string &output_file)
 {
-    if (0 == strcasecmp(output_file.c_str(), auto_str))
+    if (is_auto_str(output_file))
     {
+        if (input_file.empty())
+        {
+            return std::string();
+        }
+
         // path/program.S
         std::filesystem::path path = input_file;
         path.replace_extension("S");
@@ -42,7 +56,7 @@ std::string get_asm_output_file_name(const std::string &input_file, const std::s
 std::string
     get_cmp_output_file_name(const std::string &input_file0, const std::string &input_file1, const std::string &output_file)
 {
-    if (0 == strcasecmp(output_file.c_str(), auto_str))
+    if (is_auto_str(output_file))
     {
         // path0/program0_program1_cmp.txt
         std::filesystem::path path0 = input_file0;
@@ -59,11 +73,11 @@ std::string
 
 InputType to_input_type(const char *str)
 {
-    if (0 == strcasecmp(str, s_input_type_names[size_t(InputType::Pdb)]))
+    if (util::equals_nocase(str, s_input_type_names[size_t(InputType::Pdb)]))
     {
         return InputType::Pdb;
     }
-    else if (0 == strcasecmp(str, s_input_type_names[size_t(InputType::Exe)]))
+    else if (util::equals_nocase(str, s_input_type_names[size_t(InputType::Exe)]))
     {
         return InputType::Exe;
     }
@@ -81,10 +95,10 @@ InputType get_input_type(const std::string &input_file, const std::string &input
 
     if (!input_file.empty())
     {
-        if (0 == strcasecmp(input_type.c_str(), auto_str))
+        if (is_auto_str(input_type))
         {
             std::string input_file_ext = util::get_file_ext(input_file);
-            if (0 == strcasecmp(input_file_ext.c_str(), "pdb"))
+            if (util::equals_nocase(input_file_ext.c_str(), "pdb"))
             {
                 type = InputType::Pdb;
             }
