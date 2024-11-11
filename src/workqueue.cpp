@@ -15,7 +15,12 @@
 
 namespace unassemblize
 {
-uint32_t WorkQueueCommand::s_id = 0;
+WorkQueueCommandId WorkQueueCommand::s_id = 0;
+
+WorkQueue::~WorkQueue()
+{
+    stop(true);
+}
 
 void WorkQueue::start()
 {
@@ -23,23 +28,45 @@ void WorkQueue::start()
     m_thread = std::thread(ThreadFunction, this);
 }
 
-void WorkQueue::stop()
+void WorkQueue::stop(bool wait)
 {
-    m_commandQueue.enqueue(std::make_unique<WorkQueueCommandQuit>());
+    if (m_thread.joinable())
+    {
+        m_commandQueue.enqueue(std::make_unique<WorkQueueCommandQuit>());
+        if (wait)
+            m_thread.join();
+        else
+            m_thread.detach();
+    }
 }
 
-void WorkQueue::join()
+bool WorkQueue::is_busy() const
 {
-    m_thread.join();
+    return m_thread.joinable();
 }
 
 bool WorkQueue::enqueue(WorkQueueCommandPtr &&command)
 {
     return m_commandQueue.enqueue(std::move(command));
 }
+
 bool WorkQueue::try_dequeue(WorkQueueResultPtr &result)
 {
-    return m_resultQueue.try_dequeue(result);
+    return m_pollingQueue.try_dequeue(result);
+}
+
+void WorkQueue::update_callbacks()
+{
+    WorkQueueResultPtr result;
+
+    while (m_callbackQueue.try_dequeue(result))
+    {
+        assert(bool(result->command->callback));
+
+        // Moves the callback to decouple it from the result.
+        auto callback = std::move(result->command->callback);
+        callback(result);
+    }
 }
 
 void WorkQueue::ThreadFunction(WorkQueue *self)
@@ -52,7 +79,18 @@ void WorkQueue::ThreadRun()
     while (true)
     {
         WorkQueueCommandPtr command;
-        m_commandQueue.wait_dequeue(command);
+
+        if (m_quit)
+        {
+            if (!m_commandQueue.try_dequeue(command))
+                // Queue is finally empty. Quit.
+                // Wait for jobs here when applicable.
+                break;
+        }
+        else
+        {
+            m_commandQueue.wait_dequeue(command);
+        }
 
         assert(command != nullptr);
         WorkQueueResultPtr result;
@@ -61,8 +99,20 @@ void WorkQueue::ThreadRun()
         switch (command->type())
         {
             case WorkCommandType::Quit:
-                // Wait for jobs here when applicable.
-                goto quit;
+                m_quit = true;
+                break;
+            case WorkCommandType::LoadExe:
+                result = ProcessCommand(static_cast<WorkQueueCommandLoadExe &>(*command));
+                break;
+            case WorkCommandType::LoadPdb:
+                result = ProcessCommand(static_cast<WorkQueueCommandLoadPdb &>(*command));
+                break;
+            case WorkCommandType::SaveExeConfig:
+                result = ProcessCommand(static_cast<WorkQueueCommandSaveExeConfig &>(*command));
+                break;
+            case WorkCommandType::SavePdbConfig:
+                result = ProcessCommand(static_cast<WorkQueueCommandSavePdbConfig &>(*command));
+                break;
             case WorkCommandType::ProcessExe:
                 result = ProcessCommand(static_cast<WorkQueueCommandProcessExe &>(*command));
                 break;
@@ -80,11 +130,51 @@ void WorkQueue::ThreadRun()
                 break;
         }
 
-        result->command = std::move(command);
-        m_resultQueue.enqueue(std::move(result));
+        m_lastFinishedCommandId = command->command_id;
+
+        // Not all commands need to return a result.
+        if (result != nullptr)
+        {
+            result->command = std::move(command);
+
+            if (result->command->callback)
+            {
+                m_callbackQueue.enqueue(std::move(result));
+            }
+            else
+            {
+                m_pollingQueue.enqueue(std::move(result));
+            }
+        }
     }
-quit:
-    return;
+}
+
+WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandLoadExe &command)
+{
+    auto result = std::make_unique<WorkQueueResultLoadExe>();
+    result->executable = Runner::load_exe(command.options);
+    return result;
+}
+
+WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandLoadPdb &command)
+{
+    auto result = std::make_unique<WorkQueueResultLoadPdb>();
+    result->pdbReader = Runner::load_pdb(command.options);
+    return result;
+}
+
+WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandSaveExeConfig &command)
+{
+    auto result = std::make_unique<WorkQueueResultSaveExeConfig>();
+    result->success = Runner::save_exe_config(command.options);
+    return result;
+}
+
+WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandSavePdbConfig &command)
+{
+    auto result = std::make_unique<WorkQueueResultSavePdbConfig>();
+    result->success = Runner::save_pdb_config(command.options);
+    return result;
 }
 
 WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandProcessExe &command)
