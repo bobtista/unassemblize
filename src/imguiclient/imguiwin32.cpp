@@ -36,10 +36,12 @@ namespace unassemblize::gui
 static LPDIRECT3D9 g_pD3D = nullptr;
 static LPDIRECT3DDEVICE9 g_pd3dDevice = nullptr;
 static bool g_DeviceLost = false;
-static UINT g_ResizeWidth = 0, g_ResizeHeight = 0;
+static UINT g_ResizeWidth = 0;
+static UINT g_ResizeHeight = 0;
 static D3DPRESENT_PARAMETERS g_d3dpp = {};
 
 // Forward declarations of helper functions
+void GetNativeWindowClientArea(HWND hwnd, ImVec2 &pos, ImVec2 &size);
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void ResetDevice();
@@ -102,13 +104,13 @@ ImGuiStatus ImGuiWin32::run(const CommandLineOptions &clo)
     }
 
     // Show the window
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+    ::ShowWindow(hwnd, SW_MAXIMIZE);
     ::UpdateWindow(hwnd);
 
     m_app.reset(new ImGuiApp);
 
     {
-        const ImGuiStatus error = m_app->pre_platform_init(clo);
+        const ImGuiStatus error = m_app->init(clo);
         if (error != ImGuiStatus::Ok)
             return error;
     }
@@ -117,15 +119,8 @@ ImGuiStatus ImGuiWin32::run(const CommandLineOptions &clo)
     ImGui_ImplWin32_Init(hwnd);
     ImGui_ImplDX9_Init(g_pd3dDevice);
 
-    {
-        const ImGuiStatus error = m_app->post_platform_init();
-        if (error != ImGuiStatus::Ok)
-            return error;
-    }
-
     // Main loop
-    bool done = false;
-    while (!done)
+    while (true)
     {
         // Poll and handle messages (inputs, window resize, etc.)
         // See the WndProc() function below for our to dispatch events to the Win32 backend.
@@ -135,9 +130,10 @@ ImGuiStatus ImGuiWin32::run(const CommandLineOptions &clo)
             ::TranslateMessage(&msg);
             ::DispatchMessage(&msg);
             if (msg.message == WM_QUIT)
-                done = true;
+                m_app->prepare_shutdown_wait();
         }
-        if (done)
+
+        if (m_app->can_shutdown())
             break;
 
         // Handle lost D3D9 device
@@ -159,7 +155,8 @@ ImGuiStatus ImGuiWin32::run(const CommandLineOptions &clo)
         {
             g_d3dpp.BackBufferWidth = g_ResizeWidth;
             g_d3dpp.BackBufferHeight = g_ResizeHeight;
-            g_ResizeWidth = g_ResizeHeight = 0;
+            g_ResizeWidth = 0;
+            g_ResizeHeight = 0;
             ResetDevice();
         }
 
@@ -168,6 +165,10 @@ ImGuiStatus ImGuiWin32::run(const CommandLineOptions &clo)
         ImGui_ImplWin32_NewFrame();
 
         {
+            ImVec2 pos, size;
+            GetNativeWindowClientArea(hwnd, pos, size);
+            m_app->set_window_pos(pos);
+            m_app->set_window_size(size);
             const ImGuiStatus error = m_app->update();
             if (error != ImGuiStatus::Ok)
                 return error;
@@ -217,6 +218,22 @@ ImGuiStatus ImGuiWin32::run(const CommandLineOptions &clo)
 }
 
 // Helper functions
+void GetNativeWindowClientArea(HWND hwnd, ImVec2 &pos, ImVec2 &size)
+{
+    RECT clientRect;
+    POINT topLeft = {0, 0};
+
+    // Get the client area size
+    if (::GetClientRect(hwnd, &clientRect))
+    {
+        size = ImVec2((float)(clientRect.right - clientRect.left), (float)(clientRect.bottom - clientRect.top));
+    }
+
+    // Convert the top-left corner of the client area to screen coordinates
+    ::ClientToScreen(hwnd, &topLeft);
+    pos = ImVec2((float)topLeft.x, (float)topLeft.y);
+}
+
 bool CreateDeviceD3D(HWND hWnd)
 {
     if ((g_pD3D = Direct3DCreate9(D3D_SDK_VERSION)) == nullptr)
