@@ -18,6 +18,28 @@
 
 namespace unassemblize
 {
+struct LoadExeOptions
+{
+    LoadExeOptions(const std::string &input_file) : input_file(input_file) {}
+
+    const std::string input_file;
+    std::string config_file;
+    const PdbReader *pdb_reader = nullptr;
+    bool verbose = false;
+};
+
+struct SaveExeConfigOptions
+{
+    SaveExeConfigOptions(const Executable *executable, const std::string &config_file) :
+        executable(executable), config_file(config_file)
+    {
+    }
+
+    const Executable *const executable;
+    const std::string config_file;
+    bool verbose = false;
+};
+
 struct ExeSaveLoadOptions
 {
     ExeSaveLoadOptions(const std::string &input_file, const std::string &config_file) :
@@ -31,6 +53,26 @@ struct ExeSaveLoadOptions
     bool print_secs = false;
     bool dump_syms = false;
     bool verbose = false;
+};
+
+struct LoadPdbOptions
+{
+    LoadPdbOptions(const std::string &input_file) : input_file(input_file) {}
+
+    const std::string input_file;
+    bool verbose = false;
+};
+
+struct SavePdbConfigOptions
+{
+    SavePdbConfigOptions(const PdbReader *pdb_reader, const std::string &config_file) :
+        pdb_reader(pdb_reader), config_file(config_file)
+    {
+    }
+
+    const PdbReader *const pdb_reader;
+    const std::string config_file;
+    bool overwrite_sections = false;
 };
 
 struct PdbSaveLoadOptions
@@ -109,6 +151,12 @@ class Runner
 
 public:
     Runner() = delete;
+
+    static std::unique_ptr<Executable> load_exe(const LoadExeOptions &o);
+    static std::unique_ptr<PdbReader> load_pdb(const LoadPdbOptions &o);
+
+    static bool save_exe_config(const SaveExeConfigOptions &o);
+    static bool save_pdb_config(const SavePdbConfigOptions &o);
 
     static std::unique_ptr<Executable> process_exe(const ExeSaveLoadOptions &o);
     static std::unique_ptr<PdbReader> process_pdb(const PdbSaveLoadOptions &o);

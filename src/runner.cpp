@@ -95,6 +95,78 @@ void Runner::FileContentStorage::clear()
     m_lastFileName.clear();
 }
 
+std::unique_ptr<Executable> Runner::load_exe(const LoadExeOptions &o)
+{
+    assert(!o.input_file.empty());
+
+    if (o.verbose)
+    {
+        printf("Parsing exe file '%s'...\n", o.input_file.c_str());
+    }
+
+    auto executable = std::make_unique<Executable>();
+    executable->set_verbose(o.verbose);
+
+    if (!executable->read(o.input_file))
+    {
+        executable.reset();
+        return executable;
+    }
+
+    constexpr bool pdb_symbols_overwrite_exe_symbols = true; // Make configurable?
+    constexpr bool cfg_symbols_overwrite_exe_pdb_symbols = true; // Make configurable?
+
+    if (o.pdb_reader != nullptr)
+    {
+        const PdbSymbolInfoVector &pdb_symbols = o.pdb_reader->get_symbols();
+
+        if (!pdb_symbols.empty())
+        {
+            executable->add_symbols(pdb_symbols, pdb_symbols_overwrite_exe_symbols);
+        }
+    }
+
+    if (!o.config_file.empty())
+    {
+        executable->load_config(o.config_file.c_str(), cfg_symbols_overwrite_exe_pdb_symbols);
+    }
+
+    return executable;
+}
+
+std::unique_ptr<PdbReader> Runner::load_pdb(const LoadPdbOptions &o)
+{
+    assert(!o.input_file.empty());
+
+    auto pdb_reader = std::make_unique<PdbReader>();
+    pdb_reader->set_verbose(o.verbose);
+
+    // Currently does not read back config file here.
+
+    if (!pdb_reader->read(o.input_file))
+    {
+        pdb_reader.reset();
+    }
+
+    return pdb_reader;
+}
+
+bool Runner::save_exe_config(const SaveExeConfigOptions &o)
+{
+    assert(o.executable != nullptr);
+    assert(!o.config_file.empty());
+
+    return o.executable->save_config(o.config_file.c_str());
+}
+
+bool Runner::save_pdb_config(const SavePdbConfigOptions &o)
+{
+    assert(o.pdb_reader != nullptr);
+    assert(!o.config_file.empty());
+
+    return o.pdb_reader->save_config(o.config_file, o.overwrite_sections);
+}
+
 std::unique_ptr<Executable> Runner::process_exe(const ExeSaveLoadOptions &o)
 {
     auto executable = std::make_unique<Executable>();
