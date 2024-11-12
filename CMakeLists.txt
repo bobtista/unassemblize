@@ -89,10 +89,10 @@ set(GIT_PRE_CONFIGURE_FILE "gitinfo.cpp.in")
 set(GIT_POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp")
 
 include(GitWatcher)
-include(imgui.cmake)
-include(imguifiledialog.cmake)
+include(imgui)
+include(imguifiledialog)
 if(WINDOWS)
-include(FindDiaSDK.cmake)
+include(FindDiaSDK)
 endif()
 
 if(WINDOWS)
@@ -105,9 +105,9 @@ add_executable(unassemblize)
 target_sources(unassemblize PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp
     gitinfo.h
-    FindDiaSDK.cmake
-    imgui.cmake
-    imguifiledialog.cmake
+    cmake/FindDiaSDK.cmake
+    cmake/imgui.cmake
+    cmake/imguifiledialog.cmake
     src/asmmatcher.cpp
     src/asmmatcher.h
     src/asmmatchertypes.cpp
