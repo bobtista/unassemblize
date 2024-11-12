@@ -17,7 +17,6 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <fstream>
-#include <inttypes.h>
 
 namespace unassemblize
 {
@@ -165,75 +164,6 @@ bool Runner::save_pdb_config(const SavePdbConfigOptions &o)
     assert(!o.config_file.empty());
 
     return o.pdb_reader->save_config(o.config_file, o.overwrite_sections);
-}
-
-std::unique_ptr<Executable> Runner::process_exe(const ExeSaveLoadOptions &o)
-{
-    auto executable = std::make_unique<Executable>();
-
-    if (o.verbose)
-    {
-        printf("Parsing exe file '%s'...\n", o.input_file.c_str());
-    }
-
-    executable->set_verbose(o.verbose);
-
-    if (!executable->read(o.input_file))
-    {
-        executable.reset();
-        return executable;
-    }
-
-    if (o.print_secs)
-    {
-        print_sections(*executable);
-    }
-
-    constexpr bool pdb_symbols_overwrite_exe_symbols = true;
-    constexpr bool cfg_symbols_overwrite_exe_pdb_symbols = true;
-
-    if (o.pdb_reader != nullptr)
-    {
-        const PdbSymbolInfoVector &pdb_symbols = o.pdb_reader->get_symbols();
-
-        if (!pdb_symbols.empty())
-        {
-            executable->add_symbols(pdb_symbols, pdb_symbols_overwrite_exe_symbols);
-        }
-    }
-
-    if (o.dump_syms)
-    {
-        executable->save_config(o.config_file.c_str());
-    }
-    else
-    {
-        executable->load_config(o.config_file.c_str(), cfg_symbols_overwrite_exe_pdb_symbols);
-    }
-
-    return executable;
-}
-
-std::unique_ptr<PdbReader> Runner::process_pdb(const PdbSaveLoadOptions &o)
-{
-    auto pdb_reader = std::make_unique<PdbReader>();
-
-    pdb_reader->set_verbose(o.verbose);
-
-    // Currently does not read back config file here.
-
-    if (!pdb_reader->read(o.input_file))
-    {
-        pdb_reader.reset();
-        return pdb_reader;
-    }
-
-    if (o.dump_syms)
-    {
-        pdb_reader->save_config(o.config_file);
-    }
-
-    return pdb_reader;
 }
 
 bool Runner::process_asm_output(const AsmOutputOptions &o)
@@ -620,15 +550,6 @@ std::string Runner::build_cmp_output_path(size_t bundle_idx, const std::string &
 
     const std::filesystem::path path = output_path.parent_path() / filename;
     return path.string();
-}
-
-void Runner::print_sections(Executable &exe)
-{
-    const ExeSections &sections = exe.get_sections();
-    for (const ExeSectionInfo &section : sections)
-    {
-        printf("Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n", section.name.c_str(), section.address, section.size);
-    }
 }
 
 } // namespace unassemblize

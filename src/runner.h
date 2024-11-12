@@ -37,22 +37,6 @@ struct SaveExeConfigOptions
 
     const Executable *const executable;
     const std::string config_file;
-    bool verbose = false;
-};
-
-struct ExeSaveLoadOptions
-{
-    ExeSaveLoadOptions(const std::string &input_file, const std::string &config_file) :
-        input_file(input_file), config_file(config_file)
-    {
-    }
-
-    const std::string input_file;
-    const std::string config_file;
-    const PdbReader *pdb_reader = nullptr;
-    bool print_secs = false;
-    bool dump_syms = false;
-    bool verbose = false;
 };
 
 struct LoadPdbOptions
@@ -73,19 +57,6 @@ struct SavePdbConfigOptions
     const PdbReader *const pdb_reader;
     const std::string config_file;
     bool overwrite_sections = false;
-};
-
-struct PdbSaveLoadOptions
-{
-    PdbSaveLoadOptions(const std::string &input_file, const std::string &config_file) :
-        input_file(input_file), config_file(config_file)
-    {
-    }
-
-    const std::string input_file;
-    const std::string config_file;
-    bool dump_syms = false;
-    bool verbose = false;
 };
 
 struct AsmOutputOptions
@@ -157,9 +128,6 @@ public:
 
     static bool save_exe_config(const SaveExeConfigOptions &o);
     static bool save_pdb_config(const SavePdbConfigOptions &o);
-
-    static std::unique_ptr<Executable> process_exe(const ExeSaveLoadOptions &o);
-    static std::unique_ptr<PdbReader> process_pdb(const PdbSaveLoadOptions &o);
 
     /**
      * Disassembles a range of bytes and outputs the format as though it were a single function.
@@ -234,8 +202,6 @@ private:
         size_t bundle_idx,
         const std::string &bundle_name,
         const std::string &output_file);
-
-    static void print_sections(Executable &exe);
 
     // clang-format on
 };

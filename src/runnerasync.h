@@ -49,22 +49,6 @@ struct AsyncSavePdbConfigCommand : public WorkQueueCommand
     SavePdbConfigOptions options;
 };
 
-struct AsyncProcessExeCommand : public WorkQueueCommand
-{
-    explicit AsyncProcessExeCommand(ExeSaveLoadOptions &&o);
-    virtual ~AsyncProcessExeCommand() override = default;
-
-    ExeSaveLoadOptions options;
-};
-
-struct AsyncProcessPdbCommand : public WorkQueueCommand
-{
-    explicit AsyncProcessPdbCommand(PdbSaveLoadOptions &&o);
-    virtual ~AsyncProcessPdbCommand() override = default;
-
-    PdbSaveLoadOptions options;
-};
-
 struct AsyncProcessAsmOutputCommand : public WorkQueueCommand
 {
     explicit AsyncProcessAsmOutputCommand(AsmOutputOptions &&o);
@@ -109,20 +93,6 @@ struct AsyncSavePdbConfigResult : public WorkQueueResult
     virtual ~AsyncSavePdbConfigResult() override = default;
 
     bool success;
-};
-
-struct AsyncProcessExeResult : public WorkQueueResult
-{
-    virtual ~AsyncProcessExeResult() override = default;
-
-    std::unique_ptr<Executable> executable;
-};
-
-struct AsyncProcessPdbResult : public WorkQueueResult
-{
-    virtual ~AsyncProcessPdbResult() override = default;
-
-    std::unique_ptr<PdbReader> pdb_reader;
 };
 
 struct AsyncProcessAsmOutputResult : public WorkQueueResult

@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <cxxopts.hpp>
 #include <fmt/core.h>
+#include <inttypes.h>
 #include <iostream>
 #include <stdio.h>
 
@@ -259,6 +260,67 @@ void parse_options(int argc, char **argv)
     }
 }
 
+std::unique_ptr<unassemblize::Executable> load_and_process_exe(
+    const std::string &input_file, const std::string &config_file, const unassemblize::PdbReader *pdb_reader = nullptr)
+{
+    const std::string evaluated_config_file = get_config_file_name(input_file, config_file);
+    std::unique_ptr<unassemblize::Executable> executable;
+
+    {
+        unassemblize::LoadExeOptions o(input_file);
+        o.config_file = evaluated_config_file;
+        o.pdb_reader = pdb_reader;
+        o.verbose = g_options.verbose;
+        executable = unassemblize::Runner::load_exe(o);
+    }
+
+    if (executable != nullptr)
+    {
+        if (g_options.dump_syms)
+        {
+            unassemblize::SaveExeConfigOptions o(executable.get(), evaluated_config_file);
+            unassemblize::Runner::save_exe_config(o);
+        }
+        if (g_options.print_secs)
+        {
+            const unassemblize::ExeSections &sections = executable->get_sections();
+            for (const unassemblize::ExeSectionInfo &section : sections)
+            {
+                printf(
+                    "Name: %s, Address: 0x%" PRIx64 " Size: %" PRIu64 "\n",
+                    section.name.c_str(),
+                    section.address,
+                    section.size);
+            }
+        }
+    }
+
+    return executable;
+}
+
+std::unique_ptr<unassemblize::PdbReader> load_and_process_pdb(const std::string &input_file, const std::string &config_file)
+{
+    std::unique_ptr<unassemblize::PdbReader> pdb_reader;
+
+    {
+        unassemblize::LoadPdbOptions o(input_file);
+        o.verbose = g_options.verbose;
+        pdb_reader = unassemblize::Runner::load_pdb(o);
+    }
+
+    if (pdb_reader != nullptr)
+    {
+        if (g_options.dump_syms)
+        {
+            const std::string evaluated_config_file = get_config_file_name(input_file, config_file);
+            unassemblize::SavePdbConfigOptions o(pdb_reader.get(), evaluated_config_file);
+            unassemblize::Runner::save_pdb_config(o);
+        }
+    }
+
+    return pdb_reader;
+}
+
 int main(int argc, char **argv)
 {
     parse_options(argc, argv);
@@ -317,37 +379,20 @@ int main(int argc, char **argv)
 
         if (InputType::Exe == type)
         {
-            const std::string &input_file = g_options.input_file[idx];
-            const std::string config_file = get_config_file_name(input_file, g_options.config_file[idx]);
-            unassemblize::ExeSaveLoadOptions o(input_file, config_file);
-            o.print_secs = g_options.print_secs;
-            o.dump_syms = g_options.dump_syms;
-            o.verbose = g_options.verbose;
-            executable_pair[idx] = unassemblize::Runner::process_exe(o);
+            executable_pair[idx] = load_and_process_exe(g_options.input_file[idx], g_options.config_file[idx]);
             ok &= executable_pair[idx] != nullptr;
         }
         else if (InputType::Pdb == type)
         {
-            {
-                const std::string &input_file = g_options.input_file[idx];
-                const std::string config_file = get_config_file_name(input_file, g_options.config_file[idx]);
-                unassemblize::PdbSaveLoadOptions o(input_file, config_file);
-                o.dump_syms = g_options.dump_syms;
-                o.verbose = g_options.verbose;
-                pdb_reader_pair[idx] = unassemblize::Runner::process_pdb(o);
-                ok &= pdb_reader_pair[idx] != nullptr;
-            }
+            pdb_reader_pair[idx] = load_and_process_pdb(g_options.input_file[idx], g_options.config_file[idx]);
+            ok &= pdb_reader_pair[idx] != nullptr;
+
             if (ok)
             {
                 const unassemblize::PdbExeInfo &exe_info = pdb_reader_pair[idx]->get_exe_info();
                 const std::string input_file = unassemblize::Runner::create_exe_filename(exe_info);
-                const std::string config_file = get_config_file_name(input_file, g_options.config_file[idx]);
-                unassemblize::ExeSaveLoadOptions o(input_file, config_file);
-                o.pdb_reader = pdb_reader_pair[idx].get();
-                o.print_secs = g_options.print_secs;
-                o.dump_syms = g_options.dump_syms;
-                o.verbose = g_options.verbose;
-                executable_pair[idx] = unassemblize::Runner::process_exe(o);
+                executable_pair[idx] =
+                    load_and_process_exe(input_file, g_options.config_file[idx], pdb_reader_pair[idx].get());
                 ok &= executable_pair[idx] != nullptr;
             }
         }

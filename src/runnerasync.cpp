@@ -52,24 +52,6 @@ AsyncSavePdbConfigCommand::AsyncSavePdbConfigCommand(SavePdbConfigOptions &&o) :
     };
 };
 
-AsyncProcessExeCommand::AsyncProcessExeCommand(ExeSaveLoadOptions &&o) : options(std::move(o))
-{
-    WorkQueueCommand::work = [this]() {
-        auto result = std::make_unique<AsyncProcessExeResult>();
-        result->executable = Runner::process_exe(options);
-        return result;
-    };
-};
-
-AsyncProcessPdbCommand::AsyncProcessPdbCommand(PdbSaveLoadOptions &&o) : options(std::move(o))
-{
-    WorkQueueCommand::work = [this]() {
-        auto result = std::make_unique<AsyncProcessPdbResult>();
-        result->pdb_reader = Runner::process_pdb(options);
-        return result;
-    };
-};
-
 AsyncProcessAsmOutputCommand::AsyncProcessAsmOutputCommand(AsmOutputOptions &&o) : options(std::move(o))
 {
     WorkQueueCommand::work = [this]() {
