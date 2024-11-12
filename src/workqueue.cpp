@@ -32,7 +32,7 @@ void WorkQueue::stop(bool wait)
 {
     if (m_thread.joinable())
     {
-        m_commandQueue.enqueue(std::make_unique<WorkQueueCommandQuit>());
+        m_commandQueue.enqueue(std::make_unique<WorkQueueCommandQuit>(*this));
         if (wait)
             m_thread.join();
         else
@@ -93,51 +93,20 @@ void WorkQueue::ThreadRun()
         }
 
         assert(command != nullptr);
-        WorkQueueResultPtr result;
+        assert(bool(command->work));
 
         // #TODO: Spawn jobs for command to unclog the queue.
-        switch (command->type())
-        {
-            case WorkCommandType::Quit:
-                m_quit = true;
-                break;
-            case WorkCommandType::LoadExe:
-                result = ProcessCommand(static_cast<WorkQueueCommandLoadExe &>(*command));
-                break;
-            case WorkCommandType::LoadPdb:
-                result = ProcessCommand(static_cast<WorkQueueCommandLoadPdb &>(*command));
-                break;
-            case WorkCommandType::SaveExeConfig:
-                result = ProcessCommand(static_cast<WorkQueueCommandSaveExeConfig &>(*command));
-                break;
-            case WorkCommandType::SavePdbConfig:
-                result = ProcessCommand(static_cast<WorkQueueCommandSavePdbConfig &>(*command));
-                break;
-            case WorkCommandType::ProcessExe:
-                result = ProcessCommand(static_cast<WorkQueueCommandProcessExe &>(*command));
-                break;
-            case WorkCommandType::ProcessPdb:
-                result = ProcessCommand(static_cast<WorkQueueCommandProcessPdb &>(*command));
-                break;
-            case WorkCommandType::ProcessAsmOutput:
-                result = ProcessCommand(static_cast<WorkQueueCommandProcessAsmOutput &>(*command));
-                break;
-            case WorkCommandType::ProcessAsmComparison:
-                result = ProcessCommand(static_cast<WorkQueueCommandProcessAsmComparison &>(*command));
-                break;
-            default:
-                assert(false);
-                break;
-        }
+
+        WorkQueueResultPtr result = command->work();
 
         m_lastFinishedCommandId = command->command_id;
 
-        // Not all commands need to return a result.
+        // Commands do not have to return a result.
         if (result != nullptr)
         {
             result->command = std::move(command);
 
-            if (result->command->callback)
+            if (bool(result->command->callback))
             {
                 m_callbackQueue.enqueue(std::move(result));
             }
@@ -147,62 +116,6 @@ void WorkQueue::ThreadRun()
             }
         }
     }
-}
-
-WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandLoadExe &command)
-{
-    auto result = std::make_unique<WorkQueueResultLoadExe>();
-    result->executable = Runner::load_exe(command.options);
-    return result;
-}
-
-WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandLoadPdb &command)
-{
-    auto result = std::make_unique<WorkQueueResultLoadPdb>();
-    result->pdbReader = Runner::load_pdb(command.options);
-    return result;
-}
-
-WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandSaveExeConfig &command)
-{
-    auto result = std::make_unique<WorkQueueResultSaveExeConfig>();
-    result->success = Runner::save_exe_config(command.options);
-    return result;
-}
-
-WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandSavePdbConfig &command)
-{
-    auto result = std::make_unique<WorkQueueResultSavePdbConfig>();
-    result->success = Runner::save_pdb_config(command.options);
-    return result;
-}
-
-WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandProcessExe &command)
-{
-    auto result = std::make_unique<WorkQueueResultProcessExe>();
-    result->executable = Runner::process_exe(command.options);
-    return result;
-}
-
-WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandProcessPdb &command)
-{
-    auto result = std::make_unique<WorkQueueResultProcessPdb>();
-    result->pdb_reader = Runner::process_pdb(command.options);
-    return result;
-}
-
-WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandProcessAsmOutput &command)
-{
-    auto result = std::make_unique<WorkQueueResultProcessAsmOutput>();
-    result->success = Runner::process_asm_output(command.options);
-    return result;
-}
-
-WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandProcessAsmComparison &command)
-{
-    auto result = std::make_unique<WorkQueueResultProcessAsmComparison>();
-    result->success = Runner::process_asm_comparison(command.options);
-    return result;
 }
 
 } // namespace unassemblize

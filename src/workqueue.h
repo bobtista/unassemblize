@@ -22,20 +22,12 @@
 
 namespace unassemblize
 {
-enum class WorkCommandType
-{
-    Quit,
-    ProcessExe,
-    ProcessPdb,
-    ProcessAsmOutput,
-    ProcessAsmComparison,
-    LoadExe,
-    LoadPdb,
-    SaveExeConfig,
-    SavePdbConfig,
-};
-
+class WorkQueue;
+struct WorkQueueCommand;
 struct WorkQueueResult;
+struct WorkQueueCommandQuit;
+
+using WorkQueueCommandPtr = std::unique_ptr<WorkQueueCommand>;
 using WorkQueueResultPtr = std::unique_ptr<WorkQueueResult>;
 using WorkQueueCommandId = uint32_t;
 inline constexpr WorkQueueCommandId InvalidWorkQueueCommandId = WorkQueueCommandId(~0);
@@ -44,168 +36,35 @@ struct WorkQueueCommand
 {
     WorkQueueCommand() : command_id(s_id++) {}
     virtual ~WorkQueueCommand() = default;
-    virtual WorkCommandType type() const = 0;
+
+    // Mandatory function to perform any work for this command.
+    // Returns the result that is used for callback or polling.
+    std::function<WorkQueueResultPtr(void)> work;
 
     // Optional callback when the issued command has been completed.
     // This can be used to chain commands with lambda functions.
     // The result will not be pushed to the polling queue.
     std::function<void(WorkQueueResultPtr &result)> callback;
 
+    // Optional context. Can point to address or store an id.
+    // Necessary to identify when polling.
+    void *context = nullptr;
+
     const WorkQueueCommandId command_id;
     static WorkQueueCommandId s_id; // Not atomic, because intended to be created on single thread.
 };
-using WorkQueueCommandPtr = std::unique_ptr<WorkQueueCommand>;
-
-struct WorkQueueCommandQuit : public WorkQueueCommand
-{
-    virtual ~WorkQueueCommandQuit() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::Quit; };
-};
-
-struct WorkQueueCommandLoadExe : public WorkQueueCommand
-{
-    explicit WorkQueueCommandLoadExe(const std::string &input_file) : options(input_file){};
-
-    virtual ~WorkQueueCommandLoadExe() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::LoadExe; };
-
-    LoadExeOptions options;
-};
-
-struct WorkQueueCommandLoadPdb : public WorkQueueCommand
-{
-    explicit WorkQueueCommandLoadPdb(const std::string &input_file) : options(input_file){};
-
-    virtual ~WorkQueueCommandLoadPdb() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::LoadPdb; };
-
-    LoadPdbOptions options;
-};
-
-struct WorkQueueCommandSaveExeConfig : public WorkQueueCommand
-{
-    explicit WorkQueueCommandSaveExeConfig(const Executable *executable, const std::string &config_file) :
-        options(executable, config_file){};
-
-    virtual ~WorkQueueCommandSaveExeConfig() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::SaveExeConfig; };
-
-    SaveExeConfigOptions options;
-};
-
-struct WorkQueueCommandSavePdbConfig : public WorkQueueCommand
-{
-    explicit WorkQueueCommandSavePdbConfig(const PdbReader *pdb_reader, const std::string &config_file) :
-        options(pdb_reader, config_file){};
-
-    virtual ~WorkQueueCommandSavePdbConfig() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::SavePdbConfig; };
-
-    SavePdbConfigOptions options;
-};
-
-struct WorkQueueCommandProcessExe : public WorkQueueCommand
-{
-    virtual ~WorkQueueCommandProcessExe() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::ProcessExe; };
-
-    ExeSaveLoadOptions options;
-};
-
-struct WorkQueueCommandProcessPdb : public WorkQueueCommand
-{
-    virtual ~WorkQueueCommandProcessPdb() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::ProcessPdb; };
-
-    PdbSaveLoadOptions options;
-};
-
-struct WorkQueueCommandProcessAsmOutput : public WorkQueueCommand
-{
-    virtual ~WorkQueueCommandProcessAsmOutput() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::ProcessAsmOutput; };
-
-    AsmOutputOptions options;
-};
-
-struct WorkQueueCommandProcessAsmComparison : public WorkQueueCommand
-{
-    virtual ~WorkQueueCommandProcessAsmComparison() override = default;
-    virtual WorkCommandType type() const override { return WorkCommandType::ProcessAsmComparison; };
-
-    AsmComparisonOptions options;
-};
-
-// ...
 
 struct WorkQueueResult
 {
     virtual ~WorkQueueResult() = default;
-    WorkCommandType type() const { return command->type(); }
 
     WorkQueueCommandPtr command;
 };
 
-struct WorkQueueResultLoadExe : public WorkQueueResult
-{
-    virtual ~WorkQueueResultLoadExe() override = default;
-
-    std::unique_ptr<Executable> executable;
-};
-
-struct WorkQueueResultLoadPdb : public WorkQueueResult
-{
-    virtual ~WorkQueueResultLoadPdb() override = default;
-
-    std::unique_ptr<PdbReader> pdbReader;
-};
-
-struct WorkQueueResultSaveExeConfig : public WorkQueueResult
-{
-    virtual ~WorkQueueResultSaveExeConfig() override = default;
-
-    bool success;
-};
-
-struct WorkQueueResultSavePdbConfig : public WorkQueueResult
-{
-    virtual ~WorkQueueResultSavePdbConfig() override = default;
-
-    bool success;
-};
-
-struct WorkQueueResultProcessExe : public WorkQueueResult
-{
-    virtual ~WorkQueueResultProcessExe() override = default;
-
-    std::unique_ptr<Executable> executable;
-};
-
-struct WorkQueueResultProcessPdb : public WorkQueueResult
-{
-    virtual ~WorkQueueResultProcessPdb() override = default;
-
-    std::unique_ptr<PdbReader> pdb_reader;
-};
-
-struct WorkQueueResultProcessAsmOutput : public WorkQueueResult
-{
-    virtual ~WorkQueueResultProcessAsmOutput() override = default;
-
-    bool success;
-};
-
-struct WorkQueueResultProcessAsmComparison : public WorkQueueResult
-{
-    virtual ~WorkQueueResultProcessAsmComparison() override = default;
-
-    bool success;
-};
-
-// ...
-
 class WorkQueue
 {
+    friend class WorkQueueCommandQuit;
+
     template<typename T, size_t MAX_BLOCK_SIZE = 512>
     using ReaderWriterQueue = moodycamel::ReaderWriterQueue<T, MAX_BLOCK_SIZE>;
 
@@ -218,6 +77,7 @@ public:
 
     void start();
     void stop(bool wait);
+
     bool is_busy() const;
     bool is_quitting() const { return m_quit; }
 
@@ -233,16 +93,6 @@ private:
     static void ThreadFunction(WorkQueue *self);
     void ThreadRun();
 
-    // #TODO Split commands from this class
-    static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandLoadExe &command);
-    static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandLoadPdb &command);
-    static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandSaveExeConfig &command);
-    static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandSavePdbConfig &command);
-    static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandProcessExe &command);
-    static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandProcessPdb &command);
-    static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandProcessAsmOutput &command);
-    static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandProcessAsmComparison &command);
-
     BlockingReaderWriterQueue<WorkQueueCommandPtr, 32> m_commandQueue;
     ReaderWriterQueue<WorkQueueResultPtr, 32> m_pollingQueue;
     ReaderWriterQueue<WorkQueueResultPtr, 32> m_callbackQueue;
@@ -252,6 +102,21 @@ private:
     std::atomic<WorkQueueCommandId> m_lastFinishedCommandId = InvalidWorkQueueCommandId;
 
     volatile bool m_quit = false;
+};
+
+struct WorkQueueCommandQuit : public WorkQueueCommand
+{
+    WorkQueueCommandQuit(WorkQueue &owner_queue) : m_ownerQueue(owner_queue)
+    {
+        WorkQueueCommand::work = [this]() {
+            m_ownerQueue.m_quit = true;
+            return WorkQueueResultPtr();
+        };
+    }
+
+    virtual ~WorkQueueCommandQuit() override = default;
+
+    WorkQueue &m_ownerQueue;
 };
 
 } // namespace unassemblize

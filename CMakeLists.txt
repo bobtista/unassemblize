@@ -132,6 +132,8 @@ target_sources(unassemblize PRIVATE
     src/pdbreadertypes.h
     src/runner.cpp
     src/runner.h
+    src/runnerasync.cpp
+    src/runnerasync.h
     src/util.cpp
     src/util.h
     src/version.cpp

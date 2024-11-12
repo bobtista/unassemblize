@@ -270,12 +270,12 @@ void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
     }
 
     const std::string exe_filename = descriptor->evaluate_exe_filename();
-    auto command = std::make_unique<WorkQueueCommandLoadExe>(exe_filename);
+    auto command = std::make_unique<AsyncLoadExeCommand>(LoadExeOptions(exe_filename));
+
     command->options.config_file = descriptor->evaluate_exe_config_filename();
     command->options.pdb_reader = descriptor->pdbReader.get();
     command->callback = [descriptor](WorkQueueResultPtr &result) {
-        assert(result->type() == WorkCommandType::LoadExe);
-        auto res = static_cast<WorkQueueResultLoadExe *>(result.get());
+        auto res = static_cast<AsyncLoadExeResult *>(result.get());
         descriptor->executable = std::move(res->executable);
         descriptor->invalidate_command_id();
         result.reset();
@@ -290,10 +290,10 @@ void ImGuiApp::load_pdb_async(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor->can_load_pdb());
 
-    auto command = std::make_unique<WorkQueueCommandLoadPdb>(descriptor->pdbFilename);
+    auto command = std::make_unique<AsyncLoadPdbCommand>(LoadPdbOptions(descriptor->pdbFilename));
+
     command->callback = [this, descriptor](WorkQueueResultPtr &result) {
-        assert(result->type() == WorkCommandType::LoadPdb);
-        auto res = static_cast<WorkQueueResultLoadPdb *>(result.get());
+        auto res = static_cast<AsyncLoadPdbResult *>(result.get());
         descriptor->pdbReader = std::move(res->pdbReader);
         result.reset();
 
@@ -341,10 +341,11 @@ void ImGuiApp::save_exe_config_async(ProgramFileDescriptor *descriptor)
     assert(descriptor->can_save_exe_config());
 
     const std::string config_filename = descriptor->evaluate_exe_config_filename();
-    auto command = std::make_unique<WorkQueueCommandSaveExeConfig>(descriptor->executable.get(), config_filename);
+    auto command =
+        std::make_unique<AsyncSaveExeConfigCommand>(SaveExeConfigOptions(descriptor->executable.get(), config_filename));
+
     command->callback = [descriptor](WorkQueueResultPtr &result) {
-        assert(result->type() == WorkCommandType::SaveExeConfig);
-        auto res = static_cast<WorkQueueResultSaveExeConfig *>(result.get());
+        auto res = static_cast<AsyncSaveExeConfigResult *>(result.get());
         // #TODO: Use result.
         descriptor->invalidate_command_id();
         result.reset();
@@ -359,10 +360,11 @@ void ImGuiApp::save_pdb_config_async(ProgramFileDescriptor *descriptor)
     assert(descriptor->can_save_pdb_config());
 
     const std::string config_filename = descriptor->evaluate_pdb_config_filename();
-    auto command = std::make_unique<WorkQueueCommandSavePdbConfig>(descriptor->pdbReader.get(), config_filename);
+    auto command =
+        std::make_unique<AsyncSavePdbConfigCommand>(SavePdbConfigOptions(descriptor->pdbReader.get(), config_filename));
+
     command->callback = [this, descriptor](WorkQueueResultPtr &result) {
-        assert(result->type() == WorkCommandType::SavePdbConfig);
-        auto res = static_cast<WorkQueueResultSavePdbConfig *>(result.get());
+        auto res = static_cast<AsyncSavePdbConfigResult *>(result.get());
         // #TODO: Use result.
         result.reset();
 
