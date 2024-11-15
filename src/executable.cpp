@@ -135,7 +135,7 @@ bool Executable::read(const std::string &exe_file)
     if (m_targetObjects.empty())
     {
         m_targetObjects.push_back(
-            {m_binary->name().substr(m_binary->name().find_last_of("/\\") + 1), std::list<ExeObjectSection>()});
+            {m_binary->name().substr(m_binary->name().find_last_of("/\\") + 1), std::vector<ExeObjectSection>()});
         ExeObject &obj = m_targetObjects.back();
 
         for (auto it = m_binary->sections().begin(); it != m_binary->sections().end(); ++it)
@@ -565,7 +565,7 @@ void Executable::load_objects(nlohmann::json &js)
             }
         }
 
-        m_targetObjects.push_back({obj_name, std::list<ExeObjectSection>()});
+        m_targetObjects.push_back({obj_name, std::vector<ExeObjectSection>()});
         ExeObject &obj = m_targetObjects.back();
         auto &sections = js.back().at("sections");
 
