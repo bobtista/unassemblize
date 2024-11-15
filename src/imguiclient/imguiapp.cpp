@@ -278,12 +278,11 @@ void ImGuiApp::load_pdb_async(ProgramFileDescriptor *descriptor)
             if (descriptor->can_load_exe())
             {
                 load_exe_async(descriptor);
+                return;
             }
         }
-        else
-        {
-            descriptor->invalidate_command_id();
-        }
+
+        descriptor->invalidate_command_id();
     };
 
     descriptor->pdbSymbolsDescriptor.reset();
@@ -347,11 +346,10 @@ void ImGuiApp::save_pdb_config_async(ProgramFileDescriptor *descriptor)
             // Chain save next config file when this one is done,
             // because config file contents can be saved into the same file.
             save_exe_config_async(descriptor);
+            return;
         }
-        else
-        {
-            descriptor->invalidate_command_id();
-        }
+
+        descriptor->invalidate_command_id();
     };
 
     descriptor->activeCommandId = command->command_id;
