@@ -34,6 +34,7 @@ void TextUnformatted(std::string_view view);
 void TooltipText(const char *fmt, ...);
 void TooltipTextV(const char *fmt, va_list args);
 void TooltipTextUnformatted(const char *text, const char *text_end = nullptr);
+void TooltipTextUnformatted(std::string_view view);
 void TooltipTextMarker(const char *fmt, ...);
 void TooltipTextUnformattedMarker(const char *text, const char *text_end = nullptr);
 

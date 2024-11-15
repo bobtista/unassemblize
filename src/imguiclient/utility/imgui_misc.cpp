@@ -55,6 +55,11 @@ void TooltipTextUnformatted(const char *text, const char *text_end)
     }
 }
 
+void TooltipTextUnformatted(std::string_view view)
+{
+    TooltipTextUnformatted(view.data(), view.data() + view.size());
+}
+
 void TooltipTextMarker(const char *fmt, ...)
 {
     ImGui::TextDisabled("(?)");

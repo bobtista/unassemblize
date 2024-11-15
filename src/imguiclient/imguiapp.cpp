@@ -215,50 +215,6 @@ void ImGuiApp::update_app()
         AsmComparisonManagerWindow(&m_showAsmComparisonManager);
 }
 
-void ImGuiApp::BackgroundWindow()
-{
-    // clang-format off
-    const int flags =
-        ImGuiWindowFlags_NoDecoration |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoBackground |
-        ImGuiWindowFlags_MenuBar |
-        ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoDocking;
-    // clang-format on
-
-    bool open = true;
-    ImGui::Begin("main", &open, flags);
-    ImGui::SetWindowPos("main", m_windowPos);
-    ImGui::SetWindowSize("main", ImVec2(m_windowSize.x, 0.f));
-
-    if (ImGui::BeginMenuBar())
-    {
-        if (ImGui::BeginMenu("File"))
-        {
-            if (ImGui::MenuItem("Exit"))
-            {
-                // Will wait for all work to finish and then shutdown the app.
-                prepare_shutdown_nowait();
-            }
-            ImGui::SameLine();
-            TooltipTextUnformattedMarker("Graceful shutdown. Finishes all tasks before exiting.");
-            ImGui::EndMenu();
-        }
-
-        if (ImGui::BeginMenu("Tools"))
-        {
-            ImGui::MenuItem("Program File Manager", nullptr, &m_showFileManager);
-            ImGui::MenuItem("Assembler Output", nullptr, &m_showAsmOutputManager);
-            ImGui::MenuItem("Assembler Comparison", nullptr, &m_showAsmComparisonManager);
-            ImGui::EndMenu();
-        }
-        ImGui::EndMenuBar();
-    }
-
-    ImGui::End();
-}
-
 void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 {
     if (descriptor->can_load_pdb())
@@ -432,6 +388,50 @@ std::string ImGuiApp::create_section_string(uint32_t section_index, const ExeSec
     }
 }
 
+void ImGuiApp::BackgroundWindow()
+{
+    // clang-format off
+    const int flags =
+        ImGuiWindowFlags_NoDecoration |
+        ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBackground |
+        ImGuiWindowFlags_MenuBar |
+        ImGuiWindowFlags_NoBringToFrontOnFocus |
+        ImGuiWindowFlags_NoDocking;
+    // clang-format on
+
+    bool open = true;
+    ImGui::Begin("main", &open, flags);
+    ImGui::SetWindowPos("main", m_windowPos);
+    ImGui::SetWindowSize("main", ImVec2(m_windowSize.x, 0.f));
+
+    if (ImGui::BeginMenuBar())
+    {
+        if (ImGui::BeginMenu("File"))
+        {
+            if (ImGui::MenuItem("Exit"))
+            {
+                // Will wait for all work to finish and then shutdown the app.
+                prepare_shutdown_nowait();
+            }
+            ImGui::SameLine();
+            TooltipTextUnformattedMarker("Graceful shutdown. Finishes all tasks before exiting.");
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Tools"))
+        {
+            ImGui::MenuItem("Program File Manager", nullptr, &m_showFileManager);
+            ImGui::MenuItem("Assembler Output", nullptr, &m_showAsmOutputManager);
+            ImGui::MenuItem("Assembler Comparison", nullptr, &m_showAsmComparisonManager);
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
+
+    ImGui::End();
+}
+
 void ImGuiApp::FileManagerWindow(bool *p_open)
 {
     ImGui::Begin("File Manager", p_open, ImGuiWindowFlags_MenuBar);
@@ -515,18 +515,19 @@ void ImGuiApp::FileManagerBody()
 
             bool is_open = false;
 
+            const std::string exe_name = descriptor.create_short_exe_name();
             std::string title;
-            {
-                const std::string exe_name = descriptor.create_short_exe_name();
-                if (exe_name.empty())
-                    title = fmt::format("File {:02d}", i);
-                else
-                    title = fmt::format("File {:02d} - {:s}", i, exe_name);
-            }
+            // Tab items cannot have dynamic labels without bugs. Force consistent names.
+            if (exe_name.empty() || m_showFileManagerWithTabs)
+                title = fmt::format("File {:02d}", i);
+            else
+                title = fmt::format("File {:02d} - {:s}", i, exe_name);
 
             if (m_showFileManagerWithTabs)
             {
                 is_open = ImGui::BeginTabItem(title.c_str());
+                // Tooltip on hover tab
+                TooltipTextUnformatted(exe_name);
             }
             else
             {
