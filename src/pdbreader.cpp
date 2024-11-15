@@ -42,7 +42,7 @@ bool PdbReader::load(const std::string &pdb_filename)
 
     bool success = false;
 
-    const std::string full_path = std::filesystem::absolute(pdb_filename).string();
+    const std::string full_path = util::abs_path(pdb_filename);
 
 #ifdef PDB_READER_WIN32
     if (load_dia(full_path))

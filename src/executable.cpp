@@ -11,6 +11,7 @@
  *            LICENSE
  */
 #include "executable.h"
+#include "util.h"
 #include <LIEF/LIEF.hpp>
 #include <filesystem>
 #include <fstream>
@@ -43,7 +44,7 @@ bool Executable::load(const std::string &exe_filename)
         printf("Loading section info...\n");
     }
 
-    const std::string full_path = std::filesystem::absolute(exe_filename).string();
+    const std::string full_path = util::abs_path(exe_filename);
 
     m_binary = LIEF::Parser::parse(full_path);
 

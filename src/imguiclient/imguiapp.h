@@ -19,6 +19,7 @@
 #include "utility/imgui_text_filter.h"
 #include "utility/imgui_misc.h"
 #include "runnerasync.h"
+#include <chrono>
 
 struct CommandLineOptions;
 
@@ -45,6 +46,8 @@ class ImGuiApp
         ImGuiTableFlags_ScrollX |
         ImGuiTableFlags_ScrollY;
     // clang-format on
+
+    static constexpr std::chrono::system_clock::time_point InvalidTimePoint = std::chrono::system_clock::time_point::min();
 
     struct ProgramFileDescriptor
     {
@@ -83,6 +86,13 @@ class ImGuiApp
         std::unique_ptr<Executable> executable;
         std::unique_ptr<PdbReader> pdbReader;
         std::string exeFilenameFromPdb;
+        std::string exeSaveConfigFilename;
+        std::string pdbSaveConfigFilename;
+
+        std::chrono::time_point<std::chrono::system_clock> exeLoadTimepoint = InvalidTimePoint;
+        std::chrono::time_point<std::chrono::system_clock> exeSaveConfigTimepoint = InvalidTimePoint;
+        std::chrono::time_point<std::chrono::system_clock> pdbLoadTimepoint = InvalidTimePoint;
+        std::chrono::time_point<std::chrono::system_clock> pdbSaveConfigTimepoint = InvalidTimePoint;
     };
     using ProgramFileDescriptorPtr = std::unique_ptr<ProgramFileDescriptor>;
 
@@ -119,6 +129,7 @@ private:
     void remove_all_files();
 
     static std::string create_section_string(uint32_t section_index, const ExeSections *sections);
+    static std::string create_time_string(std::chrono::time_point<std::chrono::system_clock> time_point);
 
     void BackgroundWindow();
     void FileManagerWindow(bool *p_open);

@@ -248,12 +248,16 @@ void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
     command->callback = [descriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncLoadExeResult *>(result.get());
         descriptor->executable = std::move(res->executable);
+        descriptor->exeLoadTimepoint = std::chrono::system_clock::now();
         descriptor->invalidate_command_id();
         result.reset();
     };
 
     descriptor->exeSymbolsDescriptor.reset();
     descriptor->executable.reset();
+    descriptor->exeLoadTimepoint = InvalidTimePoint;
+    descriptor->exeSaveConfigFilename.clear();
+    descriptor->exeSaveConfigTimepoint = InvalidTimePoint;
     descriptor->activeCommandId = command->command_id;
     m_workQueue.enqueue(std::move(command));
 }
@@ -267,6 +271,7 @@ void ImGuiApp::load_pdb_async(ProgramFileDescriptor *descriptor)
     command->callback = [this, descriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncLoadPdbResult *>(result.get());
         descriptor->pdbReader = std::move(res->pdbReader);
+        descriptor->pdbLoadTimepoint = std::chrono::system_clock::now();
         result.reset();
 
         if (descriptor->pdbReader != nullptr)
@@ -288,6 +293,9 @@ void ImGuiApp::load_pdb_async(ProgramFileDescriptor *descriptor)
     descriptor->pdbSymbolsDescriptor.reset();
     descriptor->pdbFunctionsDescriptor.reset();
     descriptor->pdbReader.reset();
+    descriptor->pdbLoadTimepoint = InvalidTimePoint;
+    descriptor->pdbSaveConfigFilename.clear();
+    descriptor->pdbSaveConfigTimepoint = InvalidTimePoint;
     descriptor->exeFilenameFromPdb.clear();
     descriptor->activeCommandId = command->command_id;
     m_workQueue.enqueue(std::move(command));
@@ -319,11 +327,18 @@ void ImGuiApp::save_exe_config_async(ProgramFileDescriptor *descriptor)
 
     command->callback = [descriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSaveExeConfigResult *>(result.get());
-        // #TODO: Use result.
+        if (res->success)
+        {
+            auto com = static_cast<AsyncSaveExeConfigCommand *>(result->command.get());
+            descriptor->exeSaveConfigFilename = util::abs_path(com->options.config_file);
+            descriptor->exeSaveConfigTimepoint = std::chrono::system_clock::now();
+        }
         descriptor->invalidate_command_id();
         result.reset();
     };
 
+    descriptor->exeSaveConfigFilename.clear();
+    descriptor->exeSaveConfigTimepoint = InvalidTimePoint;
     descriptor->activeCommandId = command->command_id;
     m_workQueue.enqueue(std::move(command));
 }
@@ -338,7 +353,12 @@ void ImGuiApp::save_pdb_config_async(ProgramFileDescriptor *descriptor)
 
     command->callback = [this, descriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSavePdbConfigResult *>(result.get());
-        // #TODO: Use result.
+        if (res->success)
+        {
+            auto com = static_cast<AsyncSavePdbConfigCommand *>(result->command.get());
+            descriptor->pdbSaveConfigFilename = util::abs_path(com->options.config_file);
+            descriptor->pdbSaveConfigTimepoint = std::chrono::system_clock::now();
+        }
         result.reset();
 
         if (descriptor->can_save_exe_config())
@@ -352,6 +372,8 @@ void ImGuiApp::save_pdb_config_async(ProgramFileDescriptor *descriptor)
         descriptor->invalidate_command_id();
     };
 
+    descriptor->pdbSaveConfigFilename.clear();
+    descriptor->pdbSaveConfigTimepoint = InvalidTimePoint;
     descriptor->activeCommandId = command->command_id;
     m_workQueue.enqueue(std::move(command));
 }
@@ -384,6 +406,21 @@ std::string ImGuiApp::create_section_string(uint32_t section_index, const ExeSec
     {
         return fmt::format("{:d}", section_index + 1);
     }
+}
+
+std::string ImGuiApp::create_time_string(std::chrono::time_point<std::chrono::system_clock> time_point)
+{
+    if (time_point == InvalidTimePoint)
+        return std::string();
+
+    std::time_t time = std::chrono::system_clock::to_time_t(time_point);
+    std::tm *local_time = std::localtime(&time);
+
+    char buffer[32];
+    if (0 == std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", local_time))
+        return std::string();
+
+    return std::string(buffer);
 }
 
 void ImGuiApp::BackgroundWindow()
@@ -596,12 +633,34 @@ void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, size_t i
     if (descriptor.executable != nullptr)
     {
         DrawInTextCircle(green);
-        ImGui::Text(" Loaded Exe: %s", descriptor.executable->get_filename().c_str());
+        ImGui::Text(
+            " Loaded Exe: [%s] %s",
+            create_time_string(descriptor.exeLoadTimepoint).c_str(),
+            descriptor.executable->get_filename().c_str());
     }
     if (descriptor.pdbReader != nullptr)
     {
         DrawInTextCircle(green);
-        ImGui::Text(" Loaded Pdb: %s", descriptor.pdbReader->get_filename().c_str());
+        ImGui::Text(
+            " Loaded Pdb: [%s] %s",
+            create_time_string(descriptor.pdbLoadTimepoint).c_str(),
+            descriptor.pdbReader->get_filename().c_str());
+    }
+    if (descriptor.exeSaveConfigTimepoint != InvalidTimePoint)
+    {
+        DrawInTextCircle(green);
+        ImGui::Text(
+            " Saved Exe Config: [%s] %s",
+            create_time_string(descriptor.exeSaveConfigTimepoint).c_str(),
+            descriptor.exeSaveConfigFilename.c_str());
+    }
+    if (descriptor.pdbSaveConfigTimepoint != InvalidTimePoint)
+    {
+        DrawInTextCircle(green);
+        ImGui::Text(
+            " Saved Pdb Config: [%s] %s",
+            create_time_string(descriptor.pdbSaveConfigTimepoint).c_str(),
+            descriptor.pdbSaveConfigFilename.c_str());
     }
 
     // Draw some details

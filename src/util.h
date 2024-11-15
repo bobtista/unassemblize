@@ -26,6 +26,7 @@ void strip_inplace(std::string &str, std::string_view chars);
 std::string strip(const std::string &str, std::string_view chars);
 std::string get_file_ext(const std::string &file_name);
 std::string to_hex_string(const std::vector<uint8_t> &data);
+std::string abs_path(const std::string &path);
 
 constexpr char to_lower(char c)
 {

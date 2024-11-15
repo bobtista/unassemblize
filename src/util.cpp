@@ -15,6 +15,7 @@
 
 #include "util.h"
 #include <codecvt>
+#include <filesystem>
 
 namespace util
 {
@@ -81,6 +82,11 @@ std::string to_hex_string(const std::vector<uint8_t> &data)
     }
 
     return str;
+}
+
+std::string abs_path(const std::string &path)
+{
+    return std::filesystem::absolute(path).string();
 }
 
 } // namespace util
