@@ -144,7 +144,11 @@ target_sources(unassemblize PRIVATE
     src/imguiclient/imguiapp.h
     src/imguiclient/imguiwin32.cpp
     src/imguiclient/imguiwin32.h
+    src/imguiclient/utility/imgui_misc.cpp
+    src/imguiclient/utility/imgui_misc.h
     src/imguiclient/utility/imgui_scoped.h
+    src/imguiclient/utility/imgui_text_filter.cpp
+    src/imguiclient/utility/imgui_text_filter.h
 )
 
 target_link_libraries(unassemblize PRIVATE

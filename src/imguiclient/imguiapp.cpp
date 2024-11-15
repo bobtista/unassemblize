@@ -14,23 +14,12 @@
 #include "options.h"
 #include "util.h"
 #include "utility/imgui_scoped.h"
-#include <ImGuiFileDialog.h>
 #include <filesystem>
 #include <fmt/core.h>
 #include <misc/cpp/imgui_stdlib.h>
 
 namespace unassemblize::gui
 {
-bool ImGuiTextFilterEx::Draw(const char *key, const char *label, float width)
-{
-    return ImGuiTextFilter::Draw(fmt::format("{:s}##{:s}", label, key).c_str(), width);
-}
-
-bool ImGuiTextFilterEx::PassFilter(std::string_view view) const
-{
-    return ImGuiTextFilter::PassFilter(view.data(), view.data() + view.size());
-}
-
 void ImGuiApp::ProgramFileDescriptor::invalidate_command_id()
 {
     activeCommandId = InvalidWorkQueueCommandId;
@@ -214,7 +203,20 @@ ImGuiStatus ImGuiApp::update()
 
 void ImGuiApp::update_app()
 {
-    bool open = true;
+    BackgroundWindow();
+
+    if (m_showFileManager)
+        FileManagerWindow(&m_showFileManager);
+
+    if (m_showAsmOutputManager)
+        AsmOutputManagerWindow(&m_showAsmOutputManager);
+
+    if (m_showAsmComparisonManager)
+        AsmComparisonManagerWindow(&m_showAsmComparisonManager);
+}
+
+void ImGuiApp::BackgroundWindow()
+{
     // clang-format off
     const int flags =
         ImGuiWindowFlags_NoDecoration |
@@ -224,6 +226,8 @@ void ImGuiApp::update_app()
         ImGuiWindowFlags_NoBringToFrontOnFocus |
         ImGuiWindowFlags_NoDocking;
     // clang-format on
+
+    bool open = true;
     ImGui::Begin("main", &open, flags);
     ImGui::SetWindowPos("main", m_windowPos);
     ImGui::SetWindowSize("main", ImVec2(m_windowSize.x, 0.f));
@@ -251,15 +255,6 @@ void ImGuiApp::update_app()
         }
         ImGui::EndMenuBar();
     }
-
-    if (m_showFileManager)
-        FileManagerWindow(&m_showFileManager);
-
-    if (m_showAsmOutputManager)
-        AsmOutputManagerWindow(&m_showAsmOutputManager);
-
-    if (m_showAsmComparisonManager)
-        AsmComparisonManagerWindow(&m_showAsmComparisonManager);
 
     ImGui::End();
 }
@@ -434,189 +429,6 @@ std::string ImGuiApp::create_section_string(uint32_t section_index, const ExeSec
     else
     {
         return fmt::format("{:d}", section_index + 1);
-    }
-}
-
-void ImGuiApp::TextUnformatted(std::string_view view)
-{
-    ImGui::TextUnformatted(view.data(), view.data() + view.size());
-}
-
-void ImGuiApp::TooltipText(const char *fmt, ...)
-{
-    va_list args;
-    va_start(args, fmt);
-    TooltipTextV(fmt, args);
-    va_end(args);
-}
-
-void ImGuiApp::TooltipTextV(const char *fmt, va_list args)
-{
-    if (ImGui::BeginItemTooltip())
-    {
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-        ImGui::TextV(fmt, args);
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
-}
-
-void ImGuiApp::TooltipTextUnformatted(const char *text, const char *text_end)
-{
-    if (ImGui::BeginItemTooltip())
-    {
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
-        ImGui::TextUnformatted(text, text_end);
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
-}
-
-void ImGuiApp::TooltipTextMarker(const char *fmt, ...)
-{
-    ImGui::TextDisabled("(?)");
-    va_list args;
-    va_start(args, fmt);
-    TooltipTextV(fmt, args);
-    va_end(args);
-}
-
-void ImGuiApp::TooltipTextUnformattedMarker(const char *text, const char *text_end)
-{
-    ImGui::TextDisabled("(?)");
-    TooltipTextUnformatted(text, text_end);
-}
-
-void ImGuiApp::OverlayProgressBar(const ImRect &rect, float fraction, const char *overlay)
-{
-    ImDrawList *drawList = ImGui::GetWindowDrawList();
-
-    // Define a translucent overlay color
-    const ImVec4 dimBgVec4 = ImGui::GetStyleColorVec4(ImGuiCol_ModalWindowDimBg);
-    const ImU32 dimBgU32 = ImGui::ColorConvertFloat4ToU32(dimBgVec4);
-
-    // Draw a filled rectangle over the group area
-    drawList->AddRectFilled(rect.Min, rect.Max, dimBgU32);
-
-    // Calculate the center position for the ImGui ProgressBar
-    ImVec2 center = ImVec2((rect.Min.x + rect.Max.x) * 0.5f, (rect.Min.y + rect.Max.y) * 0.5f);
-    ImVec2 progressBarSize = ImVec2(rect.Max.x - rect.Min.x, 20.0f);
-
-    // Set cursor position to the center of the overlay rectangle
-    ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
-    ImGui::SetCursorScreenPos(ImVec2(center.x - progressBarSize.x * 0.5f, center.y - progressBarSize.y * 0.5f));
-
-    {
-        // Set a custom background color with transparency
-        ImScoped::StyleColor frameBg(ImGuiCol_FrameBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
-
-        // Render the ImGui progress bar
-        ImGui::ProgressBar(fraction, progressBarSize, overlay);
-    }
-
-    // Set cursor position back
-    ImGui::SetCursorScreenPos(cursorScreenPos);
-}
-
-void ImGuiApp::DrawInTextCircle(ImU32 color)
-{
-    const ImVec2 pos = ImGui::GetCursorScreenPos();
-    const ImVec2 font_size = ImGui::CalcTextSize("a");
-    const float x_radius = font_size.x * 0.5f;
-    const float y_radius = font_size.y * 0.5f;
-    ImDrawList *draw_list = ImGui::GetWindowDrawList();
-    draw_list->AddCircleFilled(ImVec2(pos.x + x_radius, pos.y + y_radius), x_radius, color, 0);
-    ImGui::SetCursorScreenPos(ImVec2(pos.x + font_size.x, pos.y));
-}
-
-ImVec2 ImGuiApp::OuterSizeForTable(size_t show_table_len, size_t table_len)
-{
-    return ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * std::min<size_t>(show_table_len, table_len));
-}
-
-template<typename Container, typename Type, typename Predicate>
-void ImGuiApp::UpdateFilter(
-    ImVector<Type> &filtered, const ImGuiTextFilterEx &filter, const Container &source, Predicate condition)
-{
-    if (filter.IsActive())
-    {
-        const size_t size = source.size();
-        filtered.clear();
-        filtered.reserve(size);
-        for (size_t i = 0; i < size; ++i)
-            if (condition(filter, source[i]))
-                filtered.push_back(&source[i]);
-    }
-    else
-    {
-        const size_t size = source.size();
-        filtered.resize(size);
-        for (size_t i = 0; i < size; ++i)
-            filtered[i] = &source[i];
-    }
-}
-
-template<typename Container, typename Descriptor, typename Predicate>
-void ImGuiApp::UpdateFilter(Descriptor &descriptor, const Container &source, Predicate condition)
-{
-    if (descriptor.filter.Draw(descriptor.key) || !descriptor.filteredOnce)
-    {
-        UpdateFilter(descriptor.filtered, descriptor.filter, source, condition);
-        descriptor.filteredOnce = true;
-    }
-}
-
-void ImGuiApp::ApplyPlacementToNextWindow(WindowPlacement &placement)
-{
-    if (placement.pos.x != -FLT_MAX)
-    {
-        ImGui::SetNextWindowPos(placement.pos, ImGuiCond_Always);
-        ImGui::SetNextWindowSize(placement.size, ImGuiCond_Always);
-    }
-}
-
-void ImGuiApp::FetchPlacementFromWindowByName(WindowPlacement &placement, const char *window_name)
-{
-    // Note: Is using internals of ImGui.
-    if (const ImGuiWindow *window = ImGui::FindWindowByName(window_name))
-    {
-        placement.pos = window->Pos;
-        placement.size = window->Size;
-    }
-}
-
-void ImGuiApp::AddFileDialogButton(
-    std::string *filePathName,
-    std::string_view button_label,
-    const std::string &vKey,
-    const std::string &vTitle,
-    const char *vFilters)
-{
-    IGFD::FileDialog *instance = ImGuiFileDialog::Instance();
-
-    const std::string button_label_key = fmt::format("{:s}##{:s}", button_label, vKey);
-    if (ImGui::Button(button_label_key.c_str()))
-    {
-        // Restore position and size of any last file dialog.
-        ApplyPlacementToNextWindow(m_lastFileDialogPlacement);
-
-        IGFD::FileDialogConfig config;
-        config.path = ".";
-        config.flags = ImGuiFileDialogFlags_Modal;
-        instance->OpenDialog(vKey, vTitle, vFilters, config);
-    }
-
-    if (instance->Display(vKey, ImGuiWindowFlags_NoCollapse, ImVec2(400, 200)))
-    {
-        // Note: Is using internals of ImGuiFileDialog
-        const std::string window_name = vTitle + "##" + vKey;
-        FetchPlacementFromWindowByName(m_lastFileDialogPlacement, window_name.c_str());
-
-        if (instance->IsOk())
-        {
-            *filePathName = instance->GetFilePathName();
-        }
-        instance->Close();
     }
 }
 

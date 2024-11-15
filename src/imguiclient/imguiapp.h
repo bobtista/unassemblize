@@ -16,6 +16,8 @@
 #include <imgui_internal.h>
 #include <imgui.h>
 // clang-format on
+#include "utility/imgui_text_filter.h"
+#include "utility/imgui_misc.h"
 #include "runnerasync.h"
 
 struct CommandLineOptions;
@@ -26,12 +28,6 @@ enum class ImGuiStatus
 {
     Ok,
     Error,
-};
-
-struct ImGuiTextFilterEx : public ImGuiTextFilter
-{
-    bool Draw(const char *key, const char *label = "Filter (inc,-exc)", float width = 0.0f);
-    bool PassFilter(std::string_view view) const;
 };
 
 class ImGuiApp
@@ -49,25 +45,6 @@ class ImGuiApp
         ImGuiTableFlags_ScrollX |
         ImGuiTableFlags_ScrollY;
     // clang-format on
-
-    template<typename Type>
-    struct TextFilterDescriptor
-    {
-        using FilterType = Type;
-
-        TextFilterDescriptor(const char *key) : key(key) {}
-
-        void reset()
-        {
-            filtered.clear();
-            filteredOnce = false;
-        }
-
-        const char *const key;
-        ImGuiTextFilterEx filter;
-        ImVector<FilterType> filtered;
-        bool filteredOnce = false;
-    };
 
     struct ProgramFileDescriptor
     {
@@ -109,12 +86,6 @@ class ImGuiApp
     };
     using ProgramFileDescriptorPtr = std::unique_ptr<ProgramFileDescriptor>;
 
-    struct WindowPlacement
-    {
-        ImVec2 pos = ImVec2(-FLT_MAX, -FLT_MAX);
-        ImVec2 size = ImVec2(-FLT_MAX, -FLT_MAX);
-    };
-
 public:
     ImGuiApp() = default;
     ~ImGuiApp() = default;
@@ -149,41 +120,7 @@ private:
 
     static std::string create_section_string(uint32_t section_index, const ExeSections *sections);
 
-    static void TextUnformatted(std::string_view view);
-
-    static void TooltipText(const char *fmt, ...);
-    static void TooltipTextV(const char *fmt, va_list args);
-    static void TooltipTextUnformatted(const char *text, const char *text_end = nullptr);
-    static void TooltipTextMarker(const char *fmt, ...);
-    static void TooltipTextUnformattedMarker(const char *text, const char *text_end = nullptr);
-
-    static void OverlayProgressBar(const ImRect &rect, float fraction, const char *overlay = nullptr);
-
-    static void DrawInTextCircle(ImU32 color);
-
-    static ImVec2 OuterSizeForTable(size_t show_table_len, size_t table_len);
-
-    /*
-     * Predicate
-     *   Arguments: const ImGuiTextFilterEx &filter, const Container::value_type &value
-     *   Return: bool
-     */
-    template<typename Container, typename Type = typename Container::value_type *, typename Predicate>
-    void UpdateFilter(
-        ImVector<Type> &filtered, const ImGuiTextFilterEx &filter, const Container &source, Predicate condition);
-    template<typename Container, typename Descriptor, typename Predicate>
-    void UpdateFilter(Descriptor &descriptor, const Container &source, Predicate condition);
-
-    static void ApplyPlacementToNextWindow(WindowPlacement &placement);
-    static void FetchPlacementFromWindowByName(WindowPlacement &placement, const char *window_name);
-
-    void AddFileDialogButton(
-        std::string *filePathName,
-        std::string_view button_label,
-        const std::string &vKey,
-        const std::string &vTitle,
-        const char *vFilters);
-
+    void BackgroundWindow();
     void FileManagerWindow(bool *p_open);
     void AsmOutputManagerWindow(bool *p_open);
     void AsmComparisonManagerWindow(bool *p_open);
@@ -226,8 +163,6 @@ private:
 
     bool m_showAsmOutputManager = true;
     bool m_showAsmComparisonManager = true;
-
-    WindowPlacement m_lastFileDialogPlacement; // #TODO: Save this in a Json config file and restore on boot.
 
     WorkQueue m_workQueue;
 
