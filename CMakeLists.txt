@@ -30,31 +30,37 @@ endif()
 
 include(FetchContent)
 
-# TODO: How can we move this to 3rdparty without error?
+# Configure Zydis options before declaring
+set(ZYDIS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(ZYDIS_FEATURE_ENCODER OFF CACHE BOOL "" FORCE)
+
+# Configure LIEF options before declaring
+set(LIEF_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(LIEF_INSTALL OFF CACHE BOOL "" FORCE)
+set(LIEF_C_API OFF CACHE BOOL "" FORCE)
+set(LIEF_PYTHON_API OFF CACHE BOOL "" FORCE)
+set(LIEF_TESTS OFF CACHE BOOL "" FORCE)
+set(LIEF_ART OFF CACHE BOOL "" FORCE)
+set(LIEF_DEX OFF CACHE BOOL "" FORCE)
+set(LIEF_VDEX OFF CACHE BOOL "" FORCE)
+
+# Declare dependencies
 FetchContent_Declare(
     zydis
     GIT_REPOSITORY https://github.com/zyantific/zydis.git
     GIT_TAG        1ba75aeefae37094c7be8eba07ff81d4fe0f1f20
+    SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/zydis
 )
-set(ZYDIS_BUILD_EXAMPLES OFF)
-set(ZYDIS_FEATURE_ENCODER OFF)
-FetchContent_MakeAvailable(zydis)
 
-# TODO: How can we move this to 3rdparty without error?
 FetchContent_Declare(
     lief
     GIT_REPOSITORY https://github.com/lief-project/LIEF.git
     GIT_TAG        2d9855fc7f9d4ce6325245f8b75c98eb7663db60
+    SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/lief
 )
-set(LIEF_EXAMPLES OFF)
-set(LIEF_INSTALL OFF)
-set(LIEF_C_API OFF)
-set(LIEF_PYTHON_API OFF)
-set(LIEF_TESTS OFF)
-set(LIEF_ART OFF)
-set(LIEF_DEX OFF)
-set(LIEF_VDEX OFF)
-FetchContent_MakeAvailable(lief)
+
+# Make them available after configuration
+FetchContent_MakeAvailable(zydis lief)
 
 FetchContent_Declare(
     json
