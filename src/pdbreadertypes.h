@@ -67,6 +67,8 @@ enum class CV_Call
 // Only absVirtual is used currently. Perhaps remove the others variables.
 struct PdbAddress
 {
+    uint32_t section_as_index() const { return section - 1; }
+
     Address64T absVirtual = ~Address64T(0); // Position of the function within the executable
     Address32T relVirtual = ~Address32T(0); // Relative position of the function within its block
     uint32_t section = 0; // Section part of location
@@ -85,7 +87,7 @@ using PdbSourceLineInfoVector = std::vector<PdbSourceLineInfo>;
 struct PdbSymbolInfo
 {
     PdbAddress address;
-    uint64_t length = 0;
+    uint32_t length = 0;
 
     std::string decoratedName;
     std::string undecoratedName;
@@ -104,7 +106,7 @@ struct PdbFunctionInfo
     PdbAddress address;
     PdbAddress debugStartAddress;
     PdbAddress debugEndAddress;
-    uint64_t length = 0;
+    uint32_t length = 0;
     CV_Call call = CV_Call(-1);
 
     std::string decoratedName; // ?nameToLowercaseKey@NameKeyGenerator@@QAE?AW4NameKeyType@@PBD@Z

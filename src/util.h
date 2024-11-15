@@ -14,6 +14,7 @@
 
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace util
 {
@@ -24,6 +25,7 @@ std::wstring to_utf16(const std::string &utf8);
 void strip_inplace(std::string &str, std::string_view chars);
 std::string strip(const std::string &str, std::string_view chars);
 std::string get_file_ext(const std::string &file_name);
+std::string to_hex_string(const std::vector<uint8_t> &data);
 
 constexpr char to_lower(char c)
 {

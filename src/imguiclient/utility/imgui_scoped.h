@@ -28,8 +28,9 @@ namespace ImScoped
     {
         bool IsContentVisible;
 
-        Child(const char* str_id, const ImVec2& size = ImVec2(0,0), bool border = false, ImGuiWindowFlags flags = 0) { IsContentVisible = ImGui::BeginChild(str_id, size, border, flags); }
-        Child(ImGuiID id, const ImVec2& size = ImVec2(0,0), bool border = false, ImGuiWindowFlags flags = 0) { IsContentVisible = ImGui::BeginChild(id, size, border, flags); }
+        Child(const char* str_id, const ImVec2& size = ImVec2(0,0), ImGuiChildFlags child_flags = 0, ImGuiWindowFlags window_flags = 0) { IsContentVisible = ImGui::BeginChild(str_id, size, child_flags, window_flags); }
+        Child(ImGuiID id, const ImVec2& size = ImVec2(0,0), ImGuiChildFlags child_flags = 0, ImGuiWindowFlags window_flags = 0) { IsContentVisible = ImGui::BeginChild(id, size, child_flags, window_flags); }
+
         ~Child() { ImGui::EndChild(); }
 
         explicit operator bool() const { return IsContentVisible; }
@@ -81,7 +82,7 @@ namespace ImScoped
 
     struct AllowKeyboardFocus
     {
-        AllowKeyboardFocus(bool allow_keyboard_focus) { ImGui::PushAllowKeyboardFocus(allow_keyboard_focus); }
+        AllowKeyboardFocus(bool tab_stop) { ImGui::PushAllowKeyboardFocus(tab_stop); }
         ~AllowKeyboardFocus() { ImGui::PopAllowKeyboardFocus(); }
 
         IMGUI_DELETE_MOVE_COPY(AllowKeyboardFocus);

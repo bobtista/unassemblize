@@ -28,8 +28,47 @@ enum class ImGuiStatus
     Error,
 };
 
+struct ImGuiTextFilterEx : public ImGuiTextFilter
+{
+    bool Draw(const char *key, const char *label = "Filter (inc,-exc)", float width = 0.0f);
+    bool PassFilter(std::string_view view) const;
+};
+
 class ImGuiApp
 {
+    // clang-format off
+    static constexpr ImGuiTableFlags s_fileManagerInfoTableFlags =
+        ImGuiTableFlags_Resizable |
+        ImGuiTableFlags_Hideable |
+        ImGuiTableFlags_ContextMenuInBody |
+        ImGuiTableFlags_RowBg |
+        ImGuiTableFlags_BordersOuter |
+        ImGuiTableFlags_BordersV |
+        ImGuiTableFlags_SizingFixedFit |
+        ImGuiTableFlags_NoHostExtendX |
+        ImGuiTableFlags_ScrollX |
+        ImGuiTableFlags_ScrollY;
+    // clang-format on
+
+    template<typename Type>
+    struct TextFilterDescriptor
+    {
+        using FilterType = Type;
+
+        TextFilterDescriptor(const char *key) : key(key) {}
+
+        void reset()
+        {
+            filtered.clear();
+            filteredOnce = false;
+        }
+
+        const char *const key;
+        ImGuiTextFilterEx filter;
+        ImVector<FilterType> filtered;
+        bool filteredOnce = false;
+    };
+
     struct ProgramFileDescriptor
     {
         void invalidate_command_id();
@@ -47,6 +86,8 @@ class ImGuiApp
         std::string evaluate_exe_config_filename() const;
         std::string evaluate_pdb_config_filename() const;
 
+        std::string create_short_exe_name() const;
+
         // All members must be modified by UI thread only
 
         // Must be not editable when the WorkQueue thread works on this descriptor.
@@ -54,6 +95,10 @@ class ImGuiApp
         std::string exeConfigFilename = auto_str;
         std::string pdbFilename;
         std::string pdbConfigFilename = auto_str;
+
+        TextFilterDescriptor<const ExeSymbol *> exeSymbolsDescriptor = "exe_symbols_descriptor";
+        TextFilterDescriptor<const PdbSymbolInfo *> pdbSymbolsDescriptor = "pdb_symbols_descriptor";
+        TextFilterDescriptor<const PdbFunctionInfo *> pdbFunctionsDescriptor = "pdb_functions_descriptor";
 
         // Has pending asynchronous command(s) running when not invalid.
         WorkQueueCommandId activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
@@ -98,6 +143,14 @@ private:
     void save_exe_config_async(ProgramFileDescriptor *descriptor);
     void save_pdb_config_async(ProgramFileDescriptor *descriptor);
 
+    void add_file();
+    void remove_file(size_t idx);
+    void remove_all_files();
+
+    static std::string create_section_string(uint32_t section_index, const ExeSections *sections);
+
+    static void TextUnformatted(std::string_view view);
+
     static void TooltipText(const char *fmt, ...);
     static void TooltipTextV(const char *fmt, va_list args);
     static void TooltipTextUnformatted(const char *text, const char *text_end = nullptr);
@@ -106,12 +159,27 @@ private:
 
     static void OverlayProgressBar(const ImRect &rect, float fraction, const char *overlay = nullptr);
 
+    static void DrawInTextCircle(ImU32 color);
+
+    static ImVec2 OuterSizeForTable(size_t show_table_len, size_t table_len);
+
+    /*
+     * Predicate
+     *   Arguments: const ImGuiTextFilterEx &filter, const Container::value_type &value
+     *   Return: bool
+     */
+    template<typename Container, typename Type = typename Container::value_type *, typename Predicate>
+    void UpdateFilter(
+        ImVector<Type> &filtered, const ImGuiTextFilterEx &filter, const Container &source, Predicate condition);
+    template<typename Container, typename Descriptor, typename Predicate>
+    void UpdateFilter(Descriptor &descriptor, const Container &source, Predicate condition);
+
     static void ApplyPlacementToNextWindow(WindowPlacement &placement);
     static void FetchPlacementFromWindowByName(WindowPlacement &placement, const char *window_name);
 
     void AddFileDialogButton(
         std::string *filePathName,
-        const char *button_label,
+        std::string_view button_label,
         const std::string &vKey,
         const std::string &vTitle,
         const char *vFilters);
@@ -121,12 +189,21 @@ private:
     void AsmComparisonManagerWindow(bool *p_open);
 
     void FileManagerBody();
+    void FileManagerDescriptor(ProgramFileDescriptor &descriptor, size_t idx, bool &erased);
     void FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor, size_t idx);
     void FileManagerDescriptorExeConfig(ProgramFileDescriptor &descriptor, size_t idx);
     void FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor, size_t idx);
     void FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor, size_t idx);
     void FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, bool &erased);
-    void FileManagerFooter();
+    void FileManagerGlobalButtons();
+    void FileManagerInfo(ProgramFileDescriptor &descriptor);
+    void FileManagerInfoExeSections(ProgramFileDescriptor &descriptor);
+    void FileManagerInfoExeSymbols(ProgramFileDescriptor &descriptor);
+    void FileManagerInfoPdbCompilands(ProgramFileDescriptor &descriptor);
+    void FileManagerInfoPdbSourceFiles(ProgramFileDescriptor &descriptor);
+    void FileManagerInfoPdbSymbols(ProgramFileDescriptor &descriptor);
+    void FileManagerInfoPdbFunctions(ProgramFileDescriptor &descriptor);
+    void FileManagerInfoPdbExeInfo(ProgramFileDescriptor &descriptor);
 
     void AsmOutputManagerBody();
     void AsmComparisonManagerBody();
@@ -137,11 +214,18 @@ private:
     ImVec4 m_clearColor = ImVec4(0.0f, 0.0f, 0.0f, 1.00f);
 
     bool m_showDemoWindow = true;
-    bool m_showProgramFileManager = true;
+    bool m_showFileManager = true;
+    bool m_showFileManagerWithTabs = false;
+    bool m_showFileManagerExeSectionInfo = true;
+    bool m_showFileManagerExeSymbolInfo = true;
+    bool m_showFileManagerPdbCompilandInfo = true;
+    bool m_showFileManagerPdbSourceFileInfo = true;
+    bool m_showFileManagerPdbSymbolInfo = true;
+    bool m_showFileManagerPdbFunctionInfo = true;
+    bool m_showFileManagerPdbExeInfo = true;
+
     bool m_showAsmOutputManager = true;
     bool m_showAsmComparisonManager = true;
-
-    bool m_autoLoad = false;
 
     WindowPlacement m_lastFileDialogPlacement; // #TODO: Save this in a Json config file and restore on boot.
 

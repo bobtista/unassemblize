@@ -65,4 +65,22 @@ std::string get_file_ext(const std::string &file_name)
     return {};
 }
 
+std::string to_hex_string(const std::vector<uint8_t> &data)
+{
+    constexpr char hex_chars[] = "0123456789abcdef";
+
+    const size_t count = data.size() * 2;
+    std::string str;
+    str.resize(count);
+
+    for (size_t i = 0; i < count; ++i)
+    {
+        uint8_t byte = data[i];
+        str[i] = hex_chars[(byte >> 4) & 0x0F];
+        str[i + 1] = hex_chars[byte & 0x0F];
+    }
+
+    return str;
+}
+
 } // namespace util

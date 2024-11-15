@@ -37,7 +37,8 @@ public:
 
     void set_verbose(bool verbose) { m_verbose = verbose; }
 
-    bool read(const std::string &exe_file);
+    bool load(const std::string &exe_filename);
+    void unload();
 
     bool load_config(const char *file_name, bool overwrite_symbols = false);
     bool save_config(const char *file_name) const;
@@ -82,13 +83,13 @@ private:
 
 private:
     std::string m_exeFilename;
-    bool m_verbose = false;
-
     std::unique_ptr<LIEF::Binary> m_binary;
 
     ExeSections m_sections;
     StringToIndexMap m_sectionNameToIndexMap;
     IndexT m_codeSectionIdx = ~IndexT(0);
+
+    bool m_verbose = false;
 
     ExeSymbols m_symbols;
     Address64ToIndexMap m_symbolAddressToIndexMap;

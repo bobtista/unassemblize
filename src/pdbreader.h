@@ -40,8 +40,11 @@ public:
 
     void set_verbose(bool verbose) { m_verbose = verbose; }
 
-    bool read(const std::string &pdb_file);
+    bool load(const std::string &pdb_filename);
+    void unload();
 
+    bool is_loaded() const { return !m_pdbFilename.empty(); }
+    const std::string &get_filename() const { return m_pdbFilename; }
     const PdbCompilandInfoVector &get_compilands() const { return m_compilands; }
     const PdbSourceFileInfoVector &get_source_files() const { return m_sourceFiles; }
     const PdbSymbolInfoVector &get_symbols() const { return m_symbols; }
@@ -55,8 +58,8 @@ public:
 
 private:
 #ifdef PDB_READER_WIN32
-    bool load(const std::string &pdb_file);
-    void unload();
+    bool load_dia(const std::string &pdb_file);
+    void unload_dia();
 
     bool read_symbols();
     bool read_global_scope();
@@ -109,6 +112,7 @@ private:
     /*
      * Persistent structures created after Pdb read.
      */
+    std::string m_pdbFilename;
     // Compilands indices match DIA2 indices.
     PdbCompilandInfoVector m_compilands;
     // Source Files indices do not match DIA2 indices (aka "unique id").

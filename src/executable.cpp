@@ -12,6 +12,7 @@
  */
 #include "executable.h"
 #include <LIEF/LIEF.hpp>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -33,29 +34,25 @@ Executable::~Executable()
 {
 }
 
-bool Executable::read(const std::string &exe_file)
+bool Executable::load(const std::string &exe_filename)
 {
+    unload();
+
     if (m_verbose)
     {
         printf("Loading section info...\n");
     }
 
-    m_binary = LIEF::Parser::parse(exe_file);
+    const std::string full_path = std::filesystem::absolute(exe_filename).string();
+
+    m_binary = LIEF::Parser::parse(full_path);
 
     if (m_binary.get() == nullptr)
     {
         return false;
     }
 
-    m_exeFilename = exe_file;
-    m_sections.clear();
-    m_sectionNameToIndexMap.clear();
-    m_codeSectionIdx = ~IndexT(0);
-    m_symbols.clear();
-    m_symbolAddressToIndexMap.clear();
-    m_symbolNameToIndexMap.clear();
-    m_targetObjects.clear();
-    m_imageData = ExeImageData();
+    m_exeFilename = full_path;
     m_imageData.imageBase = m_binary->imagebase();
 
     bool checked_image_base = false;
@@ -150,6 +147,20 @@ bool Executable::read(const std::string &exe_file)
     }
 
     return true;
+}
+
+void Executable::unload()
+{
+    m_exeFilename.clear();
+    m_binary.reset();
+    m_sections.clear();
+    m_sectionNameToIndexMap.clear();
+    m_codeSectionIdx = ~IndexT(0);
+    m_symbols.clear();
+    m_symbolAddressToIndexMap.clear();
+    m_symbolNameToIndexMap.clear();
+    m_targetObjects.clear();
+    m_imageData = ExeImageData();
 }
 
 bool Executable::is_loaded() const

@@ -100,13 +100,13 @@ std::unique_ptr<Executable> Runner::load_exe(const LoadExeOptions &o)
 
     if (o.verbose)
     {
-        printf("Parsing exe file '%s'...\n", o.input_file.c_str());
+        printf("Loading executable file '%s'...\n", o.input_file.c_str());
     }
 
     auto executable = std::make_unique<Executable>();
     executable->set_verbose(o.verbose);
 
-    if (!executable->read(o.input_file))
+    if (!executable->load(o.input_file))
     {
         executable.reset();
         return executable;
@@ -137,12 +137,17 @@ std::unique_ptr<PdbReader> Runner::load_pdb(const LoadPdbOptions &o)
 {
     assert(!o.input_file.empty());
 
+    if (o.verbose)
+    {
+        printf("Loading Pdb file '%s'...\n", o.input_file.c_str());
+    }
+
     auto pdb_reader = std::make_unique<PdbReader>();
     pdb_reader->set_verbose(o.verbose);
 
     // Currently does not read back config file here.
 
-    if (!pdb_reader->read(o.input_file))
+    if (!pdb_reader->load(o.input_file))
     {
         pdb_reader.reset();
     }

@@ -36,19 +36,37 @@ PdbReader::PdbReader()
 {
 }
 
-bool PdbReader::read(const std::string &pdb_file)
+bool PdbReader::load(const std::string &pdb_filename)
 {
+    unload();
+
     bool success = false;
 
+    const std::string full_path = std::filesystem::absolute(pdb_filename).string();
+
 #ifdef PDB_READER_WIN32
-    if (load(pdb_file))
+    if (load_dia(full_path))
     {
         success = read_symbols();
+
+        if (success)
+        {
+            m_pdbFilename = full_path;
+        }
     }
-    unload();
+    unload_dia();
 #endif
 
     return success;
+}
+
+void PdbReader::unload()
+{
+    m_compilands.clear();
+    m_sourceFiles.clear();
+    m_functions.clear();
+    m_symbols.clear();
+    m_exe = PdbExeInfo();
 }
 
 void PdbReader::load_json(const nlohmann::json &js)
@@ -135,9 +153,9 @@ bool PdbReader::save_config(const std::string &file_name, bool overwrite_section
 
 #ifdef PDB_READER_WIN32
 
-bool PdbReader::load(const std::string &pdb_file)
+bool PdbReader::load_dia(const std::string &pdb_file)
 {
-    unload();
+    unload_dia();
 
     HRESULT hr = CoInitialize(NULL);
 
@@ -213,7 +231,7 @@ bool PdbReader::load(const std::string &pdb_file)
     return true;
 }
 
-void PdbReader::unload()
+void PdbReader::unload_dia()
 {
     if (m_coInitialized)
     {
@@ -238,12 +256,6 @@ void PdbReader::unload()
 
 bool PdbReader::read_symbols()
 {
-    m_compilands.clear();
-    m_sourceFiles.clear();
-    m_functions.clear();
-    m_symbols.clear();
-    m_exe = PdbExeInfo();
-
     m_functions.reserve(1024 * 100);
 
     bool ok = true;
@@ -647,7 +659,7 @@ void PdbReader::read_compiland_function(
     }
     if (pSymbol->get_length(&ulLen) == S_OK)
     {
-        functionInfo.length = ulLen;
+        functionInfo.length = down_cast<uint32_t>(ulLen);
     }
     if (pSymbol->get_callingConvention(&dwCall) == S_OK)
     {
@@ -970,7 +982,7 @@ void PdbReader::read_common_symbol(PdbSymbolInfo &symbolInfo, IDiaSymbol *pSymbo
     }
     if (pSymbol->get_length(&ulLen) == S_OK)
     {
-        symbolInfo.length = ulLen;
+        symbolInfo.length = down_cast<uint32_t>(ulLen);
     }
 
     {

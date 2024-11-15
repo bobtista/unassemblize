@@ -15,11 +15,22 @@
 #include "util.h"
 #include "utility/imgui_scoped.h"
 #include <ImGuiFileDialog.h>
+#include <filesystem>
 #include <fmt/core.h>
 #include <misc/cpp/imgui_stdlib.h>
 
 namespace unassemblize::gui
 {
+bool ImGuiTextFilterEx::Draw(const char *key, const char *label, float width)
+{
+    return ImGuiTextFilter::Draw(fmt::format("{:s}##{:s}", label, key).c_str(), width);
+}
+
+bool ImGuiTextFilterEx::PassFilter(std::string_view view) const
+{
+    return ImGuiTextFilter::PassFilter(view.data(), view.data() + view.size());
+}
+
 void ImGuiApp::ProgramFileDescriptor::invalidate_command_id()
 {
     activeCommandId = InvalidWorkQueueCommandId;
@@ -45,6 +56,15 @@ std::string ImGuiApp::ProgramFileDescriptor::evaluate_exe_config_filename() cons
 std::string ImGuiApp::ProgramFileDescriptor::evaluate_pdb_config_filename() const
 {
     return ::get_config_file_name(pdbFilename, pdbConfigFilename);
+}
+
+std::string ImGuiApp::ProgramFileDescriptor::create_short_exe_name() const
+{
+    std::string name = evaluate_exe_filename();
+    if (name.empty())
+        name = exeFilename;
+    std::filesystem::path path(name);
+    return path.filename().string();
 }
 
 ImGuiStatus ImGuiApp::init(const CommandLineOptions &clo)
@@ -224,7 +244,7 @@ void ImGuiApp::update_app()
 
         if (ImGui::BeginMenu("Tools"))
         {
-            ImGui::MenuItem("Program File Manager", nullptr, &m_showProgramFileManager);
+            ImGui::MenuItem("Program File Manager", nullptr, &m_showFileManager);
             ImGui::MenuItem("Assembler Output", nullptr, &m_showAsmOutputManager);
             ImGui::MenuItem("Assembler Comparison", nullptr, &m_showAsmComparisonManager);
             ImGui::EndMenu();
@@ -232,8 +252,8 @@ void ImGuiApp::update_app()
         ImGui::EndMenuBar();
     }
 
-    if (m_showProgramFileManager)
-        FileManagerWindow(&m_showProgramFileManager);
+    if (m_showFileManager)
+        FileManagerWindow(&m_showFileManager);
 
     if (m_showAsmOutputManager)
         AsmOutputManagerWindow(&m_showAsmOutputManager);
@@ -281,6 +301,7 @@ void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
         result.reset();
     };
 
+    descriptor->exeSymbolsDescriptor.reset();
     descriptor->executable.reset();
     descriptor->activeCommandId = command->command_id;
     m_workQueue.enqueue(std::move(command));
@@ -314,6 +335,8 @@ void ImGuiApp::load_pdb_async(ProgramFileDescriptor *descriptor)
         }
     };
 
+    descriptor->pdbSymbolsDescriptor.reset();
+    descriptor->pdbFunctionsDescriptor.reset();
     descriptor->pdbReader.reset();
     descriptor->exeFilenameFromPdb.clear();
     descriptor->activeCommandId = command->command_id;
@@ -382,6 +405,41 @@ void ImGuiApp::save_pdb_config_async(ProgramFileDescriptor *descriptor)
 
     descriptor->activeCommandId = command->command_id;
     m_workQueue.enqueue(std::move(command));
+}
+
+void ImGuiApp::add_file()
+{
+    m_programFiles.emplace_back(std::make_unique<ProgramFileDescriptor>());
+}
+
+void ImGuiApp::remove_file(size_t idx)
+{
+    if (idx < m_programFiles.size())
+    {
+        m_programFiles.erase(m_programFiles.begin() + idx);
+    }
+}
+
+void ImGuiApp::remove_all_files()
+{
+    m_programFiles.clear();
+}
+
+std::string ImGuiApp::create_section_string(uint32_t section_index, const ExeSections *sections)
+{
+    if (sections != nullptr && section_index < sections->size())
+    {
+        return (*sections)[section_index].name;
+    }
+    else
+    {
+        return fmt::format("{:d}", section_index + 1);
+    }
+}
+
+void ImGuiApp::TextUnformatted(std::string_view view)
+{
+    ImGui::TextUnformatted(view.data(), view.data() + view.size());
 }
 
 void ImGuiApp::TooltipText(const char *fmt, ...)
@@ -460,6 +518,54 @@ void ImGuiApp::OverlayProgressBar(const ImRect &rect, float fraction, const char
     ImGui::SetCursorScreenPos(cursorScreenPos);
 }
 
+void ImGuiApp::DrawInTextCircle(ImU32 color)
+{
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImVec2 font_size = ImGui::CalcTextSize("a");
+    const float x_radius = font_size.x * 0.5f;
+    const float y_radius = font_size.y * 0.5f;
+    ImDrawList *draw_list = ImGui::GetWindowDrawList();
+    draw_list->AddCircleFilled(ImVec2(pos.x + x_radius, pos.y + y_radius), x_radius, color, 0);
+    ImGui::SetCursorScreenPos(ImVec2(pos.x + font_size.x, pos.y));
+}
+
+ImVec2 ImGuiApp::OuterSizeForTable(size_t show_table_len, size_t table_len)
+{
+    return ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * std::min<size_t>(show_table_len, table_len));
+}
+
+template<typename Container, typename Type, typename Predicate>
+void ImGuiApp::UpdateFilter(
+    ImVector<Type> &filtered, const ImGuiTextFilterEx &filter, const Container &source, Predicate condition)
+{
+    if (filter.IsActive())
+    {
+        const size_t size = source.size();
+        filtered.clear();
+        filtered.reserve(size);
+        for (size_t i = 0; i < size; ++i)
+            if (condition(filter, source[i]))
+                filtered.push_back(&source[i]);
+    }
+    else
+    {
+        const size_t size = source.size();
+        filtered.resize(size);
+        for (size_t i = 0; i < size; ++i)
+            filtered[i] = &source[i];
+    }
+}
+
+template<typename Container, typename Descriptor, typename Predicate>
+void ImGuiApp::UpdateFilter(Descriptor &descriptor, const Container &source, Predicate condition)
+{
+    if (descriptor.filter.Draw(descriptor.key) || !descriptor.filteredOnce)
+    {
+        UpdateFilter(descriptor.filtered, descriptor.filter, source, condition);
+        descriptor.filteredOnce = true;
+    }
+}
+
 void ImGuiApp::ApplyPlacementToNextWindow(WindowPlacement &placement)
 {
     if (placement.pos.x != -FLT_MAX)
@@ -481,7 +587,7 @@ void ImGuiApp::FetchPlacementFromWindowByName(WindowPlacement &placement, const 
 
 void ImGuiApp::AddFileDialogButton(
     std::string *filePathName,
-    const char *button_label,
+    std::string_view button_label,
     const std::string &vKey,
     const std::string &vTitle,
     const char *vFilters)
@@ -516,7 +622,37 @@ void ImGuiApp::AddFileDialogButton(
 
 void ImGuiApp::FileManagerWindow(bool *p_open)
 {
-    ImGui::Begin("File Manager", p_open);
+    ImGui::Begin("File Manager", p_open, ImGuiWindowFlags_MenuBar);
+
+    if (ImGui::BeginMenuBar())
+    {
+        if (ImGui::BeginMenu("File"))
+        {
+            if (ImGui::MenuItem("Add File"))
+            {
+                add_file();
+            }
+            if (ImGui::MenuItem("Remove All Files"))
+            {
+                remove_all_files();
+            }
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("View"))
+        {
+            ImGui::MenuItem("Show Tabs", nullptr, &m_showFileManagerWithTabs);
+            ImGui::MenuItem("Show Exe Section Info", nullptr, &m_showFileManagerExeSectionInfo);
+            ImGui::MenuItem("Show Exe Symbol Info", nullptr, &m_showFileManagerExeSymbolInfo);
+            ImGui::MenuItem("Show Pdb Compiland Info", nullptr, &m_showFileManagerPdbCompilandInfo);
+            ImGui::MenuItem("Show Pdb Source File Info", nullptr, &m_showFileManagerPdbSourceFileInfo);
+            ImGui::MenuItem("Show Pdb Symbol Info", nullptr, &m_showFileManagerPdbSymbolInfo);
+            ImGui::MenuItem("Show Pdb Function Info", nullptr, &m_showFileManagerPdbFunctionInfo);
+            ImGui::MenuItem("Show Pdb Exe Info", nullptr, &m_showFileManagerPdbExeInfo);
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenuBar();
+    }
     FileManagerBody();
     ImGui::End();
 }
@@ -537,86 +673,138 @@ void ImGuiApp::AsmComparisonManagerWindow(bool *p_open)
 
 namespace
 {
-const char *const g_browse_file_button_label = "Browse ..";
-const char *const g_select_file_dialog_title = "Select File";
+const std::string_view g_browse_file_button_label = "Browse ..";
+const std::string g_select_file_dialog_title = "Select File";
 } // namespace
 
 void ImGuiApp::FileManagerBody()
 {
-    // clang-format off
-    constexpr ImGuiTableFlags table_flags =
-        ImGuiTableFlags_Resizable |
-        ImGuiTableFlags_Reorderable |
-        ImGuiTableFlags_BordersH |
-        ImGuiTableFlags_BordersOuterV |
-        ImGuiTableFlags_NoBordersInBodyUntilResize;
-    // clang-format on
+    FileManagerGlobalButtons();
 
-    ImGui::SeparatorText("Files List Begin");
+    ImGui::SeparatorText("File List");
 
     size_t erase_idx = size_t(~0);
 
-    for (size_t i = 0; i < m_programFiles.size(); ++i)
+    bool show_files = !m_programFiles.empty();
+
+    if (m_showFileManagerWithTabs)
     {
-        ProgramFileDescriptor &descriptor = *m_programFiles[i];
-
-        // Set a unique ID for each element to avoid ID conflicts
-        ImScoped::ID push_id(i);
-
-        const std::string exe_filename = descriptor.evaluate_exe_filename();
-        const ImGuiTreeNodeFlags tree_flags = ImGuiTreeNodeFlags_DefaultOpen;
-        ImScoped::TreeNodeEx tree_node(
-            "file_tree", tree_flags, "File %02d (%s) (%s)", i, exe_filename.c_str(), descriptor.pdbFilename.c_str());
-
-        if (!tree_node.IsOpen)
-        {
-            continue;
-        }
-
-        {
-            ImScoped::Group group;
-            ImScoped::Disabled disabled(descriptor.has_active_command());
-            ImScoped::ItemWidth push_item_width(ImGui::GetFontSize() * -12);
-
-            FileManagerDescriptorExeFile(descriptor, i);
-
-            FileManagerDescriptorExeConfig(descriptor, i);
-
-            FileManagerDescriptorPdbFile(descriptor, i);
-
-            FileManagerDescriptorPdbConfig(descriptor, i);
-
-            bool erased;
-            FileManagerDescriptorActions(descriptor, erased);
-            if (erased)
-                erase_idx = i;
-        }
-
-        // Draw overlay
-        if (descriptor.has_active_command())
-        {
-            ImRect group_rect;
-            group_rect.Min = ImGui::GetItemRectMin();
-            group_rect.Max = ImGui::GetItemRectMax();
-
-            const std::string overlay = fmt::format("Processing command {:d} ..", descriptor.activeCommandId);
-
-            OverlayProgressBar(group_rect, -1.0f * (float)ImGui::GetTime(), overlay.c_str());
-        }
-
-        ImGui::Spacing();
-        ImGui::Spacing();
+        show_files = ImGui::BeginTabBar("file_tabs");
     }
 
-    // Erase at the end to avoid incomplete elements.
-    if (erase_idx < m_programFiles.size())
+    if (show_files)
     {
-        m_programFiles.erase(m_programFiles.begin() + erase_idx);
+        for (size_t i = 0; i < m_programFiles.size(); ++i)
+        {
+            ProgramFileDescriptor &descriptor = *m_programFiles[i];
+
+            // Set a unique ID for each element to avoid ID conflicts
+            ImScoped::ID id(i);
+
+            bool is_open = false;
+
+            std::string title;
+            {
+                const std::string exe_name = descriptor.create_short_exe_name();
+                if (exe_name.empty())
+                    title = fmt::format("File {:02d}", i);
+                else
+                    title = fmt::format("File {:02d} - {:s}", i, exe_name);
+            }
+
+            if (m_showFileManagerWithTabs)
+            {
+                is_open = ImGui::BeginTabItem(title.c_str());
+            }
+            else
+            {
+                is_open = ImGui::TreeNodeEx("file_tree", ImGuiTreeNodeFlags_DefaultOpen, title.c_str());
+            }
+
+            if (is_open)
+            {
+                bool erased;
+                FileManagerDescriptor(descriptor, i, erased);
+                if (erased)
+                    erase_idx = i;
+
+                if (m_showFileManagerWithTabs)
+                {
+                    ImGui::EndTabItem();
+                }
+                else
+                {
+                    ImGui::TreePop();
+                }
+            }
+        }
+
+        if (m_showFileManagerWithTabs)
+        {
+            ImGui::EndTabBar();
+        }
+
+        // Erase at the end to avoid incomplete elements.
+        remove_file(erase_idx);
+    }
+}
+
+void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, size_t idx, bool &erased)
+{
+    {
+        ImScoped::Group group;
+        ImScoped::Disabled disabled(descriptor.has_active_command());
+        ImScoped::ItemWidth item_width(ImGui::GetFontSize() * -12);
+
+        FileManagerDescriptorExeFile(descriptor, idx);
+
+        FileManagerDescriptorExeConfig(descriptor, idx);
+
+        FileManagerDescriptorPdbFile(descriptor, idx);
+
+        FileManagerDescriptorPdbConfig(descriptor, idx);
+
+        FileManagerDescriptorActions(descriptor, erased);
     }
 
-    ImGui::SeparatorText("Files List End");
+    // Draw command overlay
+    if (descriptor.has_active_command())
+    {
+        ImRect group_rect;
+        group_rect.Min = ImGui::GetItemRectMin();
+        group_rect.Max = ImGui::GetItemRectMax();
 
-    FileManagerFooter();
+        const std::string overlay = fmt::format("Processing command {:d} ..", descriptor.activeCommandId);
+
+        OverlayProgressBar(group_rect, -1.0f * (float)ImGui::GetTime(), overlay.c_str());
+    }
+
+    constexpr ImU32 green = IM_COL32(0, 255, 0, 255);
+
+    // Draw status
+    if (descriptor.executable != nullptr)
+    {
+        DrawInTextCircle(green);
+        ImGui::Text(" Loaded Exe: %s", descriptor.executable->get_filename().c_str());
+    }
+    if (descriptor.pdbReader != nullptr)
+    {
+        DrawInTextCircle(green);
+        ImGui::Text(" Loaded Pdb: %s", descriptor.pdbReader->get_filename().c_str());
+    }
+
+    // Draw some details
+    if (descriptor.executable != nullptr || descriptor.pdbReader != nullptr)
+    {
+        ImScoped::TreeNode tree("Info");
+        if (tree.IsOpen)
+        {
+            FileManagerInfo(descriptor);
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::Spacing();
 }
 
 void ImGuiApp::FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor, size_t idx)
@@ -753,17 +941,11 @@ void ImGuiApp::FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, b
     }
 }
 
-void ImGuiApp::FileManagerFooter()
+void ImGuiApp::FileManagerGlobalButtons()
 {
     if (ImGui::Button("Add File"))
     {
-        m_programFiles.emplace_back(std::make_unique<ProgramFileDescriptor>());
-    }
-
-    ImGui::SameLine();
-    {
-        ImScoped::Disabled disabled(true);
-        ImGui::Checkbox("Auto Load", &m_autoLoad); // #TODO: Implement ?
+        add_file();
     }
 
     ImGui::SameLine();
@@ -788,6 +970,399 @@ void ImGuiApp::FileManagerFooter()
             }
         }
     }
+}
+
+void ImGuiApp::FileManagerInfo(ProgramFileDescriptor &descriptor)
+{
+    if (descriptor.executable != nullptr)
+    {
+        if (m_showFileManagerExeSectionInfo)
+            FileManagerInfoExeSections(descriptor);
+
+        if (m_showFileManagerExeSymbolInfo)
+            FileManagerInfoExeSymbols(descriptor);
+    }
+    if (descriptor.pdbReader != nullptr)
+    {
+        if (m_showFileManagerPdbCompilandInfo)
+            FileManagerInfoPdbCompilands(descriptor);
+
+        if (m_showFileManagerPdbSourceFileInfo)
+            FileManagerInfoPdbSourceFiles(descriptor);
+
+        if (m_showFileManagerPdbSymbolInfo)
+            FileManagerInfoPdbSymbols(descriptor);
+
+        if (m_showFileManagerPdbFunctionInfo)
+            FileManagerInfoPdbFunctions(descriptor);
+
+        if (m_showFileManagerPdbExeInfo)
+            FileManagerInfoPdbExeInfo(descriptor);
+    }
+}
+
+void ImGuiApp::FileManagerInfoExeSections(ProgramFileDescriptor &descriptor)
+{
+    ImGui::SeparatorText("Exe Sections");
+
+    ImGui::Text("Exe Image base: x%08x", down_cast<uint32_t>(descriptor.executable->image_base()));
+
+    const ExeSections &sections = descriptor.executable->get_sections();
+
+    ImGui::Text("Count: %zu", sections.size());
+
+    const ImVec2 outer_size = OuterSizeForTable(10 + 1, sections.size() + 1);
+
+    ImScoped::Child child("exe_sections_container", outer_size, ImGuiChildFlags_ResizeY);
+    if (child.IsContentVisible)
+    {
+        if (ImGui::BeginTable("exe_sections", 3, s_fileManagerInfoTableFlags))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
+            ImGui::TableSetupColumn("Address");
+            ImGui::TableSetupColumn("Size");
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableHeadersRow();
+
+            for (const ExeSectionInfo &section : sections)
+            {
+                ImGui::TableNextRow();
+
+                ImGui::TableNextColumn();
+                ImGui::Text("x%08x", down_cast<uint32_t>(section.address));
+
+                ImGui::TableNextColumn();
+                ImGui::Text("x%08x", down_cast<uint32_t>(section.size));
+
+                ImGui::TableNextColumn();
+                TextUnformatted(section.name);
+            }
+            ImGui::EndTable();
+        }
+    }
+}
+
+void ImGuiApp::FileManagerInfoExeSymbols(ProgramFileDescriptor &descriptor)
+{
+    ImGui::SeparatorText("Exe Symbols");
+
+    const auto &filtered = descriptor.exeSymbolsDescriptor.filtered;
+    {
+        const ExeSymbols &symbols = descriptor.executable->get_symbols();
+
+        UpdateFilter(
+            descriptor.exeSymbolsDescriptor, symbols, [](const ImGuiTextFilterEx &filter, const ExeSymbol &symbol) -> bool {
+                return filter.PassFilter(symbol.name);
+            });
+
+        ImGui::Text("Count: %zu, Filtered: %d", symbols.size(), filtered.size());
+    }
+
+    const ImVec2 outer_size = OuterSizeForTable(10 + 1, filtered.size() + 1);
+
+    ImScoped::Child child("exe_symbols_container", outer_size, ImGuiChildFlags_ResizeY);
+    if (child.IsContentVisible)
+    {
+        if (ImGui::BeginTable("exe_symbols", 3, s_fileManagerInfoTableFlags))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
+            ImGui::TableSetupColumn("Address");
+            ImGui::TableSetupColumn("Size");
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableHeadersRow();
+
+            ImGuiListClipper clipper;
+            clipper.Begin(filtered.size());
+
+            while (clipper.Step())
+            {
+                for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; ++n)
+                {
+                    const ExeSymbol &symbol = *filtered[n];
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("x%08x", down_cast<uint32_t>(symbol.address));
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("x%08x", down_cast<uint32_t>(symbol.size));
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(symbol.name);
+                }
+            }
+
+            ImGui::EndTable();
+        }
+    }
+}
+
+void ImGuiApp::FileManagerInfoPdbCompilands(ProgramFileDescriptor &descriptor)
+{
+    ImGui::SeparatorText("Pdb Compilands");
+
+    const PdbCompilandInfoVector &compilands = descriptor.pdbReader->get_compilands();
+
+    ImGui::Text("Count: %zu", compilands.size());
+
+    const ImVec2 outer_size = OuterSizeForTable(10 + 1, compilands.size() + 1);
+
+    ImScoped::Child child("pdb_compilands_container", outer_size, ImGuiChildFlags_ResizeY);
+    if (child.IsContentVisible)
+    {
+        if (ImGui::BeginTable("pdb_compilands", 1, s_fileManagerInfoTableFlags))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableHeadersRow();
+
+            ImGuiListClipper clipper;
+            clipper.Begin(down_cast<int>(compilands.size()));
+
+            while (clipper.Step())
+            {
+                for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; ++n)
+                {
+                    const PdbCompilandInfo &compiland = compilands[n];
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(compiland.name);
+                }
+            }
+
+            ImGui::EndTable();
+        }
+    }
+}
+
+void ImGuiApp::FileManagerInfoPdbSourceFiles(ProgramFileDescriptor &descriptor)
+{
+    ImGui::SeparatorText("Pdb Source Files");
+
+    const PdbSourceFileInfoVector &source_files = descriptor.pdbReader->get_source_files();
+
+    ImGui::Text("Count: %zu", source_files.size());
+
+    const ImVec2 outer_size = OuterSizeForTable(10 + 1, source_files.size() + 1);
+
+    ImScoped::Child child("pdb_source_files_container", outer_size, ImGuiChildFlags_ResizeY);
+    if (child.IsContentVisible)
+    {
+        if (ImGui::BeginTable("pdb_source_files", 3, s_fileManagerInfoTableFlags))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
+            ImGui::TableSetupColumn("Checksum Type");
+            ImGui::TableSetupColumn("Checksum");
+            ImGui::TableSetupColumn("Name");
+            ImGui::TableHeadersRow();
+
+            ImGuiListClipper clipper;
+            clipper.Begin(down_cast<int>(source_files.size()));
+
+            while (clipper.Step())
+            {
+                for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; ++n)
+                {
+                    const PdbSourceFileInfo &source_file = source_files[n];
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableNextColumn();
+                    switch (source_file.checksumType)
+                    {
+                        default:
+                        case CV_Chksum::CHKSUM_TYPE_NONE:
+                            TextUnformatted("none");
+                            break;
+                        case CV_Chksum::CHKSUM_TYPE_MD5:
+                            TextUnformatted("md5");
+                            break;
+                        case CV_Chksum::CHKSUM_TYPE_SHA1:
+                            TextUnformatted("sha1");
+                            break;
+                        case CV_Chksum::CHKSUM_TYPE_SHA_256:
+                            TextUnformatted("sha256");
+                            break;
+                    }
+
+                    const std::string checksum = util::to_hex_string(source_file.checksum); // #TODO: Cache this
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(checksum);
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(source_file.name);
+                }
+            }
+
+            ImGui::EndTable();
+        }
+    }
+}
+
+void ImGuiApp::FileManagerInfoPdbSymbols(ProgramFileDescriptor &descriptor)
+{
+    ImGui::SeparatorText("Pdb Symbols");
+
+    const auto &filtered = descriptor.pdbSymbolsDescriptor.filtered;
+    {
+        const PdbSymbolInfoVector &symbols = descriptor.pdbReader->get_symbols();
+
+        UpdateFilter(
+            descriptor.pdbSymbolsDescriptor,
+            symbols,
+            [](const ImGuiTextFilterEx &filter, const PdbSymbolInfo &symbol) -> bool {
+                if (filter.PassFilter(symbol.decoratedName))
+                    return true;
+                if (filter.PassFilter(symbol.undecoratedName))
+                    return true;
+                if (filter.PassFilter(symbol.globalName))
+                    return true;
+                return false;
+            });
+
+        ImGui::Text("Count: %zu, Filtered: %d", symbols.size(), filtered.size());
+    }
+
+    const ExeSections *sections = nullptr;
+    if (descriptor.executable != nullptr)
+        sections = &descriptor.executable->get_sections();
+
+    const ImVec2 outer_size = OuterSizeForTable(10 + 1, filtered.size() + 1);
+
+    ImScoped::Child child("pdb_symbols_container", outer_size, ImGuiChildFlags_ResizeY);
+    if (child.IsContentVisible)
+    {
+        if (ImGui::BeginTable("pdb_symbols", 6, s_fileManagerInfoTableFlags))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
+            ImGui::TableSetupColumn("Address");
+            ImGui::TableSetupColumn("Size");
+            ImGui::TableSetupColumn("Section");
+            ImGui::TableSetupColumn("Decorated Name");
+            ImGui::TableSetupColumn("Undecorated Name");
+            ImGui::TableSetupColumn("Global Name");
+            ImGui::TableHeadersRow();
+
+            ImGuiListClipper clipper;
+            clipper.Begin(filtered.size());
+
+            while (clipper.Step())
+            {
+                for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; ++n)
+                {
+                    const PdbSymbolInfo &symbol = *filtered[n];
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("x%08x", down_cast<uint32_t>(symbol.address.absVirtual));
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("x%08x", symbol.length);
+
+                    ImGui::TableNextColumn();
+                    std::string section = create_section_string(symbol.address.section_as_index(), sections);
+                    TextUnformatted(section);
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(symbol.decoratedName);
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(symbol.undecoratedName);
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(symbol.globalName);
+                }
+            }
+
+            ImGui::EndTable();
+        }
+    }
+}
+
+void ImGuiApp::FileManagerInfoPdbFunctions(ProgramFileDescriptor &descriptor)
+{
+    ImGui::SeparatorText("Pdb Functions");
+
+    const auto &filtered = descriptor.pdbFunctionsDescriptor.filtered;
+    {
+        const PdbFunctionInfoVector &functions = descriptor.pdbReader->get_functions();
+
+        UpdateFilter(
+            descriptor.pdbFunctionsDescriptor,
+            functions,
+            [](const ImGuiTextFilterEx &filter, const PdbFunctionInfo &function) -> bool {
+                if (filter.PassFilter(function.decoratedName))
+                    return true;
+                if (filter.PassFilter(function.undecoratedName))
+                    return true;
+                if (filter.PassFilter(function.globalName))
+                    return true;
+                return false;
+            });
+
+        ImGui::Text("Count: %zu, Filtered: %d", functions.size(), filtered.size());
+    }
+
+    const ImVec2 outer_size = OuterSizeForTable(10 + 1, filtered.size() + 1);
+
+    ImScoped::Child child("pdb_functions_container", outer_size, ImGuiChildFlags_ResizeY);
+    if (child.IsContentVisible)
+    {
+        if (ImGui::BeginTable("pdb_functions", 5, s_fileManagerInfoTableFlags))
+        {
+            ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
+            ImGui::TableSetupColumn("Address");
+            ImGui::TableSetupColumn("Size");
+            ImGui::TableSetupColumn("Decorated Name");
+            ImGui::TableSetupColumn("Undecorated Name");
+            ImGui::TableSetupColumn("Global Name");
+            ImGui::TableHeadersRow();
+
+            ImGuiListClipper clipper;
+            clipper.Begin(filtered.size());
+
+            while (clipper.Step())
+            {
+                for (int n = clipper.DisplayStart; n < clipper.DisplayEnd; ++n)
+                {
+                    const PdbFunctionInfo &symbol = *filtered[n];
+
+                    ImGui::TableNextRow();
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("x%08x", down_cast<uint32_t>(symbol.address.absVirtual));
+
+                    ImGui::TableNextColumn();
+                    ImGui::Text("x%08x", symbol.length);
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(symbol.decoratedName);
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(symbol.undecoratedName);
+
+                    ImGui::TableNextColumn();
+                    TextUnformatted(symbol.globalName);
+                }
+            }
+
+            ImGui::EndTable();
+        }
+    }
+}
+
+void ImGuiApp::FileManagerInfoPdbExeInfo(ProgramFileDescriptor &descriptor)
+{
+    ImGui::SeparatorText("Pdb Exe Info");
+
+    const PdbExeInfo &exe_info = descriptor.pdbReader->get_exe_info();
+    ImGui::Text("Exe File Name: %s", exe_info.exeFileName.c_str());
+    ImGui::Text("Pdb File Path: %s", exe_info.pdbFilePath.c_str());
 }
 
 void ImGuiApp::AsmOutputManagerBody()

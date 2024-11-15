@@ -21,6 +21,8 @@ AsyncLoadExeCommand::AsyncLoadExeCommand(LoadExeOptions &&o) : options(std::move
     WorkQueueCommand::work = [this]() {
         auto result = std::make_unique<AsyncLoadExeResult>();
         result->executable = Runner::load_exe(options);
+
+        assert(result->executable == nullptr || result->executable->is_loaded());
         return result;
     };
 };
@@ -30,6 +32,8 @@ AsyncLoadPdbCommand::AsyncLoadPdbCommand(LoadPdbOptions &&o) : options(std::move
     WorkQueueCommand::work = [this]() {
         auto result = std::make_unique<AsyncLoadPdbResult>();
         result->pdbReader = Runner::load_pdb(options);
+
+        assert(result->pdbReader == nullptr || result->pdbReader->is_loaded());
         return result;
     };
 };
