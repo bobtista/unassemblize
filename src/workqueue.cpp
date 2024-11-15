@@ -25,18 +25,74 @@ WorkQueue::~WorkQueue()
 void WorkQueue::start()
 {
     assert(!m_thread.joinable());
+    m_active = true;
+
+    // Initialize command pools
+    for (const auto &type : ALL_COMMAND_TYPES)
+    {
+        auto &pool = m_commandPools[type];
+        pool.parallel_execution = CanRunParallel(type);
+        pool.active = true;
+
+        if (pool.parallel_execution)
+        {
+            // Create worker threads for parallel commands
+            const size_t thread_count = std::min<size_t>(2, static_cast<size_t>(std::thread::hardware_concurrency() - 1));
+
+            for (size_t i = 0; i < thread_count; i++)
+            {
+                pool.threads.emplace_back([this, type]() { ProcessPoolCommands(type); });
+            }
+        }
+    }
+
+    // Main thread handles sequential commands
     m_thread = std::thread(ThreadFunction, this);
 }
 
 void WorkQueue::stop(bool wait)
 {
+    m_active = false;
+
+    // Stop all command pools
+    for (auto &[type, pool] : m_commandPools)
+    {
+        pool.active = false;
+
+        if (wait)
+        {
+            for (auto &thread : pool.threads)
+            {
+                if (thread.joinable())
+                {
+                    thread.join();
+                }
+            }
+        }
+        else
+        {
+            for (auto &thread : pool.threads)
+            {
+                if (thread.joinable())
+                {
+                    thread.detach();
+                }
+            }
+        }
+    }
+
+    // Stop main thread
     if (m_thread.joinable())
     {
         m_commandQueue.enqueue(std::make_unique<WorkQueueCommandQuit>());
         if (wait)
+        {
             m_thread.join();
+        }
         else
+        {
             m_thread.detach();
+        }
     }
 }
 
@@ -47,7 +103,24 @@ bool WorkQueue::is_busy() const
 
 bool WorkQueue::enqueue(WorkQueueCommandPtr &&command)
 {
-    return m_commandQueue.enqueue(std::move(command));
+    if (!m_active)
+    {
+        return false;
+    }
+
+    auto type = command->type();
+    auto it = m_commandPools.find(type);
+
+    if (it != m_commandPools.end() && it->second.parallel_execution)
+    {
+        // Parallel command goes to its dedicated pool
+        return it->second.queue.enqueue(std::move(command));
+    }
+    else
+    {
+        // Sequential commands go to main queue
+        return m_commandQueue.enqueue(std::move(command));
+    }
 }
 
 bool WorkQueue::try_dequeue(WorkQueueResultPtr &result)
@@ -76,42 +149,31 @@ void WorkQueue::ThreadFunction(WorkQueue *self)
 
 void WorkQueue::ThreadRun()
 {
-    while (true)
+    while (m_active)
     {
         WorkQueueCommandPtr command;
 
         if (m_quit)
         {
             if (!m_commandQueue.try_dequeue(command))
-                // Queue is finally empty. Quit.
-                // Wait for jobs here when applicable.
+            {
                 break;
+            }
         }
         else
         {
             m_commandQueue.wait_dequeue(command);
         }
 
-        assert(command != nullptr);
+        if (!command)
+            continue;
+
         WorkQueueResultPtr result;
 
-        // #TODO: Spawn jobs for command to unclog the queue.
         switch (command->type())
         {
             case WorkCommandType::Quit:
                 m_quit = true;
-                break;
-            case WorkCommandType::LoadExe:
-                result = ProcessCommand(static_cast<WorkQueueCommandLoadExe &>(*command));
-                break;
-            case WorkCommandType::LoadPdb:
-                result = ProcessCommand(static_cast<WorkQueueCommandLoadPdb &>(*command));
-                break;
-            case WorkCommandType::SaveExeConfig:
-                result = ProcessCommand(static_cast<WorkQueueCommandSaveExeConfig &>(*command));
-                break;
-            case WorkCommandType::SavePdbConfig:
-                result = ProcessCommand(static_cast<WorkQueueCommandSavePdbConfig &>(*command));
                 break;
             case WorkCommandType::ProcessExe:
                 result = ProcessCommand(static_cast<WorkQueueCommandProcessExe &>(*command));
@@ -119,24 +181,22 @@ void WorkQueue::ThreadRun()
             case WorkCommandType::ProcessPdb:
                 result = ProcessCommand(static_cast<WorkQueueCommandProcessPdb &>(*command));
                 break;
-            case WorkCommandType::ProcessAsmOutput:
-                result = ProcessCommand(static_cast<WorkQueueCommandProcessAsmOutput &>(*command));
-                break;
             case WorkCommandType::ProcessAsmComparison:
                 result = ProcessCommand(static_cast<WorkQueueCommandProcessAsmComparison &>(*command));
                 break;
             default:
+                // Should not get here - parallel commands should be in pools
                 assert(false);
                 break;
         }
 
         m_lastFinishedCommandId = command->command_id;
 
-        // Not all commands need to return a result.
-        if (result != nullptr)
+        if (result)
         {
             result->command = std::move(command);
 
+            std::lock_guard<std::mutex> lock(m_resultMutex);
             if (result->command->callback)
             {
                 m_callbackQueue.enqueue(std::move(result));
@@ -203,6 +263,58 @@ WorkQueueResultPtr WorkQueue::ProcessCommand(const WorkQueueCommandProcessAsmCom
     auto result = std::make_unique<WorkQueueResultProcessAsmComparison>();
     result->success = Runner::process_asm_comparison(command.options);
     return result;
+}
+
+void WorkQueue::ProcessPoolCommands(WorkCommandType type)
+{
+    auto &pool = m_commandPools[type];
+
+    while (pool.active)
+    {
+        WorkQueueCommandPtr command;
+        if (pool.queue.wait_dequeue_timed(command, std::chrono::milliseconds(100)))
+        {
+            if (command)
+            {
+                WorkQueueResultPtr result = ProcessPoolCommand(*command);
+
+                if (result)
+                {
+                    result->command = std::move(command);
+
+                    std::lock_guard<std::mutex> lock(m_resultMutex);
+                    if (result->command->callback)
+                    {
+                        m_callbackQueue.enqueue(std::move(result));
+                    }
+                    else
+                    {
+                        m_pollingQueue.enqueue(std::move(result));
+                    }
+                }
+            }
+        }
+    }
+}
+
+WorkQueueResultPtr WorkQueue::ProcessPoolCommand(const WorkQueueCommand &command)
+{
+    switch (command.type())
+    {
+        case WorkCommandType::LoadExe:
+            return ProcessCommand(static_cast<const WorkQueueCommandLoadExe &>(command));
+        case WorkCommandType::LoadPdb:
+            return ProcessCommand(static_cast<const WorkQueueCommandLoadPdb &>(command));
+        case WorkCommandType::SaveExeConfig:
+            return ProcessCommand(static_cast<const WorkQueueCommandSaveExeConfig &>(command));
+        case WorkCommandType::SavePdbConfig:
+            return ProcessCommand(static_cast<const WorkQueueCommandSavePdbConfig &>(command));
+        case WorkCommandType::ProcessAsmOutput:
+            return ProcessCommand(static_cast<const WorkQueueCommandProcessAsmOutput &>(command));
+        default:
+            assert(false && "Command type not supported in pool");
+            return nullptr;
+    }
 }
 
 } // namespace unassemblize

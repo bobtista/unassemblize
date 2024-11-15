@@ -16,9 +16,14 @@
 #define MOODYCAMEL_EXCEPTIONS_ENABLED 0
 #include "readerwriterqueue.h"
 #include "runner.h"
+#include <algorithm>
+#include <array>
+#include <chrono>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <thread>
+#include <unordered_map>
 
 namespace unassemblize
 {
@@ -64,7 +69,7 @@ struct WorkQueueCommandQuit : public WorkQueueCommand
 
 struct WorkQueueCommandLoadExe : public WorkQueueCommand
 {
-    explicit WorkQueueCommandLoadExe(const std::string &input_file) : options(input_file){};
+    explicit WorkQueueCommandLoadExe(const std::string &input_file) : options(input_file) {};
 
     virtual ~WorkQueueCommandLoadExe() override = default;
     virtual WorkCommandType type() const override { return WorkCommandType::LoadExe; };
@@ -74,7 +79,7 @@ struct WorkQueueCommandLoadExe : public WorkQueueCommand
 
 struct WorkQueueCommandLoadPdb : public WorkQueueCommand
 {
-    explicit WorkQueueCommandLoadPdb(const std::string &input_file) : options(input_file){};
+    explicit WorkQueueCommandLoadPdb(const std::string &input_file) : options(input_file) {};
 
     virtual ~WorkQueueCommandLoadPdb() override = default;
     virtual WorkCommandType type() const override { return WorkCommandType::LoadPdb; };
@@ -85,7 +90,7 @@ struct WorkQueueCommandLoadPdb : public WorkQueueCommand
 struct WorkQueueCommandSaveExeConfig : public WorkQueueCommand
 {
     explicit WorkQueueCommandSaveExeConfig(const Executable *executable, const std::string &config_file) :
-        options(executable, config_file){};
+        options(executable, config_file) {};
 
     virtual ~WorkQueueCommandSaveExeConfig() override = default;
     virtual WorkCommandType type() const override { return WorkCommandType::SaveExeConfig; };
@@ -96,7 +101,7 @@ struct WorkQueueCommandSaveExeConfig : public WorkQueueCommand
 struct WorkQueueCommandSavePdbConfig : public WorkQueueCommand
 {
     explicit WorkQueueCommandSavePdbConfig(const PdbReader *pdb_reader, const std::string &config_file) :
-        options(pdb_reader, config_file){};
+        options(pdb_reader, config_file) {};
 
     virtual ~WorkQueueCommandSavePdbConfig() override = default;
     virtual WorkCommandType type() const override { return WorkCommandType::SavePdbConfig; };
@@ -212,8 +217,43 @@ class WorkQueue
     template<typename T, size_t MAX_BLOCK_SIZE = 512>
     using BlockingReaderWriterQueue = moodycamel::BlockingReaderWriterQueue<T, MAX_BLOCK_SIZE>;
 
+private:
+    static constexpr std::array<WorkCommandType, 9> ALL_COMMAND_TYPES = {
+        WorkCommandType::Quit,
+        WorkCommandType::ProcessExe,
+        WorkCommandType::ProcessPdb,
+        WorkCommandType::ProcessAsmOutput,
+        WorkCommandType::ProcessAsmComparison,
+        WorkCommandType::LoadExe,
+        WorkCommandType::LoadPdb,
+        WorkCommandType::SaveExeConfig,
+        WorkCommandType::SavePdbConfig};
+
+    struct CommandPool
+    {
+        BlockingReaderWriterQueue<WorkQueueCommandPtr, 32> queue;
+        std::vector<std::thread> threads;
+        bool parallel_execution;
+        std::atomic<bool> active{true};
+    };
+
+    static bool CanRunParallel(WorkCommandType type)
+    {
+        switch (type)
+        {
+            case WorkCommandType::LoadExe:
+            case WorkCommandType::LoadPdb:
+            case WorkCommandType::SaveExeConfig:
+            case WorkCommandType::SavePdbConfig:
+            case WorkCommandType::ProcessAsmOutput:
+                return true;
+            default:
+                return false;
+        }
+    }
+
 public:
-    WorkQueue() : m_commandQueue(31), m_pollingQueue(31), m_callbackQueue(31){};
+    WorkQueue() : m_commandQueue(31), m_pollingQueue(31), m_callbackQueue(31) {};
     ~WorkQueue();
 
     void start();
@@ -224,14 +264,14 @@ public:
     WorkQueueCommandId get_last_finished_command_id() const { return m_lastFinishedCommandId.load(); }
 
     bool enqueue(WorkQueueCommandPtr &&command);
-
     bool try_dequeue(WorkQueueResultPtr &result);
-
     void update_callbacks();
 
 private:
     static void ThreadFunction(WorkQueue *self);
     void ThreadRun();
+    void ProcessPoolCommands(WorkCommandType type);
+    WorkQueueResultPtr ProcessPoolCommand(const WorkQueueCommand &command);
 
     // #TODO Split commands from this class
     static WorkQueueResultPtr ProcessCommand(const WorkQueueCommandLoadExe &command);
@@ -248,10 +288,12 @@ private:
     ReaderWriterQueue<WorkQueueResultPtr, 32> m_callbackQueue;
 
     std::thread m_thread;
+    std::unordered_map<WorkCommandType, CommandPool> m_commandPools;
+    std::mutex m_resultMutex;
 
-    std::atomic<WorkQueueCommandId> m_lastFinishedCommandId = InvalidWorkQueueCommandId;
-
-    volatile bool m_quit = false;
+    std::atomic<WorkQueueCommandId> m_lastFinishedCommandId{InvalidWorkQueueCommandId};
+    std::atomic<bool> m_quit{false};
+    std::atomic<bool> m_active{true};
 };
 
 } // namespace unassemblize
