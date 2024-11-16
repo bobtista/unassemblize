@@ -58,7 +58,7 @@ struct ExeObjectSection
 struct ExeObject
 {
     std::string name;
-    std::list<ExeObjectSection> sections; // #TODO: vector
+    std::vector<ExeObjectSection> sections;
 };
 
 struct ExeImageData
@@ -74,6 +74,6 @@ struct ExeImageData
 
 using ExeSections = std::vector<ExeSectionInfo>;
 using ExeSymbols = std::vector<ExeSymbol>;
-using ExeObjects = std::list<ExeObject>; // #TODO: vector
+using ExeObjects = std::vector<ExeObject>;
 
 } // namespace unassemblize
