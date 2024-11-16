@@ -15,19 +15,29 @@ if(POLICY CMP0091)
     cmake_policy(SET CMP0091 NEW)
 endif()
 
+if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
+    set(WINDOWS TRUE)
+endif()
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 
 project(unassemblize LANGUAGES C CXX)
+
+if(MSVC)
+    # Build with multiple processes: speeds up build on multi core processors
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+endif()
+
+if(WINDOWS)
+    # Spawn no console by default.
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 
 # Set up a format target to do automated clang format checking.
 find_package(ClangFormat)
 include(ClangFormat)
-
-if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
-    set(WINDOWS TRUE)
-endif()
-
 include(FetchContent)
 
 # Configure Zydis options before declaring
@@ -99,11 +109,6 @@ include(imgui)
 include(imguifiledialog)
 if(WINDOWS)
 include(FindDiaSDK)
-endif()
-
-if(WINDOWS)
-# No console by default.
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
 endif()
 
 add_executable(unassemblize)
