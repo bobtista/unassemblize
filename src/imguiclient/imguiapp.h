@@ -143,6 +143,7 @@ private:
     void FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor, size_t idx);
     void FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor, size_t idx);
     void FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, bool &erased);
+    void FileManagerDescriptorSaveLoadStatus(const ProgramFileDescriptor &descriptor);
     void FileManagerGlobalButtons();
     void FileManagerInfo(ProgramFileDescriptor &descriptor);
     void FileManagerInfoExeSections(ProgramFileDescriptor &descriptor);

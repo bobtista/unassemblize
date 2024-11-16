@@ -627,41 +627,7 @@ void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, size_t i
         OverlayProgressBar(group_rect, -1.0f * (float)ImGui::GetTime(), overlay.c_str());
     }
 
-    constexpr ImU32 green = IM_COL32(0, 255, 0, 255);
-
-    // Draw status
-    if (descriptor.executable != nullptr)
-    {
-        DrawInTextCircle(green);
-        ImGui::Text(
-            " Loaded Exe: [%s] %s",
-            create_time_string(descriptor.exeLoadTimepoint).c_str(),
-            descriptor.executable->get_filename().c_str());
-    }
-    if (descriptor.pdbReader != nullptr)
-    {
-        DrawInTextCircle(green);
-        ImGui::Text(
-            " Loaded Pdb: [%s] %s",
-            create_time_string(descriptor.pdbLoadTimepoint).c_str(),
-            descriptor.pdbReader->get_filename().c_str());
-    }
-    if (descriptor.exeSaveConfigTimepoint != InvalidTimePoint)
-    {
-        DrawInTextCircle(green);
-        ImGui::Text(
-            " Saved Exe Config: [%s] %s",
-            create_time_string(descriptor.exeSaveConfigTimepoint).c_str(),
-            descriptor.exeSaveConfigFilename.c_str());
-    }
-    if (descriptor.pdbSaveConfigTimepoint != InvalidTimePoint)
-    {
-        DrawInTextCircle(green);
-        ImGui::Text(
-            " Saved Pdb Config: [%s] %s",
-            create_time_string(descriptor.pdbSaveConfigTimepoint).c_str(),
-            descriptor.pdbSaveConfigFilename.c_str());
-    }
+    FileManagerDescriptorSaveLoadStatus(descriptor);
 
     // Draw some details
     if (descriptor.executable != nullptr || descriptor.pdbReader != nullptr)
@@ -809,6 +775,48 @@ void ImGuiApp::FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, b
             save_config_async(&descriptor);
         }
     }
+}
+
+void ImGuiApp::FileManagerDescriptorSaveLoadStatus(const ProgramFileDescriptor &descriptor)
+{
+    constexpr ImU32 green = IM_COL32(0, 255, 0, 255);
+
+    if (descriptor.executable != nullptr)
+    {
+        DrawInTextCircle(green);
+        ImGui::Text(
+            " Loaded Exe: [%s] %s",
+            create_time_string(descriptor.exeLoadTimepoint).c_str(),
+            descriptor.executable->get_filename().c_str());
+    }
+
+    if (descriptor.pdbReader != nullptr)
+    {
+        DrawInTextCircle(green);
+        ImGui::Text(
+            " Loaded Pdb: [%s] %s",
+            create_time_string(descriptor.pdbLoadTimepoint).c_str(),
+            descriptor.pdbReader->get_filename().c_str());
+    }
+
+    if (descriptor.exeSaveConfigTimepoint != InvalidTimePoint)
+    {
+        DrawInTextCircle(green);
+        ImGui::Text(
+            " Saved Exe Config: [%s] %s",
+            create_time_string(descriptor.exeSaveConfigTimepoint).c_str(),
+            descriptor.exeSaveConfigFilename.c_str());
+    }
+
+    if (descriptor.pdbSaveConfigTimepoint != InvalidTimePoint)
+    {
+        DrawInTextCircle(green);
+        ImGui::Text(
+            " Saved Pdb Config: [%s] %s",
+            create_time_string(descriptor.pdbSaveConfigTimepoint).c_str(),
+            descriptor.pdbSaveConfigFilename.c_str());
+    }
+    // #TODO: Also draw fail status.
 }
 
 void ImGuiApp::FileManagerGlobalButtons()
