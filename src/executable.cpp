@@ -543,10 +543,10 @@ void Executable::load_objects(nlohmann::json &js)
         printf("Loading objects...\n");
     }
 
-    for (auto it = js.begin(); it != js.end(); ++it)
+    for (auto js_object = js.begin(); js_object != js.end(); ++js_object)
     {
         std::string obj_name;
-        it->at("name").get_to(obj_name);
+        js_object->at("name").get_to(obj_name);
 
         if (obj_name.empty())
         {
@@ -567,15 +567,15 @@ void Executable::load_objects(nlohmann::json &js)
 
         m_targetObjects.push_back({obj_name, std::vector<ExeObjectSection>()});
         ExeObject &obj = m_targetObjects.back();
-        auto &sections = js.back().at("sections");
+        const auto &js_sections = js.back().at("sections");
 
-        for (auto sec = sections.begin(); sec != sections.end(); ++sec)
+        for (auto js_section = js_sections.begin(); js_section != js_sections.end(); ++js_section)
         {
             obj.sections.emplace_back();
             ExeObjectSection &section = obj.sections.back();
-            sec->at("name").get_to(section.name);
-            sec->at("offset").get_to(section.offset);
-            sec->at("size").get_to(section.size);
+            js_section->at("name").get_to(section.name);
+            js_section->at("offset").get_to(section.offset);
+            js_section->at("size").get_to(section.size);
         }
     }
 }
@@ -587,14 +587,14 @@ void Executable::dump_objects(nlohmann::json &js) const
         printf("Saving objects...\n");
     }
 
-    for (ExeObjects::const_iterator it = m_targetObjects.begin(); it != m_targetObjects.end(); ++it)
+    for (const ExeObject &object : m_targetObjects)
     {
-        js.push_back({{"name", it->name}, {"sections", nlohmann::json()}});
-        auto &sections = js.back().at("sections");
+        js.push_back({{"name", object.name}, {"sections", nlohmann::json()}});
+        auto &js_sections = js.back().at("sections");
 
-        for (auto it2 = it->sections.begin(); it2 != it->sections.end(); ++it2)
+        for (const ExeObjectSection &section : object.sections)
         {
-            sections.push_back({{"name", it2->name}, {"offset", it2->offset}, {"size", it2->size}});
+            js_sections.push_back({{"name", section.name}, {"offset", section.offset}, {"size", section.size}});
         }
     }
 }
