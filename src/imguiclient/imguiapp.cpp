@@ -21,6 +21,9 @@
 
 namespace unassemblize::gui
 {
+ImGuiApp::ProgramFileId ImGuiApp::ProgramFileDescriptor::s_id = 1;
+ImGuiApp::AsmComparisonId ImGuiApp::AsmComparisonDescriptor::s_id = 1;
+
 void ImGuiApp::ProgramFileDescriptor::invalidate_command_id()
 {
     activeCommandId = InvalidWorkQueueCommandId;
@@ -57,18 +60,18 @@ std::string ImGuiApp::ProgramFileDescriptor::create_short_exe_name() const
     return path.filename().string();
 }
 
-std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name(size_t idx) const
+std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name() const
 {
-    return fmt::format("File {:d}", idx + 1);
+    return fmt::format("File {:d}", id);
 }
 
-std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_short_exe_name(size_t idx) const
+std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_short_exe_name() const
 {
     const std::string exe_name = create_short_exe_name();
     if (exe_name.empty())
-        return create_descriptor_name(idx);
+        return create_descriptor_name();
     else
-        return fmt::format("File {:d} - {:s}", idx + 1, exe_name);
+        return fmt::format("File {:d} - {:s}", id, exe_name);
 }
 
 ImGuiStatus ImGuiApp::init(const CommandLineOptions &clo)
@@ -564,7 +567,7 @@ void ImGuiApp::AsmComparisonManagerWindows()
     {
         AsmComparisonDescriptor &descriptor = *m_asmComparisons[i];
 
-        const std::string title = fmt::format("Assembler Comparison {:d}", i + 1);
+        const std::string title = fmt::format("Assembler Comparison {:d}", descriptor.id);
 
         ImScoped::Window window(title.c_str(), &descriptor.has_open_window);
         ImScoped::ID id(i);
@@ -593,7 +596,7 @@ void ImGuiApp::FileManagerBody()
 
     bool show_files = !m_programFiles.empty();
 
-    if (m_showFileManagerWithTabs)
+    if (show_files && m_showFileManagerWithTabs)
     {
         show_files = ImGui::BeginTabBar("file_tabs");
     }
@@ -612,21 +615,23 @@ void ImGuiApp::FileManagerBody()
             if (m_showFileManagerWithTabs)
             {
                 // Tab items cannot have dynamic labels without bugs. Force consistent names.
-                const std::string title = descriptor.create_descriptor_name(i);
+                const std::string title = descriptor.create_descriptor_name();
                 is_open = ImGui::BeginTabItem(title.c_str());
                 // Tooltip on hover tab.
-                TooltipTextUnformatted(descriptor.create_short_exe_name());
+                const std::string exe_name = descriptor.create_short_exe_name();
+                if (!exe_name.empty())
+                    TooltipTextUnformatted(exe_name);
             }
             else
             {
-                const std::string title = descriptor.create_descriptor_name_with_short_exe_name(i);
+                const std::string title = descriptor.create_descriptor_name_with_short_exe_name();
                 is_open = ImGui::TreeNodeEx("file_tree", ImGuiTreeNodeFlags_DefaultOpen, title.c_str());
             }
 
             if (is_open)
             {
                 bool erased;
-                FileManagerDescriptor(descriptor, i, erased);
+                FileManagerDescriptor(descriptor, erased);
                 if (erased)
                     erase_idx = i;
 
@@ -651,20 +656,20 @@ void ImGuiApp::FileManagerBody()
     }
 }
 
-void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, size_t idx, bool &erased)
+void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, bool &erased)
 {
     {
         ImScoped::Group group;
         ImScoped::Disabled disabled(descriptor.has_active_command());
         ImScoped::ItemWidth item_width(ImGui::GetFontSize() * -12);
 
-        FileManagerDescriptorExeFile(descriptor, idx);
+        FileManagerDescriptorExeFile(descriptor);
 
-        FileManagerDescriptorExeConfig(descriptor, idx);
+        FileManagerDescriptorExeConfig(descriptor);
 
-        FileManagerDescriptorPdbFile(descriptor, idx);
+        FileManagerDescriptorPdbFile(descriptor);
 
-        FileManagerDescriptorPdbConfig(descriptor, idx);
+        FileManagerDescriptorPdbConfig(descriptor);
 
         FileManagerDescriptorActions(descriptor, erased);
     }
@@ -697,12 +702,12 @@ void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, size_t i
     ImGui::Spacing();
 }
 
-void ImGuiApp::FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor, size_t idx)
+void ImGuiApp::FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor)
 {
     AddFileDialogButton(
         &descriptor.exeFilename,
         g_browse_file_button_label,
-        fmt::format("exe_file_dialog{:d}", idx),
+        fmt::format("exe_file_dialog{:d}", descriptor.id),
         g_select_file_dialog_title,
         "Program (*.*){((.*))}"); // ((.*)) is regex for all files
 
@@ -724,12 +729,12 @@ void ImGuiApp::FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor, s
     }
 }
 
-void ImGuiApp::FileManagerDescriptorExeConfig(ProgramFileDescriptor &descriptor, size_t idx)
+void ImGuiApp::FileManagerDescriptorExeConfig(ProgramFileDescriptor &descriptor)
 {
     AddFileDialogButton(
         &descriptor.exeConfigFilename,
         g_browse_file_button_label,
-        fmt::format("exe_config_file_dialog{:d}", idx),
+        fmt::format("exe_config_file_dialog{:d}", descriptor.id),
         g_select_file_dialog_title,
         "Config (*.json){.json}");
 
@@ -752,12 +757,12 @@ void ImGuiApp::FileManagerDescriptorExeConfig(ProgramFileDescriptor &descriptor,
     }
 }
 
-void ImGuiApp::FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor, size_t idx)
+void ImGuiApp::FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor)
 {
     AddFileDialogButton(
         &descriptor.pdbFilename,
         g_browse_file_button_label,
-        fmt::format("pdb_file_dialog{:d}", idx),
+        fmt::format("pdb_file_dialog{:d}", descriptor.id),
         g_select_file_dialog_title,
         "Program Database (*.pdb){.pdb}");
 
@@ -765,12 +770,12 @@ void ImGuiApp::FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor, s
     ImGui::InputText("Pdb File", &descriptor.pdbFilename);
 }
 
-void ImGuiApp::FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor, size_t idx)
+void ImGuiApp::FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor)
 {
     AddFileDialogButton(
         &descriptor.pdbConfigFilename,
         g_browse_file_button_label,
-        fmt::format("pdb_config_file_dialog{:d}", idx),
+        fmt::format("pdb_config_file_dialog{:d}", descriptor.id),
         g_select_file_dialog_title,
         "Config (*.json){.json}");
 

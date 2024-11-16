@@ -48,9 +48,13 @@ class ImGuiApp
     // clang-format on
 
     static constexpr std::chrono::system_clock::time_point InvalidTimePoint = std::chrono::system_clock::time_point::min();
+    using ProgramFileId = uint32_t;
+    using AsmComparisonId = uint32_t;
 
     struct ProgramFileDescriptor
     {
+        ProgramFileDescriptor() : id(s_id++) {}
+
         void invalidate_command_id();
 
         bool has_active_command() const { return activeCommandId != InvalidWorkQueueCommandId; }
@@ -67,8 +71,8 @@ class ImGuiApp
         std::string evaluate_pdb_config_filename() const;
 
         std::string create_short_exe_name() const;
-        std::string create_descriptor_name(size_t idx) const;
-        std::string create_descriptor_name_with_short_exe_name(size_t idx) const;
+        std::string create_descriptor_name() const;
+        std::string create_descriptor_name_with_short_exe_name() const;
 
         // All members must be modified by UI thread only
 
@@ -81,6 +85,8 @@ class ImGuiApp
         TextFilterDescriptor<const ExeSymbol *> exeSymbolsDescriptor = "exe_symbols_descriptor";
         TextFilterDescriptor<const PdbSymbolInfo *> pdbSymbolsDescriptor = "pdb_symbols_descriptor";
         TextFilterDescriptor<const PdbFunctionInfo *> pdbFunctionsDescriptor = "pdb_functions_descriptor";
+
+        const ProgramFileId id = 0;
 
         // Has pending asynchronous command(s) running when not invalid.
         WorkQueueCommandId activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
@@ -95,12 +101,22 @@ class ImGuiApp
         std::chrono::time_point<std::chrono::system_clock> exeSaveConfigTimepoint = InvalidTimePoint;
         std::chrono::time_point<std::chrono::system_clock> pdbLoadTimepoint = InvalidTimePoint;
         std::chrono::time_point<std::chrono::system_clock> pdbSaveConfigTimepoint = InvalidTimePoint;
+
+    private:
+        static ProgramFileId s_id;
     };
     using ProgramFileDescriptorPtr = std::unique_ptr<ProgramFileDescriptor>;
 
     struct AsmComparisonDescriptor
     {
+        AsmComparisonDescriptor() : id(s_id++) {}
+
+        const AsmComparisonId id = 0;
+
         bool has_open_window = true;
+
+    private:
+        static ProgramFileId s_id;
     };
     using AsmComparisonDescriptorPtr = std::unique_ptr<AsmComparisonDescriptor>;
 
@@ -148,11 +164,11 @@ private:
     void AsmComparisonManagerWindows();
 
     void FileManagerBody();
-    void FileManagerDescriptor(ProgramFileDescriptor &descriptor, size_t idx, bool &erased);
-    void FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor, size_t idx);
-    void FileManagerDescriptorExeConfig(ProgramFileDescriptor &descriptor, size_t idx);
-    void FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor, size_t idx);
-    void FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor, size_t idx);
+    void FileManagerDescriptor(ProgramFileDescriptor &descriptor, bool &erased);
+    void FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor);
+    void FileManagerDescriptorExeConfig(ProgramFileDescriptor &descriptor);
+    void FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor);
+    void FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor);
     void FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, bool &erased);
     void FileManagerDescriptorSaveLoadStatus(const ProgramFileDescriptor &descriptor);
     void FileManagerGlobalButtons();

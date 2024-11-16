@@ -15,7 +15,7 @@
 
 namespace unassemblize
 {
-WorkQueueCommandId WorkQueueCommand::s_id = 0;
+WorkQueueCommandId WorkQueueCommand::s_id = InvalidWorkQueueCommandId + 1; // 1
 
 WorkQueue::~WorkQueue()
 {

@@ -30,7 +30,7 @@ struct WorkQueueCommandQuit;
 using WorkQueueCommandPtr = std::unique_ptr<WorkQueueCommand>;
 using WorkQueueResultPtr = std::unique_ptr<WorkQueueResult>;
 using WorkQueueCommandId = uint32_t;
-inline constexpr WorkQueueCommandId InvalidWorkQueueCommandId = WorkQueueCommandId(~0);
+inline constexpr WorkQueueCommandId InvalidWorkQueueCommandId = 0;
 
 struct WorkQueueCommand
 {
@@ -51,6 +51,8 @@ struct WorkQueueCommand
     void *context = nullptr;
 
     const WorkQueueCommandId command_id;
+
+private:
     static WorkQueueCommandId s_id; // Not atomic, because intended to be created on single thread.
 };
 
