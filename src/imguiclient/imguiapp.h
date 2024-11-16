@@ -67,6 +67,8 @@ class ImGuiApp
         std::string evaluate_pdb_config_filename() const;
 
         std::string create_short_exe_name() const;
+        std::string create_descriptor_name(size_t idx) const;
+        std::string create_descriptor_name_with_short_exe_name(size_t idx) const;
 
         // All members must be modified by UI thread only
 

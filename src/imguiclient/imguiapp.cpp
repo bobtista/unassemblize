@@ -56,6 +56,20 @@ std::string ImGuiApp::ProgramFileDescriptor::create_short_exe_name() const
     return path.filename().string();
 }
 
+std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name(size_t idx) const
+{
+    return fmt::format("File {:d}", idx + 1);
+}
+
+std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_short_exe_name(size_t idx) const
+{
+    const std::string exe_name = create_short_exe_name();
+    if (exe_name.empty())
+        return create_descriptor_name(idx);
+    else
+        return fmt::format("File {:d} - {:s}", idx + 1, exe_name);
+}
+
 ImGuiStatus ImGuiApp::init(const CommandLineOptions &clo)
 {
     IMGUI_CHECKVERSION();
@@ -550,22 +564,17 @@ void ImGuiApp::FileManagerBody()
 
             bool is_open = false;
 
-            const std::string exe_name = descriptor.create_short_exe_name();
-            std::string title;
-            // Tab items cannot have dynamic labels without bugs. Force consistent names.
-            if (exe_name.empty() || m_showFileManagerWithTabs)
-                title = fmt::format("File {:02d}", i);
-            else
-                title = fmt::format("File {:02d} - {:s}", i, exe_name);
-
             if (m_showFileManagerWithTabs)
             {
+                // Tab items cannot have dynamic labels without bugs. Force consistent names.
+                const std::string title = descriptor.create_descriptor_name(i);
                 is_open = ImGui::BeginTabItem(title.c_str());
-                // Tooltip on hover tab
-                TooltipTextUnformatted(exe_name);
+                // Tooltip on hover tab.
+                TooltipTextUnformatted(descriptor.create_short_exe_name());
             }
             else
             {
+                const std::string title = descriptor.create_descriptor_name_with_short_exe_name(i);
                 is_open = ImGui::TreeNodeEx("file_tree", ImGuiTreeNodeFlags_DefaultOpen, title.c_str());
             }
 
@@ -743,6 +752,9 @@ void ImGuiApp::FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, b
         ImScoped::StyleColor text_color1(ImGuiCol_Text, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));
         ImScoped::StyleColor text_color2(ImGuiCol_TextDisabled, ImVec4(0.50f, 0.50f, 0.50f, 1.00f));
         erased = ImGui::Button("Remove");
+
+        // #TODO: Guard this button press with a confirmation dialog ?
+        // There is an example for this in "Dear ImGui Demo" > "Popups & Modal windows" > "Modals".
     }
 
     ImGui::SameLine();
@@ -1245,6 +1257,9 @@ void ImGuiApp::FileManagerInfoPdbExeInfo(ProgramFileDescriptor &descriptor)
 
 void ImGuiApp::AsmOutputManagerBody()
 {
+    // #TODO implement.
+
+    ImGui::TextUnformatted("Not implemented");
 }
 
 void ImGuiApp::AsmComparisonManagerBody()
