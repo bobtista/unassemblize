@@ -98,6 +98,12 @@ class ImGuiApp
     };
     using ProgramFileDescriptorPtr = std::unique_ptr<ProgramFileDescriptor>;
 
+    struct AsmComparisonDescriptor
+    {
+        bool has_open_window = true;
+    };
+    using AsmComparisonDescriptorPtr = std::unique_ptr<AsmComparisonDescriptor>;
+
 public:
     ImGuiApp() = default;
     ~ImGuiApp() = default;
@@ -130,13 +136,16 @@ private:
     void remove_file(size_t idx);
     void remove_all_files();
 
+    void add_asm_comparison();
+    void remove_closed_asm_comparisons();
+
     static std::string create_section_string(uint32_t section_index, const ExeSections *sections);
     static std::string create_time_string(std::chrono::time_point<std::chrono::system_clock> time_point);
 
     void BackgroundWindow();
     void FileManagerWindow(bool *p_open);
     void AsmOutputManagerWindow(bool *p_open);
-    void AsmComparisonManagerWindow(bool *p_open);
+    void AsmComparisonManagerWindows();
 
     void FileManagerBody();
     void FileManagerDescriptor(ProgramFileDescriptor &descriptor, size_t idx, bool &erased);
@@ -157,7 +166,8 @@ private:
     void FileManagerInfoPdbExeInfo(ProgramFileDescriptor &descriptor);
 
     void AsmOutputManagerBody();
-    void AsmComparisonManagerBody();
+
+    void AsmComparisonManagerBody(AsmComparisonDescriptor &descriptor);
 
 private:
     ImVec2 m_windowPos = ImVec2(0, 0);
@@ -176,11 +186,11 @@ private:
     bool m_showFileManagerPdbExeInfo = true;
 
     bool m_showAsmOutputManager = true;
-    bool m_showAsmComparisonManager = true;
 
     WorkQueue m_workQueue;
 
     std::vector<ProgramFileDescriptorPtr> m_programFiles;
+    std::vector<AsmComparisonDescriptorPtr> m_asmComparisons;
 };
 
 } // namespace unassemblize::gui

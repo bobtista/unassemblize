@@ -14,6 +14,7 @@
 #include "options.h"
 #include "util.h"
 #include "utility/imgui_scoped.h"
+#include <algorithm>
 #include <filesystem>
 #include <fmt/core.h>
 #include <misc/cpp/imgui_stdlib.h>
@@ -153,6 +154,8 @@ ImGuiStatus ImGuiApp::init(const CommandLineOptions &clo)
         m_programFiles.emplace_back(std::move(descriptor));
     }
 
+    add_asm_comparison();
+
     return ImGuiStatus::Ok;
 }
 
@@ -225,8 +228,7 @@ void ImGuiApp::update_app()
     if (m_showAsmOutputManager)
         AsmOutputManagerWindow(&m_showAsmOutputManager);
 
-    if (m_showAsmComparisonManager)
-        AsmComparisonManagerWindow(&m_showAsmComparisonManager);
+    AsmComparisonManagerWindows();
 }
 
 void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
@@ -410,6 +412,22 @@ void ImGuiApp::remove_all_files()
     m_programFiles.clear();
 }
 
+void ImGuiApp::add_asm_comparison()
+{
+    m_asmComparisons.emplace_back(std::make_unique<AsmComparisonDescriptor>());
+}
+
+void ImGuiApp::remove_closed_asm_comparisons()
+{
+    // Remove descriptor when window was closed.
+    m_asmComparisons.erase(
+        std::remove_if(
+            m_asmComparisons.begin(),
+            m_asmComparisons.end(),
+            [](const AsmComparisonDescriptorPtr &p) { return !p->has_open_window; }),
+        m_asmComparisons.end());
+}
+
 std::string ImGuiApp::create_section_string(uint32_t section_index, const ExeSections *sections)
 {
     if (sections != nullptr && section_index < sections->size())
@@ -440,7 +458,7 @@ std::string ImGuiApp::create_time_string(std::chrono::time_point<std::chrono::sy
 void ImGuiApp::BackgroundWindow()
 {
     // clang-format off
-    const int flags =
+    constexpr ImGuiWindowFlags window_flags =
         ImGuiWindowFlags_NoDecoration |
         ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoBackground |
@@ -449,87 +467,114 @@ void ImGuiApp::BackgroundWindow()
         ImGuiWindowFlags_NoDocking;
     // clang-format on
 
-    bool open = true;
-    ImGui::Begin("main", &open, flags);
-    ImGui::SetWindowPos("main", m_windowPos);
-    ImGui::SetWindowSize("main", ImVec2(m_windowSize.x, 0.f));
-
-    if (ImGui::BeginMenuBar())
+    bool window_open = true;
+    ImScoped::Window window("main", &window_open, window_flags);
+    if (window.IsContentVisible)
     {
-        if (ImGui::BeginMenu("File"))
+        ImGui::SetWindowPos("main", m_windowPos);
+        ImGui::SetWindowSize("main", ImVec2(m_windowSize.x, 0.f));
+
+        ImScoped::MenuBar menu_bar;
+        if (menu_bar.IsOpen)
         {
-            if (ImGui::MenuItem("Exit"))
             {
-                // Will wait for all work to finish and then shutdown the app.
-                prepare_shutdown_nowait();
+                ImScoped::Menu menu("File");
+                if (menu.IsOpen)
+                {
+                    if (ImGui::MenuItem("Exit"))
+                    {
+                        // Will wait for all work to finish and then shutdown the app.
+                        prepare_shutdown_nowait();
+                    }
+                    ImGui::SameLine();
+                    TooltipTextUnformattedMarker("Graceful shutdown. Finishes all tasks before exiting.");
+                }
             }
-            ImGui::SameLine();
-            TooltipTextUnformattedMarker("Graceful shutdown. Finishes all tasks before exiting.");
-            ImGui::EndMenu();
-        }
 
-        if (ImGui::BeginMenu("Tools"))
-        {
-            ImGui::MenuItem("Program File Manager", nullptr, &m_showFileManager);
-            ImGui::MenuItem("Assembler Output", nullptr, &m_showAsmOutputManager);
-            ImGui::MenuItem("Assembler Comparison", nullptr, &m_showAsmComparisonManager);
-            ImGui::EndMenu();
+            {
+                ImScoped::Menu menu("Tools");
+                if (menu.IsOpen)
+                {
+                    ImGui::MenuItem("Program File Manager", nullptr, &m_showFileManager);
+                    ImGui::MenuItem("Assembler Output", nullptr, &m_showAsmOutputManager);
+
+                    if (ImGui::MenuItem("New Assembler Comparison"))
+                    {
+                        add_asm_comparison();
+                    }
+                    ImGui::SameLine();
+                    TooltipTextUnformattedMarker("Opens a new Assembler Comparison window.");
+                }
+            }
         }
-        ImGui::EndMenuBar();
     }
-
-    ImGui::End();
 }
 
 void ImGuiApp::FileManagerWindow(bool *p_open)
 {
-    ImGui::Begin("File Manager", p_open, ImGuiWindowFlags_MenuBar);
-
-    if (ImGui::BeginMenuBar())
+    ImScoped::Window window("File Manager", p_open, ImGuiWindowFlags_MenuBar);
+    if (window.IsContentVisible)
     {
-        if (ImGui::BeginMenu("File"))
+        if (ImGui::BeginMenuBar())
         {
-            if (ImGui::MenuItem("Add File"))
+            if (ImGui::BeginMenu("File"))
             {
-                add_file();
+                if (ImGui::MenuItem("Add File"))
+                {
+                    add_file();
+                }
+                if (ImGui::MenuItem("Remove All Files"))
+                {
+                    remove_all_files();
+                }
+                ImGui::EndMenu();
             }
-            if (ImGui::MenuItem("Remove All Files"))
-            {
-                remove_all_files();
-            }
-            ImGui::EndMenu();
-        }
 
-        if (ImGui::BeginMenu("View"))
-        {
-            ImGui::MenuItem("Show Tabs", nullptr, &m_showFileManagerWithTabs);
-            ImGui::MenuItem("Show Exe Section Info", nullptr, &m_showFileManagerExeSectionInfo);
-            ImGui::MenuItem("Show Exe Symbol Info", nullptr, &m_showFileManagerExeSymbolInfo);
-            ImGui::MenuItem("Show Pdb Compiland Info", nullptr, &m_showFileManagerPdbCompilandInfo);
-            ImGui::MenuItem("Show Pdb Source File Info", nullptr, &m_showFileManagerPdbSourceFileInfo);
-            ImGui::MenuItem("Show Pdb Symbol Info", nullptr, &m_showFileManagerPdbSymbolInfo);
-            ImGui::MenuItem("Show Pdb Function Info", nullptr, &m_showFileManagerPdbFunctionInfo);
-            ImGui::MenuItem("Show Pdb Exe Info", nullptr, &m_showFileManagerPdbExeInfo);
-            ImGui::EndMenu();
+            if (ImGui::BeginMenu("View"))
+            {
+                ImGui::MenuItem("Show Tabs", nullptr, &m_showFileManagerWithTabs);
+                ImGui::MenuItem("Show Exe Section Info", nullptr, &m_showFileManagerExeSectionInfo);
+                ImGui::MenuItem("Show Exe Symbol Info", nullptr, &m_showFileManagerExeSymbolInfo);
+                ImGui::MenuItem("Show Pdb Compiland Info", nullptr, &m_showFileManagerPdbCompilandInfo);
+                ImGui::MenuItem("Show Pdb Source File Info", nullptr, &m_showFileManagerPdbSourceFileInfo);
+                ImGui::MenuItem("Show Pdb Symbol Info", nullptr, &m_showFileManagerPdbSymbolInfo);
+                ImGui::MenuItem("Show Pdb Function Info", nullptr, &m_showFileManagerPdbFunctionInfo);
+                ImGui::MenuItem("Show Pdb Exe Info", nullptr, &m_showFileManagerPdbExeInfo);
+                ImGui::EndMenu();
+            }
+            ImGui::EndMenuBar();
         }
-        ImGui::EndMenuBar();
+        FileManagerBody();
     }
-    FileManagerBody();
-    ImGui::End();
 }
 
 void ImGuiApp::AsmOutputManagerWindow(bool *p_open)
 {
-    ImGui::Begin("Assembler Output Manager", p_open);
-    AsmOutputManagerBody();
-    ImGui::End();
+    ImScoped::Window window("Assembler Output Manager", p_open);
+    if (window.IsContentVisible)
+    {
+        AsmOutputManagerBody();
+    }
 }
 
-void ImGuiApp::AsmComparisonManagerWindow(bool *p_open)
+void ImGuiApp::AsmComparisonManagerWindows()
 {
-    ImGui::Begin("Assembler Comparison Manager", p_open);
-    AsmComparisonManagerBody();
-    ImGui::End();
+    const size_t count = m_asmComparisons.size();
+    for (size_t i = 0; i < count; ++i)
+    {
+        AsmComparisonDescriptor &descriptor = *m_asmComparisons[i];
+
+        const std::string title = fmt::format("Assembler Comparison {:d}", i + 1);
+
+        ImScoped::Window window(title.c_str(), &descriptor.has_open_window);
+        ImScoped::ID id(i);
+        if (window.IsContentVisible && descriptor.has_open_window)
+        {
+            AsmComparisonManagerBody(descriptor);
+        }
+    }
+
+    remove_closed_asm_comparisons();
 }
 
 namespace
@@ -1262,7 +1307,7 @@ void ImGuiApp::AsmOutputManagerBody()
     ImGui::TextUnformatted("Not implemented");
 }
 
-void ImGuiApp::AsmComparisonManagerBody()
+void ImGuiApp::AsmComparisonManagerBody(AsmComparisonDescriptor &descriptor)
 {
 }
 
