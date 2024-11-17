@@ -234,23 +234,7 @@ void ImGuiApp::update_app()
     AsmComparisonManagerWindows();
 }
 
-void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
-{
-    if (descriptor->can_load_pdb())
-    {
-        load_pdb_async(descriptor);
-    }
-    else if (descriptor->can_load_exe())
-    {
-        load_exe_async(descriptor);
-    }
-    else
-    {
-        assert("Cannot load undefined file");
-    }
-}
-
-void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
+WorkQueueCommandPtr ImGuiApp::create_load_exe_command(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor->can_load_exe());
 
@@ -269,7 +253,6 @@ void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
         descriptor->executable = std::move(res->executable);
         descriptor->exeLoadTimepoint = std::chrono::system_clock::now();
         descriptor->invalidate_command_id();
-        result.reset();
     };
 
     descriptor->exeSymbolsDescriptor.reset();
@@ -278,34 +261,20 @@ void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
     descriptor->exeSaveConfigFilename.clear();
     descriptor->exeSaveConfigTimepoint = InvalidTimePoint;
     descriptor->activeCommandId = command->command_id;
-    m_workQueue.enqueue(std::move(command));
+
+    return command;
 }
 
-void ImGuiApp::load_pdb_async(ProgramFileDescriptor *descriptor)
+WorkQueueCommandPtr ImGuiApp::create_load_pdb_command(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor->can_load_pdb());
 
     auto command = std::make_unique<AsyncLoadPdbCommand>(LoadPdbOptions(descriptor->pdbFilename));
 
-    command->callback = [this, descriptor](WorkQueueResultPtr &result) {
+    command->callback = [descriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncLoadPdbResult *>(result.get());
         descriptor->pdbReader = std::move(res->pdbReader);
         descriptor->pdbLoadTimepoint = std::chrono::system_clock::now();
-        result.reset();
-
-        if (descriptor->pdbReader != nullptr)
-        {
-            // Chain load executable when Pdb load is done.
-            const unassemblize::PdbExeInfo &exe_info = descriptor->pdbReader->get_exe_info();
-            descriptor->exeFilenameFromPdb = unassemblize::Runner::create_exe_filename(exe_info);
-
-            if (descriptor->can_load_exe())
-            {
-                load_exe_async(descriptor);
-                return;
-            }
-        }
-
         descriptor->invalidate_command_id();
     };
 
@@ -317,26 +286,11 @@ void ImGuiApp::load_pdb_async(ProgramFileDescriptor *descriptor)
     descriptor->pdbSaveConfigTimepoint = InvalidTimePoint;
     descriptor->exeFilenameFromPdb.clear();
     descriptor->activeCommandId = command->command_id;
-    m_workQueue.enqueue(std::move(command));
+
+    return command;
 }
 
-void ImGuiApp::save_config_async(ProgramFileDescriptor *descriptor)
-{
-    if (descriptor->can_save_pdb_config())
-    {
-        save_pdb_config_async(descriptor);
-    }
-    else if (descriptor->can_save_exe_config())
-    {
-        save_exe_config_async(descriptor);
-    }
-    else
-    {
-        assert("Cannot save undefined config file");
-    }
-}
-
-void ImGuiApp::save_exe_config_async(ProgramFileDescriptor *descriptor)
+WorkQueueCommandPtr ImGuiApp::create_save_exe_config_command(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor->can_save_exe_config());
 
@@ -353,16 +307,16 @@ void ImGuiApp::save_exe_config_async(ProgramFileDescriptor *descriptor)
             descriptor->exeSaveConfigTimepoint = std::chrono::system_clock::now();
         }
         descriptor->invalidate_command_id();
-        result.reset();
     };
 
     descriptor->exeSaveConfigFilename.clear();
     descriptor->exeSaveConfigTimepoint = InvalidTimePoint;
     descriptor->activeCommandId = command->command_id;
-    m_workQueue.enqueue(std::move(command));
+
+    return command;
 }
 
-void ImGuiApp::save_pdb_config_async(ProgramFileDescriptor *descriptor)
+WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor->can_save_pdb_config());
 
@@ -370,7 +324,7 @@ void ImGuiApp::save_pdb_config_async(ProgramFileDescriptor *descriptor)
     auto command =
         std::make_unique<AsyncSavePdbConfigCommand>(SavePdbConfigOptions(descriptor->pdbReader.get(), config_filename));
 
-    command->callback = [this, descriptor](WorkQueueResultPtr &result) {
+    command->callback = [descriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSavePdbConfigResult *>(result.get());
         if (res->success)
         {
@@ -378,23 +332,78 @@ void ImGuiApp::save_pdb_config_async(ProgramFileDescriptor *descriptor)
             descriptor->pdbSaveConfigFilename = util::abs_path(com->options.config_file);
             descriptor->pdbSaveConfigTimepoint = std::chrono::system_clock::now();
         }
-        result.reset();
-
-        if (descriptor->can_save_exe_config())
-        {
-            // Chain save next config file when this one is done,
-            // because config file contents can be saved into the same file.
-            save_exe_config_async(descriptor);
-            return;
-        }
-
         descriptor->invalidate_command_id();
     };
 
     descriptor->pdbSaveConfigFilename.clear();
     descriptor->pdbSaveConfigTimepoint = InvalidTimePoint;
     descriptor->activeCommandId = command->command_id;
+
+    return command;
+}
+
+void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
+{
+    if (descriptor->can_load_pdb())
+    {
+        load_pdb_and_exe_async(descriptor);
+    }
+    else if (descriptor->can_load_exe())
+    {
+        load_exe_async(descriptor);
+    }
+    else
+    {
+        // Cannot load undefined file.
+        assert(false);
+    }
+}
+
+void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
+{
+    m_workQueue.enqueue(create_load_exe_command(descriptor));
+}
+
+void ImGuiApp::load_pdb_and_exe_async(ProgramFileDescriptor *descriptor)
+{
+    auto command = create_load_pdb_command(descriptor);
+
+    command->chain([descriptor](WorkQueueResultPtr &result) {
+        if (descriptor->pdbReader == nullptr)
+            return WorkQueueCommandPtr();
+
+        const unassemblize::PdbExeInfo &exe_info = descriptor->pdbReader->get_exe_info();
+        descriptor->exeFilenameFromPdb = unassemblize::Runner::create_exe_filename(exe_info);
+
+        if (!descriptor->can_load_exe())
+            return WorkQueueCommandPtr();
+
+        return create_load_exe_command(descriptor);
+    });
+
     m_workQueue.enqueue(std::move(command));
+}
+
+void ImGuiApp::save_config_async(ProgramFileDescriptor *descriptor)
+{
+    WorkQueueDelayedCommand head_command;
+    WorkQueueDelayedCommand *next_command = &head_command;
+
+    if (descriptor->can_save_exe_config())
+    {
+        next_command = next_command->chain(
+            [descriptor](WorkQueueResultPtr &result) { return create_save_exe_config_command(descriptor); });
+    }
+
+    if (descriptor->can_save_pdb_config())
+    {
+        next_command = next_command->chain(
+            [descriptor](WorkQueueResultPtr &result) { return create_save_pdb_config_command(descriptor); });
+    }
+
+    assert(head_command.next_delayed_command != nullptr);
+
+    m_workQueue.enqueue(head_command);
 }
 
 void ImGuiApp::add_file()

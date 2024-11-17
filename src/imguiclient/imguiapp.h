@@ -140,13 +140,16 @@ public:
 private:
     void update_app();
 
+    static WorkQueueCommandPtr create_load_exe_command(ProgramFileDescriptor *descriptor);
+    static WorkQueueCommandPtr create_load_pdb_command(ProgramFileDescriptor *descriptor);
+    static WorkQueueCommandPtr create_save_exe_config_command(ProgramFileDescriptor *descriptor);
+    static WorkQueueCommandPtr create_save_pdb_config_command(ProgramFileDescriptor *descriptor);
+
     void load_async(ProgramFileDescriptor *descriptor);
     void load_exe_async(ProgramFileDescriptor *descriptor);
-    void load_pdb_async(ProgramFileDescriptor *descriptor);
+    void load_pdb_and_exe_async(ProgramFileDescriptor *descriptor);
 
     void save_config_async(ProgramFileDescriptor *descriptor);
-    void save_exe_config_async(ProgramFileDescriptor *descriptor);
-    void save_pdb_config_async(ProgramFileDescriptor *descriptor);
 
     void add_file();
     void remove_file(size_t idx);

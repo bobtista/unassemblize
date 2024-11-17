@@ -50,6 +50,30 @@ bool WorkQueue::enqueue(WorkQueueCommandPtr &&command)
     return m_commandQueue.enqueue(std::move(command));
 }
 
+bool WorkQueue::enqueue(WorkQueueDelayedCommand &delayed_command)
+{
+    if (delayed_command.next_delayed_command == nullptr)
+        return false;
+
+    WorkQueueResultPtr result;
+    return enqueue(std::move(delayed_command.next_delayed_command), result);
+}
+
+bool WorkQueue::enqueue(WorkQueueDelayedCommandPtr &&delayed_command, WorkQueueResultPtr &result)
+{
+    WorkQueueCommandPtr chained_command = delayed_command->create(result);
+
+    // Delayed work can decide to not create a chained command. In this case, the command chain is done.
+    if (chained_command == nullptr)
+        return false;
+
+    // Loses original command chain if next_delayed_command is set.
+    if (chained_command->next_delayed_command == nullptr)
+        chained_command->next_delayed_command = std::move(delayed_command->next_delayed_command);
+
+    return enqueue(std::move(chained_command));
+}
+
 bool WorkQueue::try_dequeue(WorkQueueResultPtr &result)
 {
     return m_pollingQueue.try_dequeue(result);
@@ -61,11 +85,32 @@ void WorkQueue::update_callbacks()
 
     while (m_callbackQueue.try_dequeue(result))
     {
-        assert(bool(result->command->callback));
+        assert(result != nullptr);
+        assert(result->command != nullptr);
+        assert(result->command->has_callback() || result->command->has_delayed_command());
 
-        // Moves the callback to decouple it from the result.
-        auto callback = std::move(result->command->callback);
-        callback(result);
+        // Invokes callback if applicable.
+        {
+            WorkQueueCommandPtr &command = result->command;
+
+            if (command->has_callback())
+            {
+                // Moves the callback to decouple it from the result.
+                WorkQueueCommandCallbackFunction callback = std::move(command->callback);
+                callback(result);
+            }
+        }
+
+        // Evaluates and enqueues next command if applicable.
+        if (result != nullptr)
+        {
+            WorkQueueCommandPtr &command = result->command;
+
+            if (command != nullptr && command->has_delayed_command())
+            {
+                enqueue(std::move(command->next_delayed_command), result);
+            }
+        }
     }
 }
 
@@ -93,7 +138,7 @@ void WorkQueue::ThreadRun()
         }
 
         assert(command != nullptr);
-        assert(bool(command->work));
+        assert(command->has_work());
 
         // #TODO: Spawn jobs for command to unclog the queue.
 
@@ -101,12 +146,21 @@ void WorkQueue::ThreadRun()
 
         m_lastFinishedCommandId = command->command_id;
 
-        // Commands do not have to return a result.
+        const bool has_callback = command->has_callback();
+        const bool has_delayed_command = command->has_delayed_command();
+
+        // Command work functions do not need to return a result,
+        // but when using a callback or delayed command then a result is required.
+        if (result == nullptr && (has_callback || has_delayed_command))
+        {
+            result = std::make_unique<WorkQueueResult>();
+        }
+
         if (result != nullptr)
         {
             result->command = std::move(command);
 
-            if (bool(result->command->callback))
+            if (has_callback || has_delayed_command)
             {
                 m_callbackQueue.enqueue(std::move(result));
             }

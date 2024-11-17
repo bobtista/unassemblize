@@ -24,27 +24,64 @@ namespace unassemblize
 {
 class WorkQueue;
 struct WorkQueueCommand;
+struct WorkQueueDelayedCommand;
 struct WorkQueueResult;
 struct WorkQueueCommandQuit;
 
 using WorkQueueCommandPtr = std::unique_ptr<WorkQueueCommand>;
+using WorkQueueDelayedCommandPtr = std::unique_ptr<WorkQueueDelayedCommand>;
 using WorkQueueResultPtr = std::unique_ptr<WorkQueueResult>;
 using WorkQueueCommandId = uint32_t;
 inline constexpr WorkQueueCommandId InvalidWorkQueueCommandId = 0;
 
-struct WorkQueueCommand
+using WorkQueueCommandCreateFunction = std::function<WorkQueueCommandPtr(WorkQueueResultPtr &result)>;
+using WorkQueueCommandWorkFunction = std::function<WorkQueueResultPtr(void)>;
+using WorkQueueCommandCallbackFunction = std::function<void(WorkQueueResultPtr &result)>;
+
+// The delayed command is a substitute for a real command, used to chain commands on demand.
+struct WorkQueueDelayedCommand
+{
+    friend class WorkQueue;
+
+    bool has_delayed_command() const { return next_delayed_command != nullptr; }
+
+    // Optional function to create and chain 1 new command.
+    // The function is invoked after the previous command has completed its work and has returned its result.
+    // Note 1: The delayed command is result->command->next_delayed_command at the time of invocation.
+    // Note 2: The result is null if the delayed command is the head of the command chain.
+    WorkQueueDelayedCommand *chain(WorkQueueCommandCreateFunction &&create_function)
+    {
+        // It would be possible to chain multiple, but currently we just chain one maximum.
+        assert(next_delayed_command == nullptr);
+
+        next_delayed_command = std::make_unique<WorkQueueDelayedCommand>();
+        next_delayed_command->create = create_function;
+        return next_delayed_command.get();
+    }
+
+    WorkQueueDelayedCommandPtr next_delayed_command;
+
+private:
+    WorkQueueCommandCreateFunction create;
+};
+
+struct WorkQueueCommand : public WorkQueueDelayedCommand
 {
     WorkQueueCommand() : command_id(s_id++) {}
     virtual ~WorkQueueCommand() = default;
 
+    bool has_work() const { return bool(work); }
+    bool has_callback() const { return bool(callback); }
+
     // Mandatory function to perform any work for this command.
     // Returns the result that is used for callback or polling.
-    std::function<WorkQueueResultPtr(void)> work;
+    // Can return null result.
+    WorkQueueCommandWorkFunction work;
 
     // Optional callback when the issued command has been completed.
-    // This can be used to chain commands with lambda functions.
+    // Prefer chaining commands with the chain function instead of doing it in the callback.
     // The result will not be pushed to the polling queue.
-    std::function<void(WorkQueueResultPtr &result)> callback;
+    WorkQueueCommandCallbackFunction callback;
 
     // Optional context. Can point to address or store an id.
     // Necessary to identify when polling.
@@ -86,12 +123,15 @@ public:
     WorkQueueCommandId get_last_finished_command_id() const { return m_lastFinishedCommandId.load(); }
 
     bool enqueue(WorkQueueCommandPtr &&command);
+    bool enqueue(WorkQueueDelayedCommand &delayed_command);
 
     bool try_dequeue(WorkQueueResultPtr &result);
 
     void update_callbacks();
 
 private:
+    bool enqueue(WorkQueueDelayedCommandPtr &&delayed_command, WorkQueueResultPtr &result);
+
     static void ThreadFunction(WorkQueue *self);
     void ThreadRun();
 
