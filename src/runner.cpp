@@ -370,8 +370,10 @@ void Runner::build_bundle(
 
     for (IndexT function_idx = 0; function_idx < function_count; ++function_idx)
     {
-        const PdbFunctionInfo &functionInfo = functions[source.functionIds[function_idx]];
-        StringToIndexMapT::const_iterator it = function_name_to_index_map.find(functionInfo.decoratedName);
+        const PdbFunctionInfo &function_info = functions[source.functionIds[function_idx]];
+        const std::string &function_name = to_exe_symbol_name(function_info);
+
+        StringToIndexMapT::const_iterator it = function_name_to_index_map.find(function_name);
         if (it != function_name_to_index_map.end())
         {
             bundle.matchedFunctions.push_back(it->second);
@@ -410,12 +412,14 @@ void Runner::build_function_source_lines(
         {
             for (const IndexT function_idx : source.functionIds)
             {
-                const PdbFunctionInfo &functionInfo = functions[function_idx];
-                StringToIndexMapT::const_iterator it = function_name_to_index_map.find(functionInfo.decoratedName);
+                const PdbFunctionInfo &function_info = functions[function_idx];
+                const std::string &function_name = to_exe_symbol_name(function_info);
+
+                StringToIndexMapT::const_iterator it = function_name_to_index_map.find(function_name);
                 if (it != function_name_to_index_map.end())
                 {
                     MatchedFunction &match = matches[it->second];
-                    match.function_pair[i].set_source_file(source, functionInfo.sourceLines);
+                    match.function_pair[i].set_source_file(source, function_info.sourceLines);
                 }
             }
         }

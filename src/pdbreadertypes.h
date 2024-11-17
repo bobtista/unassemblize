@@ -161,21 +161,28 @@ void from_json(const nlohmann::json &js, PdbExeInfo &d);
 
 // Can pass PdbSymbolInfo or PdbFunctionInfo
 template<class T>
-ExeSymbol to_exe_symbol(const T &pdb_symbol)
+const std::string &to_exe_symbol_name(const T &pdb_symbol)
 {
-    ExeSymbol exe_symbol;
     if (!pdb_symbol.decoratedName.empty())
     {
-        exe_symbol.name = pdb_symbol.decoratedName;
+        return pdb_symbol.decoratedName;
     }
     else if (!pdb_symbol.globalName.empty())
     {
-        exe_symbol.name = pdb_symbol.globalName;
+        return pdb_symbol.globalName;
     }
     else
     {
-        exe_symbol.name = pdb_symbol.undecoratedName;
+        return pdb_symbol.undecoratedName;
     }
+}
+
+// Can pass PdbSymbolInfo or PdbFunctionInfo
+template<class T>
+ExeSymbol to_exe_symbol(const T &pdb_symbol)
+{
+    ExeSymbol exe_symbol;
+    exe_symbol.name = to_exe_symbol_name(pdb_symbol);
     exe_symbol.address = pdb_symbol.address.absVirtual;
     exe_symbol.size = pdb_symbol.length;
     return exe_symbol;
