@@ -213,8 +213,8 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 
     bool ok = true;
 
-    FunctionMatches matches;
-    FunctionMatchBundles bundles;
+    MatchedFunctions matches;
+    MatchBundles bundles;
     StringToIndexMapT functionNameToMatchIndexMap;
 
     build_function_matches(matches, functionNameToMatchIndexMap, o.executable_pair);
@@ -230,14 +230,15 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 
     functionNameToMatchIndexMap.swap(StringToIndexMapT());
 
-    AsmComparisonResultBundles result_bundles = build_comparison_results(matches, bundles, o.lookahead_limit);
+    build_comparison_records(matches, o.lookahead_limit);
 
     StringPair exe_filenames;
     for (size_t i = 0; i < o.executable_pair.size(); ++i)
         exe_filenames.pair[i] = o.executable_pair[i]->get_filename();
 
     ok = output_comparison_results(
-        result_bundles,
+        matches,
+        bundles,
         o.bundle_type,
         o.output_file,
         exe_filenames,
@@ -252,7 +253,7 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 }
 
 void Runner::build_function_matches(
-    FunctionMatches &matches, StringToIndexMapT &function_name_to_index_map, ExecutablePair executable_pair)
+    MatchedFunctions &matches, StringToIndexMapT &function_name_to_index_map, ExecutablePair executable_pair)
 {
     const size_t less_idx = executable_pair[0]->get_symbols().size() < executable_pair[1]->get_symbols().size() ? 0 : 1;
     const size_t more_idx = (less_idx + 1) % executable_pair.size();
@@ -282,17 +283,17 @@ void Runner::build_function_matches(
         }
         const IndexT index = matches.size();
         matches.emplace_back();
-        FunctionMatch &match = matches.back();
+        MatchedFunction &match = matches.back();
         match.name = less_symbol.name;
-        match.functions[less_idx].set_address_range(less_symbol.address, less_symbol.address + less_symbol.size);
-        match.functions[more_idx].set_address_range(more_symbol.address, more_symbol.address + more_symbol.size);
+        match.function_pair[less_idx].set_address_range(less_symbol.address, less_symbol.address + less_symbol.size);
+        match.function_pair[more_idx].set_address_range(more_symbol.address, more_symbol.address + more_symbol.size);
         function_name_to_index_map[match.name] = index;
     }
 }
 
 void Runner::build_function_bundles(
-    FunctionMatchBundles &bundles,
-    const FunctionMatches &matches,
+    MatchBundles &bundles,
+    const MatchedFunctions &matches,
     const StringToIndexMapT &function_name_to_index_map,
     MatchBundleType bundle_type,
     const PdbReader *bundling_pdb_reader)
@@ -323,20 +324,20 @@ void Runner::build_function_bundles(
     {
         // Create a dummy bundle with all function matches.
         bundles.resize(1);
-        FunctionMatchBundle &bundle = bundles[0];
+        MatchBundle &bundle = bundles[0];
         const size_t count = matches.size();
         bundle.name = "all";
-        bundle.matches.resize(count);
+        bundle.matchedFunctions.resize(count);
         for (size_t i = 0; i < count; ++i)
         {
-            bundle.matches[i] = i;
+            bundle.matchedFunctions[i] = i;
         }
     }
 }
 
 template<class SourceInfoVectorT>
 void Runner::build_bundles(
-    FunctionMatchBundles &bundles,
+    MatchBundles &bundles,
     const PdbFunctionInfoVector &functions,
     const SourceInfoVectorT &sources,
     const StringToIndexMapT &function_name_to_index_map)
@@ -349,7 +350,7 @@ void Runner::build_bundles(
         for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx)
         {
             const typename SourceInfoVectorT::value_type &source = sources[source_idx];
-            FunctionMatchBundle &bundle = bundles[source_idx];
+            MatchBundle &bundle = bundles[source_idx];
             build_bundle(bundle, functions, source, function_name_to_index_map);
         }
     }
@@ -357,14 +358,14 @@ void Runner::build_bundles(
 
 template<class SourceInfoT>
 void Runner::build_bundle(
-    FunctionMatchBundle &bundle,
+    MatchBundle &bundle,
     const PdbFunctionInfoVector &functions,
     const SourceInfoT &source,
     const StringToIndexMapT &function_name_to_index_map)
 {
     const IndexT function_count = source.functionIds.size();
     bundle.name = source.name;
-    bundle.matches.reserve(function_count);
+    bundle.matchedFunctions.reserve(function_count);
 
     for (IndexT function_idx = 0; function_idx < function_count; ++function_idx)
     {
@@ -372,7 +373,7 @@ void Runner::build_bundle(
         StringToIndexMapT::const_iterator it = function_name_to_index_map.find(functionInfo.decoratedName);
         if (it != function_name_to_index_map.end())
         {
-            bundle.matches.push_back(it->second);
+            bundle.matchedFunctions.push_back(it->second);
         }
         else
         {
@@ -381,20 +382,20 @@ void Runner::build_bundle(
     }
 }
 
-void Runner::disassemble_function_matches(FunctionMatches &matches, ExecutablePair executable_pair, AsmFormat format)
+void Runner::disassemble_function_matches(MatchedFunctions &matches, ExecutablePair executable_pair, AsmFormat format)
 {
     const FunctionSetup setup0(*executable_pair[0], format);
     const FunctionSetup setup1(*executable_pair[1], format);
 
-    for (FunctionMatch &match : matches)
+    for (MatchedFunction &match : matches)
     {
-        match.functions[0].disassemble(setup0);
-        match.functions[1].disassemble(setup1);
+        match.function_pair[0].disassemble(setup0);
+        match.function_pair[1].disassemble(setup1);
     }
 }
 
 void Runner::build_function_source_lines(
-    FunctionMatches &matches, const StringToIndexMapT &function_name_to_index_map, PdbReaderPair pdb_reader_pair)
+    MatchedFunctions &matches, const StringToIndexMapT &function_name_to_index_map, PdbReaderPair pdb_reader_pair)
 {
     for (size_t i = 0; i < pdb_reader_pair.size(); ++i)
     {
@@ -412,44 +413,30 @@ void Runner::build_function_source_lines(
                 StringToIndexMapT::const_iterator it = function_name_to_index_map.find(functionInfo.decoratedName);
                 if (it != function_name_to_index_map.end())
                 {
-                    FunctionMatch &match = matches[it->second];
-                    match.functions[i].set_source_file(source, functionInfo.sourceLines);
+                    MatchedFunction &match = matches[it->second];
+                    match.function_pair[i].set_source_file(source, functionInfo.sourceLines);
                 }
             }
         }
     }
 }
 
-AsmComparisonResultBundles Runner::build_comparison_results(
-    const FunctionMatches &matches, const FunctionMatchBundles &bundles, uint32_t lookahead_limit)
+void Runner::build_comparison_records(MatchedFunction &match, uint32_t lookahead_limit)
 {
-    AsmComparisonResultBundles result_bundles;
+    match.comparison = AsmMatcher::run_comparison(match.function_pair, lookahead_limit);
+}
 
-    const size_t bundle_count = bundles.size();
-
-    result_bundles.resize(bundles.size());
-
-    for (size_t bundle_idx = 0; bundle_idx < bundle_count; ++bundle_idx)
+void Runner::build_comparison_records(MatchedFunctions &matches, uint32_t lookahead_limit)
+{
+    for (MatchedFunction &match : matches)
     {
-        const FunctionMatchBundle &match_bundle = bundles[bundle_idx];
-        AsmComparisonResultBundle &result_bundle = result_bundles[bundle_idx];
-        const size_t match_count = match_bundle.matches.size();
-        result_bundle.name = match_bundle.name;
-        result_bundle.results.resize(match_count);
-        size_t result_index = 0;
-
-        for (IndexT match_idx : match_bundle.matches)
-        {
-            const FunctionMatch &match = matches[match_idx];
-            result_bundle.results[result_index++] = AsmMatcher::run_comparison(match, lookahead_limit);
-        }
-        assert(result_index == result_bundle.results.size());
+        build_comparison_records(match, lookahead_limit);
     }
-    return result_bundles;
 }
 
 bool Runner::output_comparison_results(
-    AsmComparisonResultBundles &result_bundles,
+    const MatchedFunctions &matches,
+    const MatchBundles &bundles,
     MatchBundleType bundle_type,
     const std::string &output_file,
     const StringPair &exe_filenames,
@@ -465,21 +452,20 @@ bool Runner::output_comparison_results(
 
     FileContentStorage cpp_files;
 
-    for (const AsmComparisonResultBundle &result_bundle : result_bundles)
+    for (const MatchBundle &bundle : bundles)
     {
-        for (const AsmComparisonResult &result : result_bundle.results)
+        for (IndexT i : bundle.matchedFunctions)
         {
-            assert(result.function_pair[0] != nullptr);
-            assert(result.function_pair[1] != nullptr);
+            const MatchedFunction &match = matches[i];
 
-            const std::string &source_file0 = result.function_pair[0]->get_source_file_name();
-            const std::string &source_file1 = result.function_pair[1]->get_source_file_name();
+            const std::string &source_file0 = match.function_pair[0].get_source_file_name();
+            const std::string &source_file1 = match.function_pair[1].get_source_file_name();
 
             cpp_files.load_content(source_file0);
             cpp_files.load_content(source_file1);
         }
 
-        std::string output_file_variant = build_cmp_output_path(bundle_idx, result_bundle.name, output_file);
+        std::string output_file_variant = build_cmp_output_path(bundle_idx, bundle.name, output_file);
 
         std::ofstream fs(output_file_variant, std::ofstream::binary);
         if (fs.is_open())
@@ -488,10 +474,11 @@ bool Runner::output_comparison_results(
             std::string text;
             text.reserve(1024 * 1024);
 
-            for (const AsmComparisonResult &result : result_bundle.results)
+            for (IndexT i : bundle.matchedFunctions)
             {
-                const std::string &source_file0 = result.function_pair[0]->get_source_file_name();
-                const std::string &source_file1 = result.function_pair[1]->get_source_file_name();
+                const MatchedFunction &match = matches[i];
+                const std::string &source_file0 = match.function_pair[0].get_source_file_name();
+                const std::string &source_file1 = match.function_pair[1].get_source_file_name();
 
                 TextFileContentPair cpp_texts;
                 cpp_texts.pair[0] = cpp_files.find_content(source_file0);
@@ -500,7 +487,7 @@ bool Runner::output_comparison_results(
                 text.clear();
                 printer.append_to_string(
                     text,
-                    result,
+                    match.comparison,
                     exe_filenames,
                     cpp_texts,
                     match_strictness,
@@ -509,6 +496,7 @@ bool Runner::output_comparison_results(
                     byte_count,
                     sourcecode_len,
                     sourceline_len);
+
                 fs.write(text.data(), text.size());
             }
             ++file_write_count;
@@ -522,7 +510,7 @@ bool Runner::output_comparison_results(
         }
     }
 
-    return file_write_count == result_bundles.size();
+    return file_write_count == bundles.size();
 }
 
 std::string Runner::create_exe_filename(const PdbExeInfo &info)

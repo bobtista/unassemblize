@@ -20,35 +20,6 @@
 
 namespace unassemblize
 {
-/*
- * Pairs a function from 2 executables.
- */
-struct FunctionMatch
-{
-    std::string name;
-    std::array<Function, 2> functions;
-};
-using FunctionMatches = std::vector<FunctionMatch>;
-
-/*
- * Groups function matches of the same compiland or source file together.
- */
-struct FunctionMatchBundle
-{
-    std::string name; // Compiland or source file name.
-    std::vector<IndexT> matches;
-};
-using FunctionMatchBundles = std::vector<FunctionMatchBundle>;
-
-enum class MatchBundleType
-{
-    Compiland, // Functions will be bundled by the compilands they belong to.
-    SourceFile, // Functions will be bundled by the source files they belong to (.h .cpp).
-    None, // Functions will be bundled into one.
-};
-
-MatchBundleType to_match_bundle_type(const char *str);
-
 enum class AsmMatchStrictness
 {
     Lenient, // Unknown to known/unknown symbol pairs are treated as match.
@@ -116,21 +87,53 @@ struct AsmComparisonResult
     // Returns 0..1
     float get_max_similarity(AsmMatchStrictness strictness) const;
 
-    std::array<const Function *, 2> function_pair = {nullptr, nullptr};
     AsmComparisonRecords records;
     uint32_t label_count = 0;
     uint32_t match_count = 0;
     uint32_t maybe_match_count = 0; // Alias maybe mismatch, could be a match or mismatch.
     uint32_t mismatch_count = 0;
 };
-using AsmComparisonResults = std::vector<AsmComparisonResult>;
 
-struct AsmComparisonResultBundle
+/*
+ * Pairs a function from 2 executables that can be matched.
+ */
+struct MatchedFunction
+{
+    std::string name;
+    std::array<Function, 2> function_pair;
+    AsmComparisonResult comparison;
+};
+using MatchedFunctions = std::vector<MatchedFunction>;
+
+/*
+ * A single function in an executable that can not be matched with a function of another executable.
+ */
+struct UnmatchedFunction
+{
+    std::string name;
+    Function function;
+};
+using UnmatchedFunctions = std::vector<UnmatchedFunction>;
+
+/*
+ * Groups function matches of the same compiland or source file together.
+ */
+struct MatchBundle
 {
     std::string name; // Compiland or source file name.
-    AsmComparisonResults results;
+    std::vector<IndexT> matchedFunctions;
+    std::array<std::vector<IndexT>, 2> unmatchedFunctions;
 };
-using AsmComparisonResultBundles = std::vector<AsmComparisonResultBundle>;
+using MatchBundles = std::vector<MatchBundle>;
+
+enum class MatchBundleType
+{
+    Compiland, // Functions will be bundled by the compilands they belong to.
+    SourceFile, // Functions will be bundled by the source files they belong to (.h .cpp).
+    None, // Functions will be bundled into one.
+};
+
+MatchBundleType to_match_bundle_type(const char *str);
 
 struct StringPair
 {

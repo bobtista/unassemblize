@@ -41,7 +41,7 @@ public:
      * Runs a comparison on the given FunctionMatch.
      * The returned result will retain a dependency on that FunctionMatch object.
      */
-    static AsmComparisonResult run_comparison(const FunctionMatch &match, uint32_t lookahead_limit);
+    static AsmComparisonResult run_comparison(const std::array<Function, 2> &function_pair, uint32_t lookahead_limit);
 
 private:
     /*
@@ -55,7 +55,7 @@ private:
         const InstructionTextArray &lookahead_last_array,
         const AsmInstruction &opposite_base_instruction,
         const InstructionTextArray &opposite_base_array,
-        AsmComparisonResult &comparison_result);
+        AsmComparisonResult &comparison);
 
     // Passing arrays is optional, but recommended for performance reasons.
     static AsmMismatchInfo create_mismatch_info(

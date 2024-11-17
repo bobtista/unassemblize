@@ -146,48 +146,52 @@ private:
      * All function objects are not disassembled for performance reasons, but are prepared.
      */
     static void build_function_matches(
-        FunctionMatches &matches,
+        MatchedFunctions &matches,
         StringToIndexMapT &function_name_to_index_map,
         ExecutablePair executable_pair);
 
     static void build_function_bundles(
-        FunctionMatchBundles &bundles,
-        const FunctionMatches &matches,
+        MatchBundles &bundles,
+        const MatchedFunctions &matches,
         const StringToIndexMapT &function_name_to_index_map,
         MatchBundleType bundle_type,
         const PdbReader *bundling_pdb_reader);
 
     template<class SourceInfoVectorT>
     static void build_bundles(
-        FunctionMatchBundles &bundles,
+        MatchBundles &bundles,
         const PdbFunctionInfoVector &functions,
         const SourceInfoVectorT &sources,
         const StringToIndexMapT &function_name_to_index_map);
 
     template<class SourceInfoT>
     static void build_bundle(
-        FunctionMatchBundle &bundle,
+        MatchBundle &bundle,
         const PdbFunctionInfoVector &functions,
         const SourceInfoT &source,
         const StringToIndexMapT &function_name_to_index_map);
 
     static void disassemble_function_matches(
-        FunctionMatches &matches,
+        MatchedFunctions &matches,
         ExecutablePair executable_pair,
         AsmFormat format);
 
     static void build_function_source_lines(
-        FunctionMatches &matches,
+        MatchedFunctions &matches,
         const StringToIndexMapT &function_name_to_index_map,
         PdbReaderPair pdb_reader_pair);
 
-    static AsmComparisonResultBundles build_comparison_results(
-        const FunctionMatches &matches,
-        const FunctionMatchBundles &bundles,
+    static void build_comparison_records(
+        MatchedFunction &match,
+        uint32_t lookahead_limit);
+
+    static void build_comparison_records(
+        MatchedFunctions &matches,
         uint32_t lookahead_limit);
 
     static bool output_comparison_results(
-        AsmComparisonResultBundles &result_bundles,
+        const MatchedFunctions &matches,
+        const MatchBundles &bundles,
         MatchBundleType bundle_type,
         const std::string &output_file,
         const StringPair &exe_filenames,

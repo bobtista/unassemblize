@@ -15,28 +15,6 @@
 
 namespace unassemblize
 {
-MatchBundleType to_match_bundle_type(const char *str)
-{
-    if (util::equals_nocase(str, "compiland"))
-    {
-        return MatchBundleType::Compiland;
-    }
-    else if (util::equals_nocase(str, "sourcefile"))
-    {
-        return MatchBundleType::SourceFile;
-    }
-    else if (util::equals_nocase(str, "none"))
-    {
-        return MatchBundleType::None;
-    }
-    else
-    {
-        printf("Unrecognized match bundle type '%s'. Defaulting to 'None'", str);
-        return MatchBundleType::None;
-    }
-    static_assert(size_t(MatchBundleType::None) == 2, "Enum was changed. Update conditions.");
-}
-
 AsmMatchValue AsmMismatchInfo::get_match_value(AsmMatchStrictness strictness) const
 {
     switch (strictness)
@@ -174,6 +152,28 @@ float AsmComparisonResult::get_similarity(AsmMatchStrictness strictness) const
 float AsmComparisonResult::get_max_similarity(AsmMatchStrictness strictness) const
 {
     return float(get_max_match_count(strictness)) / float(get_instruction_count());
+}
+
+MatchBundleType to_match_bundle_type(const char *str)
+{
+    if (util::equals_nocase(str, "compiland"))
+    {
+        return MatchBundleType::Compiland;
+    }
+    else if (util::equals_nocase(str, "sourcefile"))
+    {
+        return MatchBundleType::SourceFile;
+    }
+    else if (util::equals_nocase(str, "none"))
+    {
+        return MatchBundleType::None;
+    }
+    else
+    {
+        printf("Unrecognized match bundle type '%s'. Defaulting to 'None'", str);
+        return MatchBundleType::None;
+    }
+    static_assert(size_t(MatchBundleType::None) == 2, "Enum was changed. Update conditions.");
 }
 
 } // namespace unassemblize
