@@ -141,35 +141,47 @@ public:
 private:
     // clang-format off
 
+    static bool in_code_section(const ExeSymbol &symbol, const Executable& executable);
+
     /*
      * Builds function match collection.
      * All function objects are not disassembled for performance reasons, but are prepared.
      */
-    static void build_function_matches(
-        MatchedFunctions &matches,
-        StringToIndexMapT &function_name_to_index_map,
+    static void build_matched_functions(
+        MatchedFunctions &matched_functions,
+        StringToIndexMapT &matched_function_name_to_index_map,
         ExecutablePair executable_pair);
 
-    static void build_function_bundles(
+    static void build_unmatched_functions(
+        UnmatchedFunctions &unmatched_functions,
+        StringToIndexMapT &unmatched_function_name_to_index_map,
+        const Executable &unmatched_executable,
+        const Executable &other_executable);
+
+    static void build_match_bundles(
         MatchBundles &bundles,
-        const MatchedFunctions &matches,
-        const StringToIndexMapT &function_name_to_index_map,
+        const MatchedFunctions &matched_functions,
+        const StringToIndexMapT &matched_function_name_to_index_map,
+        const UnmatchedFunctions &unmatched_functions,
+        const StringToIndexMapT &unmatched_function_name_to_index_map,
         MatchBundleType bundle_type,
         const PdbReader *bundling_pdb_reader);
 
     template<class SourceInfoVectorT>
-    static void build_bundles(
+    static void build_match_bundles(
         MatchBundles &bundles,
         const PdbFunctionInfoVector &functions,
         const SourceInfoVectorT &sources,
-        const StringToIndexMapT &function_name_to_index_map);
+        const StringToIndexMapT &matched_function_name_to_index_map,
+        const StringToIndexMapT &unmatched_function_name_to_index_map);
 
     template<class SourceInfoT>
-    static void build_bundle(
+    static void build_match_bundle(
         MatchBundle &bundle,
         const PdbFunctionInfoVector &functions,
         const SourceInfoT &source,
-        const StringToIndexMapT &function_name_to_index_map);
+        const StringToIndexMapT &matched_function_name_to_index_map,
+        const StringToIndexMapT &unmatched_function_name_to_index_map);
 
     static void disassemble_function_matches(
         MatchedFunctions &matches,

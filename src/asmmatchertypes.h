@@ -122,7 +122,7 @@ struct MatchBundle
 {
     std::string name; // Compiland or source file name.
     std::vector<IndexT> matchedFunctions;
-    std::array<std::vector<IndexT>, 2> unmatchedFunctions;
+    std::vector<IndexT> unmatchedFunctions;
 };
 using MatchBundles = std::vector<MatchBundle>;
 
