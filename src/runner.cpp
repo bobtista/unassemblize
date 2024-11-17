@@ -276,11 +276,12 @@ void Runner::build_function_matches(
         {
             continue;
         }
-        const ExeSymbol &more_symbol = executable_pair[more_idx]->get_symbol(less_symbol.name);
-        if (more_symbol.name.empty() || !in_code_section(more_idx, more_symbol))
+        const ExeSymbol *p_more_symbol = executable_pair[more_idx]->get_symbol(less_symbol.name);
+        if (p_more_symbol == nullptr || !in_code_section(more_idx, *p_more_symbol))
         {
             continue;
         }
+        const ExeSymbol &more_symbol = *p_more_symbol;
         const IndexT index = matches.size();
         matches.emplace_back();
         MatchedFunction &match = matches.back();

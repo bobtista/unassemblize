@@ -25,8 +25,6 @@ const char *const s_sectionsSection = "sections";
 const char *const s_configSection = "config";
 const char *const s_objectSection = "objects";
 
-ExeSymbol Executable::s_emptySymbol;
-
 Executable::Executable()
 {
 }
@@ -240,34 +238,34 @@ uint64_t Executable::all_sections_end_from_image_base() const
     return m_imageData.sectionsEnd + m_imageData.imageBase;
 }
 
-const ExeSymbol &Executable::get_symbol(uint64_t address) const
+const ExeSymbol *Executable::get_symbol(uint64_t address) const
 {
     Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.find(address);
 
     if (it != m_symbolAddressToIndexMap.end())
     {
-        return m_symbols[it->second];
+        return &m_symbols[it->second];
     }
-    return s_emptySymbol;
+    return nullptr;
 }
 
-const ExeSymbol &Executable::get_symbol(const std::string &name) const
+const ExeSymbol *Executable::get_symbol(const std::string &name) const
 {
     StringToIndexMap::const_iterator it = m_symbolNameToIndexMap.find(name);
 
     if (it != m_symbolNameToIndexMap.end())
     {
-        return m_symbols[it->second];
+        return &m_symbols[it->second];
     }
-    return s_emptySymbol;
+    return nullptr;
 }
 
-const ExeSymbol &Executable::get_symbol_from_image_base(uint64_t address) const
+const ExeSymbol *Executable::get_symbol_from_image_base(uint64_t address) const
 {
     return get_symbol(address - image_base());
 }
 
-const ExeSymbol &Executable::get_nearest_symbol(uint64_t address) const
+const ExeSymbol *Executable::get_nearest_symbol(uint64_t address) const
 {
     Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.lower_bound(address);
 
@@ -276,16 +274,15 @@ const ExeSymbol &Executable::get_nearest_symbol(uint64_t address) const
         const ExeSymbol &symbol = m_symbols[it->second];
         if (symbol.address == address)
         {
-            return symbol;
+            return &symbol;
         }
         else
         {
             const ExeSymbol &prevSymbol = m_symbols[std::prev(it)->second];
-            return prevSymbol;
+            return &prevSymbol;
         }
     }
-
-    return s_emptySymbol;
+    return nullptr;
 }
 
 const ExeSymbols &Executable::get_symbols() const

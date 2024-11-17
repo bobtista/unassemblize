@@ -246,9 +246,9 @@ ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
     // Does not look for symbol when address is in irrelevant segment, such as fs:[0]
     if (!HasIrrelevantSegment(context->operand))
     {
-        const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
+        const ExeSymbol *symbol = func->get_symbol_from_image_base(address);
 
-        if (!symbol.name.empty())
+        if (symbol != nullptr)
         {
             ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
             ZyanString *string;
@@ -258,7 +258,7 @@ ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
             {
                 ZYAN_CHECK(ZyanStringAppendFormat(string, "short "));
             }
-            const std::string format = fmt::format("\"{:s}\"", symbol.name);
+            const std::string format = fmt::format("\"{:s}\"", symbol->name);
             ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
             return ZYAN_STATUS_SUCCESS;
         }
@@ -301,14 +301,14 @@ ZyanStatus Function::UnasmFormatterPrintAddressRelative(
         address += func->get_executable().image_base();
     }
 
-    const ExeSymbol &symbol = func->get_symbol_from_image_base(address);
+    const ExeSymbol *symbol = func->get_symbol_from_image_base(address);
 
-    if (!symbol.name.empty())
+    if (symbol != nullptr)
     {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const std::string format = fmt::format("\"{:s}\"", symbol.name);
+        const std::string format = fmt::format("\"{:s}\"", symbol->name);
         ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
         return ZYAN_STATUS_SUCCESS;
     }
@@ -361,14 +361,14 @@ ZyanStatus Function::UnasmFormatterPrintDISP(
         // Does not look for symbol when there is an operand with a register plus offset, such as [eax+0x400e00]
         if (!HasBaseOrIndexRegister(context->operand))
         {
-            const ExeSymbol &symbol = func->get_symbol_from_image_base(value);
+            const ExeSymbol *symbol = func->get_symbol_from_image_base(value);
 
-            if (!symbol.name.empty())
+            if (symbol != nullptr)
             {
                 ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
                 ZyanString *string;
                 ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-                const std::string format = fmt::format("+\"{:s}\"", symbol.name);
+                const std::string format = fmt::format("+\"{:s}\"", symbol->name);
                 ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
                 return ZYAN_STATUS_SUCCESS;
             }
@@ -419,14 +419,14 @@ ZyanStatus Function::UnasmFormatterPrintIMM(
         {
             // Note: Immediate values, such as "push 0x400400" could be considered a symbol.
             // Right now there is no clever way to avoid this.
-            const ExeSymbol &symbol = func->get_symbol_from_image_base(value);
+            const ExeSymbol *symbol = func->get_symbol_from_image_base(value);
 
-            if (!symbol.name.empty())
+            if (symbol != nullptr)
             {
                 ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
                 ZyanString *string;
                 ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-                const std::string format = fmt::format("offset \"{:s}\"", symbol.name);
+                const std::string format = fmt::format("offset \"{:s}\"", symbol->name);
                 ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
                 return ZYAN_STATUS_SUCCESS;
             }
@@ -469,14 +469,14 @@ ZyanStatus Function::UnasmFormatterFormatOperandPTR(
         offset += func->get_executable().image_base();
     }
 
-    const ExeSymbol &symbol = func->get_symbol_from_image_base(offset);
+    const ExeSymbol *symbol = func->get_symbol_from_image_base(offset);
 
-    if (!symbol.name.empty())
+    if (symbol != nullptr)
     {
         ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
         ZyanString *string;
         ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-        const std::string format = fmt::format("\"{:s}\"", symbol.name);
+        const std::string format = fmt::format("\"{:s}\"", symbol->name);
         ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
         return ZYAN_STATUS_SUCCESS;
     }
@@ -529,9 +529,9 @@ ZyanStatus Function::UnasmFormatterFormatOperandMEM(
         // Does not look for symbol when there is an operand with a register plus offset, such as [eax+0x400e00]
         if (!HasBaseOrIndexRegister(context->operand))
         {
-            const ExeSymbol &symbol = func->get_symbol_from_image_base(value);
+            const ExeSymbol *symbol = func->get_symbol_from_image_base(value);
 
-            if (!symbol.name.empty())
+            if (symbol != nullptr)
             {
                 if ((context->operand->mem.type == ZYDIS_MEMOP_TYPE_MEM)
                     || (context->operand->mem.type == ZYDIS_MEMOP_TYPE_VSIB))
@@ -542,7 +542,7 @@ ZyanStatus Function::UnasmFormatterFormatOperandMEM(
                 ZYAN_CHECK(ZydisFormatterBufferAppend(buffer, ZYDIS_TOKEN_SYMBOL));
                 ZyanString *string;
                 ZYAN_CHECK(ZydisFormatterBufferGetString(buffer, &string));
-                const std::string format = fmt::format("[\"{:s}\"]", symbol.name);
+                const std::string format = fmt::format("[\"{:s}\"]", symbol->name);
                 ZYAN_CHECK(ZyanStringAppendFormat(string, format.c_str()));
                 return ZYAN_STATUS_SUCCESS;
             }
@@ -766,8 +766,8 @@ void Function::disassemble(const FunctionSetup &setup)
         ++instruction_count;
 
         {
-            const ExeSymbol &symbol = setup.m_executable.get_symbol(instruction_address);
-            if (!symbol.name.empty())
+            const ExeSymbol *symbol = setup.m_executable.get_symbol(instruction_address);
+            if (symbol != nullptr)
             {
                 ++label_count;
             }
@@ -807,11 +807,11 @@ void Function::disassemble(const FunctionSetup &setup)
         const Address64T instruction_section_offset = section_offset;
 
         {
-            const ExeSymbol &symbol = get_symbol(instruction_address);
-            if (!symbol.name.empty())
+            const ExeSymbol *symbol = get_symbol(instruction_address);
+            if (symbol != nullptr)
             {
                 AsmLabel asm_label;
-                asm_label.label = symbol.name;
+                asm_label.label = symbol->name;
                 m_instructions.emplace_back(std::move(asm_label));
                 ++m_labelCount;
             }
@@ -889,8 +889,8 @@ void Function::disassemble(const FunctionSetup &setup)
 bool Function::add_pseudo_symbol(Address64T address, std::string_view prefix)
 {
     {
-        const ExeSymbol &symbol = get_executable().get_symbol(address);
-        if (symbol.address != 0)
+        const ExeSymbol *symbol = get_executable().get_symbol(address);
+        if (symbol != nullptr)
         {
             return false;
         }
@@ -963,7 +963,7 @@ ZydisFormatterRegisterFunc Function::get_default_print_register() const
     return get_setup().m_default_print_register;
 }
 
-const ExeSymbol &Function::get_symbol(Address64T address) const
+const ExeSymbol *Function::get_symbol(Address64T address) const
 {
     const auto &pseudoSymbolVec = m_intermediate->m_pseudoSymbols;
     const auto &pseudoSymbolMap = m_intermediate->m_pseudoSymbolAddressToIndexMap;
@@ -972,13 +972,13 @@ const ExeSymbol &Function::get_symbol(Address64T address) const
 
     if (it != pseudoSymbolMap.end())
     {
-        return pseudoSymbolVec[it->second];
+        return &pseudoSymbolVec[it->second];
     }
 
     return get_executable().get_symbol(address);
 }
 
-const ExeSymbol &Function::get_symbol_from_image_base(Address64T address) const
+const ExeSymbol *Function::get_symbol_from_image_base(Address64T address) const
 {
 #if 0 // Cannot put assert here as long as there are symbol lookup guesses left.
     if (!(addr >= get_executable().all_sections_begin_from_image_base()
@@ -994,13 +994,13 @@ const ExeSymbol &Function::get_symbol_from_image_base(Address64T address) const
 
     if (it != pseudoSymbolMap.end())
     {
-        return pseudoSymbolVec[it->second];
+        return &pseudoSymbolVec[it->second];
     }
 
     return get_executable().get_symbol_from_image_base(address);
 }
 
-const ExeSymbol &Function::get_nearest_symbol(Address64T address) const
+const ExeSymbol *Function::get_nearest_symbol(Address64T address) const
 {
     const auto &pseudoSymbolVec = m_intermediate->m_pseudoSymbols;
     const auto &pseudoSymbolMap = m_intermediate->m_pseudoSymbolAddressToIndexMap;
@@ -1012,12 +1012,12 @@ const ExeSymbol &Function::get_nearest_symbol(Address64T address) const
         const ExeSymbol &symbol = pseudoSymbolVec[it->second];
         if (symbol.address == address)
         {
-            return symbol;
+            return &symbol;
         }
         else
         {
             const ExeSymbol &prevSymbol = pseudoSymbolVec[std::prev(it)->second];
-            return prevSymbol;
+            return &prevSymbol;
         }
     }
 
