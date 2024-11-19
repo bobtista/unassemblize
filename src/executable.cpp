@@ -152,13 +152,13 @@ void Executable::unload()
 {
     m_exeFilename.clear();
     m_binary.reset();
-    util::clear_container(m_sections);
-    util::clear_container(m_sectionNameToIndexMap);
+    util::free_container(m_sections);
+    util::free_container(m_sectionNameToIndexMap);
     m_codeSectionIdx = ~IndexT(0);
-    util::clear_container(m_symbols);
-    util::clear_container(m_symbolAddressToIndexMap);
-    util::clear_container(m_symbolNameToIndexMap);
-    util::clear_container(m_targetObjects);
+    util::free_container(m_symbols);
+    util::free_container(m_symbolAddressToIndexMap);
+    util::free_container(m_symbolNameToIndexMap);
+    util::free_container(m_targetObjects);
     m_imageData = ExeImageData();
 }
 

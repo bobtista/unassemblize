@@ -12,10 +12,8 @@
  */
 #pragma once
 
-#include <map>
 #include <string>
 #include <string_view>
-#include <unordered_map>
 #include <vector>
 
 namespace util
@@ -83,7 +81,7 @@ constexpr int compare_nocase(std::string_view str1, std::string_view str2)
  * @param container The container to clear
  */
 template<typename T>
-void clear_container(T &container)
+void free_container(T &container)
 {
     T().swap(container); // Swap with empty container
 }

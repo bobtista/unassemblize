@@ -62,10 +62,10 @@ bool PdbReader::load(const std::string &pdb_filename)
 
 void PdbReader::unload()
 {
-    m_compilands.clear();
-    m_sourceFiles.clear();
-    m_functions.clear();
-    m_symbols.clear();
+    util::free_container(m_compilands);
+    util::free_container(m_sourceFiles);
+    util::free_container(m_functions);
+    util::free_container(m_symbols);
     m_exe = PdbExeInfo();
 }
 
