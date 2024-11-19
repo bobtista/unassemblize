@@ -12,8 +12,10 @@
  */
 #pragma once
 
+#include <map>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 namespace util
@@ -70,6 +72,20 @@ constexpr int compare_nocase(std::string_view str1, std::string_view str2)
         return 0;
     }
     return (str1.size() < str2.size()) ? -1 : 1;
+}
+
+/**
+ * @brief Efficiently clears a container by swapping with an empty container
+ *
+ * This is more efficient than clear() as it truly releases memory back to the system.
+ * Works with any container that supports swap with an empty instance of itself.
+ *
+ * @param container The container to clear
+ */
+template<typename T>
+void clear_container(T &container)
+{
+    T().swap(container); // Swap with empty container
 }
 
 } // namespace util

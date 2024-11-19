@@ -237,7 +237,7 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
         build_function_source_lines(matched_functions, matched_function_name_to_index_map, o.pdb_reader_pair);
     }
 
-    matched_function_name_to_index_map.swap(StringToIndexMapT());
+    util::clear_container(matched_function_name_to_index_map);
 
     build_comparison_records(matched_functions, o.lookahead_limit);
 
