@@ -1000,28 +1000,4 @@ const ExeSymbol *Function::get_symbol_from_image_base(Address64T address) const
     return get_executable().get_symbol_from_image_base(address);
 }
 
-const ExeSymbol *Function::get_nearest_symbol(Address64T address) const
-{
-    const auto &pseudoSymbolVec = m_intermediate->m_pseudoSymbols;
-    const auto &pseudoSymbolMap = m_intermediate->m_pseudoSymbolAddressToIndexMap;
-
-    Address64ToIndexMap::const_iterator it = pseudoSymbolMap.lower_bound(address);
-
-    if (it != pseudoSymbolMap.end())
-    {
-        const ExeSymbol &symbol = pseudoSymbolVec[it->second];
-        if (symbol.address == address)
-        {
-            return &symbol;
-        }
-        else
-        {
-            const ExeSymbol &prevSymbol = pseudoSymbolVec[std::prev(it)->second];
-            return &prevSymbol;
-        }
-    }
-
-    return get_executable().get_nearest_symbol(address);
-}
-
 } // namespace unassemblize

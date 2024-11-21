@@ -57,7 +57,6 @@ public:
     const ExeSymbol *get_symbol(uint64_t address) const;
     const ExeSymbol *get_symbol(const std::string &name) const;
     const ExeSymbol *get_symbol_from_image_base(uint64_t address) const; // Adds the image base before symbol lookup.
-    const ExeSymbol *get_nearest_symbol(uint64_t address) const; // #TODO: investigate
     const ExeSymbols &get_symbols() const;
 
     /*

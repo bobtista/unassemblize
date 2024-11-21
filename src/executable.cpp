@@ -265,26 +265,6 @@ const ExeSymbol *Executable::get_symbol_from_image_base(uint64_t address) const
     return get_symbol(address - image_base());
 }
 
-const ExeSymbol *Executable::get_nearest_symbol(uint64_t address) const
-{
-    Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.lower_bound(address);
-
-    if (it != m_symbolAddressToIndexMap.end())
-    {
-        const ExeSymbol &symbol = m_symbols[it->second];
-        if (symbol.address == address)
-        {
-            return &symbol;
-        }
-        else
-        {
-            const ExeSymbol &prevSymbol = m_symbols[std::prev(it)->second];
-            return &prevSymbol;
-        }
-    }
-    return nullptr;
-}
-
 const ExeSymbols &Executable::get_symbols() const
 {
     return m_symbols;
