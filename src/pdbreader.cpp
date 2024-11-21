@@ -26,6 +26,7 @@ namespace unassemblize
 const char *const s_compilands = "pdb_compilands";
 const char *const s_sourceFiles = "pdb_source_files";
 const char *const s_functions = "pdb_functions";
+const char *const s_symbols = "pdb_symbols";
 const char *const s_exe = "pdb_exe";
 
 PdbReader::PdbReader()
@@ -64,8 +65,8 @@ void PdbReader::unload()
 {
     m_compilands.clear();
     m_sourceFiles.clear();
-    m_functions.clear();
     m_symbols.clear();
+    m_functions.clear();
     m_exe = PdbExeInfo();
 }
 
@@ -73,6 +74,7 @@ void PdbReader::load_json(const nlohmann::json &js)
 {
     js.at(s_compilands).get_to(m_compilands);
     js.at(s_sourceFiles).get_to(m_sourceFiles);
+    js.at(s_symbols).get_to(m_symbols);
     js.at(s_functions).get_to(m_functions);
     js.at(s_exe).get_to(m_exe);
 }
@@ -113,6 +115,10 @@ void PdbReader::save_json(nlohmann::json &js, bool overwrite_sections) const
     if (overwrite_sections || js.find(s_sourceFiles) == js.end())
     {
         js[s_sourceFiles] = m_sourceFiles;
+    }
+    if (overwrite_sections || js.find(s_symbols) == js.end())
+    {
+        js[s_symbols] = m_symbols;
     }
     if (overwrite_sections || js.find(s_functions) == js.end())
     {

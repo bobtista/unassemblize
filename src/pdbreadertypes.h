@@ -153,6 +153,9 @@ void from_json(const nlohmann::json &js, PdbCompilandInfo &d);
 void to_json(nlohmann::json &js, const PdbSourceFileInfo &d);
 void from_json(const nlohmann::json &js, PdbSourceFileInfo &d);
 
+void to_json(nlohmann::json &js, const PdbSymbolInfo &d);
+void from_json(const nlohmann::json &js, PdbSymbolInfo &d);
+
 void to_json(nlohmann::json &js, const PdbFunctionInfo &d);
 void from_json(const nlohmann::json &js, PdbFunctionInfo &d);
 
