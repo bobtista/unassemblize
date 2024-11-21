@@ -41,7 +41,7 @@ public:
      * Runs a comparison on the given FunctionMatch.
      * The returned result will retain a dependency on that FunctionMatch object.
      */
-    static AsmComparisonResult run_comparison(const std::array<Function, 2> &function_pair, uint32_t lookahead_limit);
+    static AsmComparisonResult run_comparison(ConstFunctionPair function_pair, uint32_t lookahead_limit);
 
 private:
     /*

@@ -94,35 +94,57 @@ struct AsmComparisonResult
     uint32_t mismatch_count = 0;
 };
 
+struct NamedFunction
+{
+    bool is_disassembled() const;
+    bool is_linked_to_source_file() const;
+    bool is_matched() const;
+
+    std::string name;
+    Function function;
+    IndexT matched_index = ~IndexT(0); // Links to MatchedFunctions.
+    bool can_link_to_source_file = true;
+};
+using NamedFunctions = std::vector<NamedFunction>;
+using NamedFunctionPair = std::array<NamedFunction *, 2>;
+using NamedFunctionsPair = std::array<NamedFunctions *, 2>;
+using ConstNamedFunctionsPair = std::array<const NamedFunctions *, 2>;
+
 /*
  * Pairs a function from 2 executables that can be matched.
  */
 struct MatchedFunction
 {
-    std::string name;
-    std::array<Function, 2> function_pair;
+    bool is_compared() const;
+
+    std::array<IndexT, 2> named_idx_pair; // Links to NamedFunctions.
     AsmComparisonResult comparison;
 };
 using MatchedFunctions = std::vector<MatchedFunction>;
-
-/*
- * A single function in an executable that can not be matched with a function of another executable.
- */
-struct UnmatchedFunction
-{
-    std::string name;
-    Function function;
-};
-using UnmatchedFunctions = std::vector<UnmatchedFunction>;
 
 /*
  * Groups function matches of the same compiland or source file together.
  */
 struct MatchBundle
 {
+    size_t get_total_function_count() const;
+    bool has_completed_disassembling() const;
+    bool has_completed_source_file_linking() const;
+    bool has_completed_comparison() const;
+
+    void update_disassembled_count(const NamedFunctions &named_functions);
+    void update_linked_source_file_count(const NamedFunctions &named_functions);
+    void update_compared_count(const MatchedFunctions &matched_functions);
+
     std::string name; // Compiland or source file name.
-    std::vector<IndexT> matchedFunctions;
-    std::vector<IndexT> unmatchedFunctions;
+    std::vector<IndexT> matchedFunctions; // Links to MatchedFunction.
+    std::vector<IndexT> matchedNamedFunctions; // Links to NamedFunctions.
+    std::vector<IndexT> unmatchedNamedFunctions; // Links to NamedFunctions.
+
+    uint32_t disassembledCount = 0; // Count of functions that have been disassembled.
+    uint32_t linkedSourceFileCount = 0; // Count of functions that have been linked to source files.
+    uint32_t missingSourceFileCount = 0; // Count of functions that cannot be linked to source files.
+    uint32_t comparedCount = 0; // Count of matched functions that have been compared.
 };
 using MatchBundles = std::vector<MatchBundle>;
 
@@ -150,5 +172,23 @@ struct TextFileContentPair
 {
     std::array<const TextFileContent *, 2> pair;
 };
+
+inline ConstFunctionPair to_const_function_pair(ConstNamedFunctionsPair named_functions_pair, const MatchedFunction &matched)
+{
+    // clang-format off
+    return ConstFunctionPair{
+        &named_functions_pair[0]->at(matched.named_idx_pair[0]).function,
+        &named_functions_pair[1]->at(matched.named_idx_pair[1]).function};
+    // clang-format on
+}
+
+inline NamedFunctionPair to_named_function_pair(NamedFunctionsPair named_functions_pair, const MatchedFunction &matched)
+{
+    // clang-format off
+    return NamedFunctionPair{
+        &named_functions_pair[0]->at(matched.named_idx_pair[0]),
+        &named_functions_pair[1]->at(matched.named_idx_pair[1])};
+    // clang-format on
+}
 
 } // namespace unassemblize
