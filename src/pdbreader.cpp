@@ -67,7 +67,18 @@ void PdbReader::unload()
     m_sourceFiles.clear();
     m_symbols.clear();
     m_functions.clear();
+    m_functionAddressToIndexMap.clear();
     m_exe = PdbExeInfo();
+}
+
+const PdbFunctionInfo *PdbReader::find_function_by_address(Address64T address) const
+{
+    Address64ToIndexMapT::const_iterator it = m_functionAddressToIndexMap.find(address);
+    if (it != m_functionAddressToIndexMap.cend())
+    {
+        return &m_functions[it->second];
+    }
+    return nullptr;
 }
 
 void PdbReader::load_json(const nlohmann::json &js)
@@ -77,6 +88,8 @@ void PdbReader::load_json(const nlohmann::json &js)
     js.at(s_symbols).get_to(m_symbols);
     js.at(s_functions).get_to(m_functions);
     js.at(s_exe).get_to(m_exe);
+
+    build_function_address_to_index_map();
 }
 
 bool PdbReader::load_config(const std::string &file_name)
@@ -155,6 +168,16 @@ bool PdbReader::save_config(const std::string &file_name, bool overwrite_section
     fs << std::setw(2) << js << std::endl;
 
     return !fs.fail();
+}
+
+void PdbReader::build_function_address_to_index_map()
+{
+    const size_t size = m_functions.size();
+    m_functionAddressToIndexMap.reserve(size);
+    for (IndexT i = 0; i < size; ++i)
+    {
+        m_functionAddressToIndexMap[m_functions[i].address.absVirtual] = i;
+    }
 }
 
 #ifdef PDB_READER_WIN32
@@ -276,6 +299,8 @@ bool PdbReader::read_symbols()
 
     m_sourceFileNameToIndexMap.clear();
     m_symbolAddressToIndexMap.clear();
+
+    build_function_address_to_index_map();
 
 #if 0 // Collects all functions that are missing in public & global symbols.
     std::vector<PdbFunctionInfo *> missingFunctions;
