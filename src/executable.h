@@ -28,9 +28,6 @@ namespace unassemblize
 {
 class Executable
 {
-    using Address64ToIndexMap = std::unordered_map<Address64T, IndexT>;
-    using StringToIndexMap = std::unordered_map<std::string, IndexT>;
-
 public:
     Executable();
     ~Executable();
@@ -71,6 +68,8 @@ public:
     void add_symbol(const ExeSymbol &symbol, bool overwrite = false);
 
 private:
+    ExeSectionInfo *find_section(const std::string &name);
+
     void load_symbols(nlohmann::json &js, bool overwrite_symbols);
     void dump_symbols(nlohmann::json &js) const;
 
@@ -85,7 +84,6 @@ private:
     std::unique_ptr<LIEF::Binary> m_binary;
 
     ExeSections m_sections;
-    StringToIndexMap m_sectionNameToIndexMap;
     IndexT m_codeSectionIdx = ~IndexT(0);
 
     bool m_verbose = false;
