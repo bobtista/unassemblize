@@ -154,6 +154,95 @@ float AsmComparisonResult::get_max_similarity(AsmMatchStrictness strictness) con
     return float(get_max_match_count(strictness)) / float(get_instruction_count());
 }
 
+size_t MatchBundle::get_total_function_count() const
+{
+    return matchedNamedFunctions.size() + unmatchedNamedFunctions.size();
+}
+
+bool NamedFunction::is_disassembled() const
+{
+    return function.get_instruction_count() != 0;
+}
+
+bool NamedFunction::is_linked_to_source_file() const
+{
+    return !function.get_source_file_name().empty();
+}
+
+bool NamedFunction::is_matched() const
+{
+    return matched_index != ~IndexT(0);
+}
+
+bool MatchedFunction::is_compared() const
+{
+    return !comparison.records.empty();
+}
+
+bool MatchBundle::has_completed_disassembling() const
+{
+    return disassembledCount == get_total_function_count();
+}
+
+bool MatchBundle::has_completed_source_file_linking() const
+{
+    return linkedSourceFileCount + missingSourceFileCount == get_total_function_count();
+}
+
+bool MatchBundle::has_completed_comparison() const
+{
+    return comparedCount == get_total_function_count();
+}
+
+void MatchBundle::update_disassembled_count(const NamedFunctions &named_functions)
+{
+    disassembledCount = 0;
+    for (IndexT i : matchedNamedFunctions)
+    {
+        if (named_functions[i].is_disassembled())
+            ++disassembledCount;
+    }
+    for (IndexT i : unmatchedNamedFunctions)
+    {
+        if (named_functions[i].is_disassembled())
+            ++disassembledCount;
+    }
+}
+
+void MatchBundle::update_linked_source_file_count(const NamedFunctions &named_functions)
+{
+    linkedSourceFileCount = 0;
+    for (IndexT i : matchedNamedFunctions)
+    {
+        if (named_functions[i].is_linked_to_source_file())
+            ++linkedSourceFileCount;
+        else if (!named_functions[i].can_link_to_source_file)
+            ++missingSourceFileCount;
+    }
+    for (IndexT i : unmatchedNamedFunctions)
+    {
+        if (named_functions[i].is_linked_to_source_file())
+            ++linkedSourceFileCount;
+        else if (!named_functions[i].can_link_to_source_file)
+            ++missingSourceFileCount;
+    }
+}
+
+void MatchBundle::update_compared_count(const MatchedFunctions &matched_functions)
+{
+    comparedCount = 0;
+    for (IndexT i : matchedNamedFunctions)
+    {
+        if (matched_functions[i].is_compared())
+            ++linkedSourceFileCount;
+    }
+    for (IndexT i : unmatchedNamedFunctions)
+    {
+        if (matched_functions[i].is_compared())
+            ++linkedSourceFileCount;
+    }
+}
+
 MatchBundleType to_match_bundle_type(const char *str)
 {
     if (util::equals_nocase(str, "compiland"))

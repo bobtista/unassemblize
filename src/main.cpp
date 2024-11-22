@@ -429,15 +429,16 @@ int main(int argc, char **argv)
             const std::string output_file =
                 get_cmp_output_file_name(executable0->get_filename(), executable1->get_filename(), g_options.output_file);
 
-            unassemblize::ExecutablePair executable_pair2 = {executable0, executable1};
-            unassemblize::PdbReaderPair pdb_reader_pair2 = {pdb_reader_pair[0].get(), pdb_reader_pair[1].get()};
+            unassemblize::ConstExecutablePair executable_pair2 = {executable0, executable1};
+            unassemblize::ConstPdbReaderPair pdb_reader_pair2 = {pdb_reader_pair[0].get(), pdb_reader_pair[1].get()};
 
             unassemblize::AsmComparisonOptions o(executable_pair2, pdb_reader_pair2, output_file);
             o.format = g_options.format;
-            if (g_options.bundle_file_idx < 2)
-                o.bundling_pdb_reader = pdb_reader_pair[g_options.bundle_file_idx].get();
-            if (o.bundling_pdb_reader != nullptr)
+            if (g_options.bundle_file_idx < 2 && pdb_reader_pair[g_options.bundle_file_idx] != nullptr)
+            {
+                o.bundle_file_idx = g_options.bundle_file_idx;
                 o.bundle_type = g_options.bundle_type;
+            }
             o.print_indent_len = g_options.print_indent_len;
             o.print_asm_len = g_options.print_asm_len;
             o.print_byte_count = g_options.print_byte_count;

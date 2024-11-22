@@ -17,12 +17,12 @@ namespace unassemblize
 {
 AsmInstructionVariant AsmMatcher::s_nullInstructionVariant(AsmNull{});
 
-AsmComparisonResult AsmMatcher::run_comparison(const std::array<Function, 2> &function_pair, uint32_t lookahead_limit)
+AsmComparisonResult AsmMatcher::run_comparison(ConstFunctionPair function_pair, uint32_t lookahead_limit)
 {
     AsmComparisonResult comparison;
 
-    const AsmInstructionVariants &instructions0 = function_pair[0].get_instructions();
-    const AsmInstructionVariants &instructions1 = function_pair[1].get_instructions();
+    const AsmInstructionVariants &instructions0 = function_pair[0]->get_instructions();
+    const AsmInstructionVariants &instructions1 = function_pair[1]->get_instructions();
     assert(instructions0.size() != 0);
     assert(instructions1.size() != 0);
 
@@ -31,10 +31,10 @@ AsmComparisonResult AsmMatcher::run_comparison(const std::array<Function, 2> &fu
     const InstructionTextArrays arrays1 = split_instruction_texts(instructions1);
     const InstructionTextArray empty_array;
 
-    const size_t inst_count0 = function_pair[0].get_instruction_count();
-    const size_t inst_count1 = function_pair[1].get_instruction_count();
-    const size_t label_count0 = function_pair[0].get_label_count();
-    const size_t label_count1 = function_pair[1].get_label_count();
+    const size_t inst_count0 = function_pair[0]->get_instruction_count();
+    const size_t inst_count1 = function_pair[1]->get_instruction_count();
+    const size_t label_count0 = function_pair[0]->get_label_count();
+    const size_t label_count1 = function_pair[1]->get_label_count();
 
     {
         const size_t label_count_comb = label_count0 + label_count1;

@@ -101,6 +101,12 @@ FetchContent_Declare(readerwriterqueue
 )
 FetchContent_MakeAvailable(readerwriterqueue)
 
+# TODO: Can we use FetchContent_MakeAvailable without getting the test suite for it?
+FetchContent_Populate(span DOWNLOAD_EXTRACT_TIMESTAMP
+    GIT_REPOSITORY https://github.com/xezon/span
+    GIT_TAG        master
+    SOURCE_DIR     ${CMAKE_CURRENT_SOURCE_DIR}/3rdparty/span)
+
 set(GIT_PRE_CONFIGURE_FILE "gitinfo.cpp.in")
 set(GIT_POST_CONFIGURE_FILE "${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp")
 
@@ -174,6 +180,7 @@ target_link_libraries(unassemblize PRIVATE
 target_include_directories(unassemblize PRIVATE
     .
     src
+    3rdparty/span/include
 )
 
 if(WINDOWS)

@@ -124,7 +124,6 @@ private:
     bool add_pseudo_symbol(Address64T address, std::string_view prefix);
     const ExeSymbol *get_symbol(Address64T address) const;
     const ExeSymbol *get_symbol_from_image_base(Address64T address) const;
-    const ExeSymbol *get_nearest_symbol(Address64T address) const; // #TODO: investigate
 
     // Zydis formatter callbacks
     static ZyanStatus UnasmFormatterPrintAddressAbsolute(

@@ -16,16 +16,29 @@
 #include <assert.h>
 #include <stdint.h>
 #include <string>
+#include <tcb/span.hpp>
 #include <type_traits>
 #include <unordered_map>
 
 namespace unassemblize
 {
+template<typename T>
+using span = tcb::span<T>;
+
 using Address64T = uint64_t;
 using Address32T = uint32_t;
 using IndexT = uint32_t;
 
 using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
+using Address64ToIndexMapT = std::unordered_map<Address64T, IndexT>;
+
+class Executable;
+class PdbReader;
+class Function;
+
+using ConstExecutablePair = std::array<const Executable *, 2>;
+using ConstPdbReaderPair = std::array<const PdbReader *, 2>;
+using ConstFunctionPair = std::array<const Function *, 2>;
 
 template<typename ElementType, typename SizeType, SizeType Size>
 struct SizedArray

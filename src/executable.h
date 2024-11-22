@@ -28,9 +28,6 @@ namespace unassemblize
 {
 class Executable
 {
-    using Address64ToIndexMap = std::unordered_map<Address64T, IndexT>;
-    using StringToIndexMap = std::unordered_map<std::string, IndexT>;
-
 public:
     Executable();
     ~Executable();
@@ -57,7 +54,6 @@ public:
     const ExeSymbol *get_symbol(uint64_t address) const;
     const ExeSymbol *get_symbol(const std::string &name) const;
     const ExeSymbol *get_symbol_from_image_base(uint64_t address) const; // Adds the image base before symbol lookup.
-    const ExeSymbol *get_nearest_symbol(uint64_t address) const; // #TODO: investigate
     const ExeSymbols &get_symbols() const;
 
     /*
@@ -72,6 +68,8 @@ public:
     void add_symbol(const ExeSymbol &symbol, bool overwrite = false);
 
 private:
+    ExeSectionInfo *find_section(const std::string &name);
+
     void load_symbols(nlohmann::json &js, bool overwrite_symbols);
     void dump_symbols(nlohmann::json &js) const;
 
@@ -86,14 +84,13 @@ private:
     std::unique_ptr<LIEF::Binary> m_binary;
 
     ExeSections m_sections;
-    StringToIndexMap m_sectionNameToIndexMap;
     IndexT m_codeSectionIdx = ~IndexT(0);
 
     bool m_verbose = false;
 
     ExeSymbols m_symbols;
-    Address64ToIndexMap m_symbolAddressToIndexMap;
-    StringToIndexMap m_symbolNameToIndexMap;
+    Address64ToIndexMapT m_symbolAddressToIndexMap;
+    StringToIndexMapT m_symbolNameToIndexMap;
 
     ExeObjects m_targetObjects;
 

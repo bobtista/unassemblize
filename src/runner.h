@@ -74,23 +74,30 @@ struct AsmOutputOptions
     uint32_t print_indent_len = 4;
 };
 
-using ExecutablePair = std::array<const Executable *, 2>;
-using PdbReaderPair = std::array<const PdbReader *, 2>;
-
 struct AsmComparisonOptions
 {
-    AsmComparisonOptions(ExecutablePair executable_pair, PdbReaderPair pdb_reader_pair, const std::string &output_file) :
+    AsmComparisonOptions(
+        ConstExecutablePair executable_pair, ConstPdbReaderPair pdb_reader_pair, const std::string &output_file) :
         executable_pair(executable_pair), pdb_reader_pair(pdb_reader_pair), output_file(output_file)
     {
     }
 
-    const ExecutablePair executable_pair;
-    const PdbReaderPair pdb_reader_pair;
+    const Executable &get_executable(size_t index) const { return *executable_pair[index]; }
+
+    const PdbReader *bundling_pdb_reader() const
+    {
+        if (bundle_file_idx < pdb_reader_pair.size())
+            return pdb_reader_pair[bundle_file_idx];
+        else
+            return nullptr;
+    }
+
+    const ConstExecutablePair executable_pair;
+    const ConstPdbReaderPair pdb_reader_pair;
     const std::string output_file;
     AsmFormat format = AsmFormat::IGAS;
     MatchBundleType bundle_type = MatchBundleType::None; // The method to group symbols with.
-    // Pdb Reader used to group symbols with. Must not be null if bundle_type is not 'None'.
-    const PdbReader *bundling_pdb_reader = nullptr;
+    size_t bundle_file_idx = 0;
     uint32_t print_indent_len = 4;
     uint32_t print_asm_len = 80;
     uint32_t print_byte_count = 11;
@@ -143,66 +150,134 @@ private:
 
     static bool in_code_section(const ExeSymbol &symbol, const Executable& executable);
 
-    /*
-     * Builds function match collection.
-     * All function objects are not disassembled for performance reasons, but are prepared.
-     */
-    static void build_matched_functions(
-        MatchedFunctions &matched_functions,
-        StringToIndexMapT &matched_function_name_to_index_map,
-        ExecutablePair executable_pair);
+    static StringToIndexMapT build_function_name_to_index_map(const NamedFunctions& named_functions);
+    static Address64ToIndexMapT build_function_address_to_index_map(const NamedFunctions& named_functions);
 
-    static void build_unmatched_functions(
-        UnmatchedFunctions &unmatched_functions,
-        StringToIndexMapT &unmatched_function_name_to_index_map,
-        const Executable &unmatched_executable,
-        const Executable &other_executable);
+    static NamedFunctions build_named_functions(
+        const Executable& executable);
 
-    static void build_match_bundles(
-        MatchBundles &bundles,
+    static MatchedFunctions build_matched_functions(
+        NamedFunctionsPair named_functions_pair);
+
+    static std::vector<IndexT> build_unmatched_functions(
+        const NamedFunctions &named_functions,
+        const MatchedFunctions &matched_functions);
+
+    static MatchBundles build_match_bundles(
+        const NamedFunctions &named_functions,
         const MatchedFunctions &matched_functions,
-        const StringToIndexMapT &matched_function_name_to_index_map,
-        const UnmatchedFunctions &unmatched_functions,
-        const StringToIndexMapT &unmatched_function_name_to_index_map,
+        const PdbReader *bundling_pdb_reader,
         MatchBundleType bundle_type,
-        const PdbReader *bundling_pdb_reader);
+        size_t bundle_file_idx);
+
+    // Note: requires a prior call to build_matched_functions!
+    static MatchBundles build_match_bundles_from_compilands(
+        const NamedFunctions &named_functions,
+        const PdbReader &pdb_reader);
+
+    // Note: requires a prior call to build_matched_functions!
+    static MatchBundles build_match_bundles_from_source_files(
+        const NamedFunctions &named_functions,
+        const PdbReader &pdb_reader);
+
+    // Create a single bundle with all functions.
+    static MatchBundle build_single_match_bundle(
+        const NamedFunctions &named_functions,
+        const MatchedFunctions &matched_functions,
+        size_t bundle_file_idx);
 
     template<class SourceInfoVectorT>
-    static void build_match_bundles(
-        MatchBundles &bundles,
-        const PdbFunctionInfoVector &functions,
+    static MatchBundles build_match_bundles(
         const SourceInfoVectorT &sources,
-        const StringToIndexMapT &matched_function_name_to_index_map,
-        const StringToIndexMapT &unmatched_function_name_to_index_map);
+        const PdbFunctionInfoVector &functions,
+        const NamedFunctions &named_functions);
 
     template<class SourceInfoT>
-    static void build_match_bundle(
-        MatchBundle &bundle,
-        const PdbFunctionInfoVector &functions,
+    static MatchBundle build_match_bundle(
         const SourceInfoT &source,
-        const StringToIndexMapT &matched_function_name_to_index_map,
-        const StringToIndexMapT &unmatched_function_name_to_index_map);
+        const PdbFunctionInfoVector &functions,
+        const NamedFunctions &named_functions,
+        const Address64ToIndexMapT &named_function_to_index_map);
 
-    static void disassemble_function_matches(
-        MatchedFunctions &matches,
-        ExecutablePair executable_pair,
+    static void disassemble_function(
+        NamedFunction &named,
+        const FunctionSetup& setup);
+
+    static void disassemble_matched_functions(
+        NamedFunctionsPair named_functions_pair,
+        const MatchedFunctions &matched_functions,
+        ConstExecutablePair executable_pair,
         AsmFormat format);
 
-    static void build_function_source_lines(
-        MatchedFunctions &matches,
-        const StringToIndexMapT &function_name_to_index_map,
-        PdbReaderPair pdb_reader_pair);
+    static void disassemble_bundled_functions(
+        NamedFunctions &named_functions,
+        MatchBundle& bundle,
+        const Executable& executable,
+        AsmFormat format);
 
-    static void build_comparison_records(
-        MatchedFunction &match,
+    // Can be used to disassemble a complete bundle with two calls.
+    static void disassemble_bundled_functions(
+        NamedFunctions &named_functions,
+        span<IndexT> named_function_indices,
+        const Executable& executable,
+        AsmFormat format);
+
+    // Can be used to disassemble a single function too.
+    static void disassemble_functions(
+        span<NamedFunction> named_functions,
+        const Executable& executable,
+        AsmFormat format);
+
+    static void build_source_lines_for_function(
+        NamedFunction &named,
+        const PdbReader &pdb_reader);
+
+    static void build_source_lines_for_matched_functions(
+        NamedFunctionsPair named_functions_pair,
+        const MatchedFunctions &matched_functions,
+        ConstPdbReaderPair pdb_reader_pair);
+
+    static void build_source_lines_for_bundled_functions(
+        NamedFunctions &named_functions,
+        MatchBundle& bundle,
+        const PdbReader& pdb_reader);
+
+    // Can be used to build source lines of a complete bundle with two calls.
+    static void build_source_lines_for_bundled_functions(
+        NamedFunctions &named_functions,
+        span<IndexT> named_function_indices,
+        const PdbReader& pdb_reader);
+
+    // Can be used to build source lines of a single function too.
+    static void build_source_lines_for_functions(
+        span<NamedFunction> named_functions,
+        const PdbReader& pdb_reader);
+
+    static void build_comparison_record(
+        MatchedFunction &matched,
+        ConstNamedFunctionsPair named_functions_pair,
         uint32_t lookahead_limit);
 
     static void build_comparison_records(
-        MatchedFunctions &matches,
+        MatchedFunctions &matched_functions,
+        ConstNamedFunctionsPair named_functions_pair,
+        uint32_t lookahead_limit);
+
+    static void build_bundled_comparison_records(
+        MatchedFunctions &matched_functions,
+        ConstNamedFunctionsPair named_functions_pair,
+        MatchBundle& bundle,
+        uint32_t lookahead_limit);
+
+    static void build_bundled_comparison_records(
+        MatchedFunctions &matched_functions,
+        ConstNamedFunctionsPair named_functions_pair,
+        span<IndexT> matched_function_indices,
         uint32_t lookahead_limit);
 
     static bool output_comparison_results(
-        const MatchedFunctions &matches,
+        ConstNamedFunctionsPair named_functions_pair,
+        const MatchedFunctions& matched_functions,
         const MatchBundles &bundles,
         MatchBundleType bundle_type,
         const std::string &output_file,
