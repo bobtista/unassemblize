@@ -176,7 +176,8 @@ void PdbReader::build_function_address_to_index_map()
     m_functionAddressToIndexMap.reserve(size);
     for (IndexT i = 0; i < size; ++i)
     {
-        m_functionAddressToIndexMap[m_functions[i].address.absVirtual] = i;
+        [[maybe_unused]] auto [_, added] = m_functionAddressToIndexMap.try_emplace(m_functions[i].address.absVirtual, i);
+        assert(added);
     }
 }
 
@@ -412,7 +413,8 @@ void PdbReader::read_source_file_initial(IDiaSourceFile *pSourceFile)
         if (pSourceFile->get_fileName(&name) == S_OK)
         {
             fileInfo.name = util::to_utf8(name);
-            m_sourceFileNameToIndexMap[fileInfo.name] = sourceFileIndex;
+            [[maybe_unused]] auto [_, added] = m_sourceFileNameToIndexMap.try_emplace(fileInfo.name, sourceFileIndex);
+            assert(added);
             SysFreeString(name);
         }
     }
@@ -1092,7 +1094,8 @@ bool PdbReader::add_or_update_symbol(PdbSymbolInfo &&symbolInfo)
     {
         const IndexT index = static_cast<IndexT>(m_symbols.size());
         m_symbols.emplace_back(std::move(symbolInfo));
-        m_symbolAddressToIndexMap[address] = index;
+        [[maybe_unused]] auto [_, added] = m_symbolAddressToIndexMap.try_emplace(address, index);
+        assert(added);
     }
     else
     {

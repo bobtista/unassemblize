@@ -911,9 +911,10 @@ bool Function::add_pseudo_symbol(Address64T address, std::string_view prefix)
     symbol.address = address;
     symbol.size = 0;
 
-    const uint32_t index = static_cast<uint32_t>(pseudoSymbolVec.size());
+    const IndexT index = static_cast<IndexT>(pseudoSymbolVec.size());
     pseudoSymbolVec.emplace_back(std::move(symbol));
-    pseudoSymbolMap[address] = index;
+    [[maybe_unused]] auto [_, added] = pseudoSymbolMap.try_emplace(address, index);
+    assert(added);
 
     return true;
 }

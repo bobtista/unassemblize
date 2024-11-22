@@ -271,9 +271,10 @@ StringToIndexMapT Runner::build_function_name_to_index_map(const NamedFunctions 
     StringToIndexMapT map;
     map.reserve(size);
 
-    for (size_t i = 0; i < size; ++i)
+    for (IndexT i = 0; i < size; ++i)
     {
-        map[named_functions[i].name] = i;
+        [[maybe_unused]] auto [_, added] = map.try_emplace(named_functions[i].name, i);
+        assert(added);
     }
     return map;
 }
@@ -284,10 +285,11 @@ Address64ToIndexMapT Runner::build_function_address_to_index_map(const NamedFunc
     Address64ToIndexMapT map;
     map.reserve(size);
 
-    for (size_t i = 0; i < size; ++i)
+    for (IndexT i = 0; i < size; ++i)
     {
         const Address64T address = named_functions[i].function.get_begin_address();
-        map[address] = i;
+        [[maybe_unused]] auto [_, added] = map.try_emplace(address, i);
+        assert(added);
     }
     return map;
 }

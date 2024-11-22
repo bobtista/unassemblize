@@ -91,8 +91,8 @@ private:
     bool m_verbose = false;
 
     ExeSymbols m_symbols;
-    Address64ToIndexMap m_symbolAddressToIndexMap;
-    StringToIndexMap m_symbolNameToIndexMap;
+    Address64ToIndexMapT m_symbolAddressToIndexMap;
+    StringToIndexMapT m_symbolNameToIndexMap;
 
     ExeObjects m_targetObjects;
 

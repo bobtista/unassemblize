@@ -240,7 +240,7 @@ uint64_t Executable::all_sections_end_from_image_base() const
 
 const ExeSymbol *Executable::get_symbol(uint64_t address) const
 {
-    Address64ToIndexMap::const_iterator it = m_symbolAddressToIndexMap.find(address);
+    Address64ToIndexMapT::const_iterator it = m_symbolAddressToIndexMap.find(address);
 
     if (it != m_symbolAddressToIndexMap.end())
     {
@@ -251,7 +251,7 @@ const ExeSymbol *Executable::get_symbol(uint64_t address) const
 
 const ExeSymbol *Executable::get_symbol(const std::string &name) const
 {
-    StringToIndexMap::const_iterator it = m_symbolNameToIndexMap.find(name);
+    StringToIndexMapT::const_iterator it = m_symbolNameToIndexMap.find(name);
 
     if (it != m_symbolNameToIndexMap.end())
     {
@@ -298,14 +298,22 @@ void Executable::add_symbols(const PdbSymbolInfoVector &symbols, bool overwrite)
 
 void Executable::add_symbol(const ExeSymbol &symbol, bool overwrite)
 {
-    Address64ToIndexMap::iterator it = m_symbolAddressToIndexMap.find(symbol.address);
+    if (symbol.address == 0)
+        return;
+
+    Address64ToIndexMapT::iterator it = m_symbolAddressToIndexMap.find(symbol.address);
 
     if (it == m_symbolAddressToIndexMap.end())
     {
-        const uint32_t index = static_cast<uint32_t>(m_symbols.size());
+        const IndexT index = static_cast<IndexT>(m_symbols.size());
         m_symbols.push_back(symbol);
-        m_symbolAddressToIndexMap[symbol.address] = index;
-        m_symbolNameToIndexMap[symbol.name] = index;
+        [[maybe_unused]] auto [_, added] = m_symbolAddressToIndexMap.try_emplace(symbol.address, index);
+        assert(added);
+        // Symbol name can collide...
+        if (overwrite)
+            m_symbolNameToIndexMap.emplace(symbol.name, index);
+        else
+            m_symbolNameToIndexMap.try_emplace(symbol.name, index);
     }
     else if (overwrite)
     {
