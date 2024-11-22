@@ -12,6 +12,7 @@
  */
 #include "function.h"
 #include "pdbreadertypes.h"
+#include "util.h"
 #include <Zycore/Format.h>
 #include <Zydis/Zydis.h>
 #include <fmt/core.h>
@@ -733,7 +734,7 @@ void Function::disassemble(const FunctionSetup &setup)
     FunctionIntermediate intermediate(setup);
     m_intermediate = &intermediate;
 
-    m_instructions.clear();
+    util::free_container(m_instructions);
     m_instructionCount = 0;
     m_labelCount = 0;
 

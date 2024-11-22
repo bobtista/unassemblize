@@ -148,14 +148,14 @@ bool Executable::load(const std::string &exe_filename)
 
 void Executable::unload()
 {
-    m_exeFilename.clear();
+    util::free_container(m_exeFilename);
     m_binary.reset();
-    m_sections.clear();
+    util::free_container(m_sections);
     m_codeSectionIdx = ~IndexT(0);
-    m_symbols.clear();
-    m_symbolAddressToIndexMap.clear();
-    m_symbolNameToIndexMap.clear();
-    m_targetObjects.clear();
+    util::free_container(m_symbols);
+    util::free_container(m_symbolAddressToIndexMap);
+    util::free_container(m_symbolNameToIndexMap);
+    util::free_container(m_targetObjects);
     m_imageData = ExeImageData();
 }
 
