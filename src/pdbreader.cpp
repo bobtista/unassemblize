@@ -63,11 +63,12 @@ bool PdbReader::load(const std::string &pdb_filename)
 
 void PdbReader::unload()
 {
+    util::free_container(m_pdbFilename);
     util::free_container(m_compilands);
     util::free_container(m_sourceFiles);
     util::free_container(m_functions);
     util::free_container(m_symbols);
-	util::free_container(m_functionAddressToIndexMap);
+    util::free_container(m_functionAddressToIndexMap);
     m_exe = PdbExeInfo();
 }
 
@@ -298,8 +299,8 @@ bool PdbReader::read_symbols()
     m_functions.shrink_to_fit();
     m_symbols.shrink_to_fit();
 
-    m_sourceFileNameToIndexMap.clear();
-    m_symbolAddressToIndexMap.clear();
+    util::free_container(m_sourceFileNameToIndexMap);
+    util::free_container(m_symbolAddressToIndexMap);
 
     build_function_address_to_index_map();
 

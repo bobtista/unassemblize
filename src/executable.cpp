@@ -148,7 +148,7 @@ bool Executable::load(const std::string &exe_filename)
 
 void Executable::unload()
 {
-    m_exeFilename.clear();
+    util::free_container(m_exeFilename);
     m_binary.reset();
     util::free_container(m_sections);
     m_codeSectionIdx = ~IndexT(0);
