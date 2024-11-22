@@ -72,18 +72,13 @@ constexpr int compare_nocase(std::string_view str1, std::string_view str2)
     return (str1.size() < str2.size()) ? -1 : 1;
 }
 
-/**
- * @brief Efficiently clears a container by swapping with an empty container
- *
- * This is more efficient than clear() as it truly releases memory back to the system.
- * Works with any container that supports swap with an empty instance of itself.
- *
- * @param container The container to clear
- */
+// Efficiently clears a container by swapping with an empty container.
+// This is more efficient than clear() as it truly releases memory back to the system.
+// Works with any container that supports swap with an empty instance of itself.
 template<typename T>
 void free_container(T &container)
 {
-    T().swap(container); // Swap with empty container
+    T().swap(container);
 }
 
 } // namespace util
