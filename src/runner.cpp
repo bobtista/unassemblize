@@ -232,9 +232,12 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 
     disassemble_matched_functions(named_functions_pair, matched_functions, o.executable_pair, o.format);
 
+    FileContentStorage source_file_storage;
+
     if (o.print_sourceline_len + o.print_sourcecode_len > 0)
     {
         build_source_lines_for_matched_functions(named_functions_pair, matched_functions, o.pdb_reader_pair);
+        load_source_files_for_matched_functions(source_file_storage, named_functions_pair, matched_functions);
     }
 
     build_comparison_records(matched_functions, const_named_functions_pair, o.lookahead_limit);
@@ -249,6 +252,7 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
         const_named_functions_pair,
         matched_functions,
         bundles,
+        source_file_storage,
         o.bundle_type,
         o.output_file,
         exe_filenames,
@@ -433,6 +437,8 @@ MatchBundles
 MatchBundle Runner::build_single_match_bundle(
     const NamedFunctions &named_functions, const MatchedFunctions &matched_functions, size_t bundle_file_idx)
 {
+    assert(bundle_file_idx < 2);
+
     const size_t matched_count = matched_functions.size();
 
     MatchBundle bundle;
@@ -591,7 +597,7 @@ void Runner::build_source_lines_for_function(NamedFunction &named, const PdbRead
 void Runner::build_source_lines_for_matched_functions(
     NamedFunctionsPair named_functions_pair, const MatchedFunctions &matched_functions, ConstPdbReaderPair pdb_reader_pair)
 {
-    for (size_t i = 0; i < pdb_reader_pair.size(); ++i)
+    for (size_t i = 0; i < 2; ++i)
     {
         if (const PdbReader *pdb_reader = pdb_reader_pair[i])
         {
@@ -599,6 +605,14 @@ void Runner::build_source_lines_for_matched_functions(
             {
                 NamedFunction &named = named_functions_pair[i]->at(matched.named_idx_pair[i]);
                 build_source_lines_for_function(named, *pdb_reader);
+            }
+        }
+        else
+        {
+            for (const MatchedFunction &matched : matched_functions)
+            {
+                NamedFunction &named = named_functions_pair[i]->at(matched.named_idx_pair[i]);
+                named.can_link_to_source_file = false;
             }
         }
     }
@@ -627,6 +641,69 @@ void Runner::build_source_lines_for_functions(span<NamedFunction> named_function
     {
         build_source_lines_for_function(named, pdb_reader);
     }
+}
+
+bool Runner::load_source_file_for_function(FileContentStorage &storage, NamedFunction &named)
+{
+    if (!named.can_link_to_source_file)
+    {
+        // Has no source file associated. Treat as success.
+        return true;
+    }
+
+    assert(named.is_linked_to_source_file());
+
+    FileContentStorage::LoadResult result = storage.load_content(named.function.get_source_file_name());
+    named.has_loaded_source_file = result != FileContentStorage::LoadResult::Failed;
+    return named.has_loaded_source_file;
+}
+
+bool Runner::load_source_files_for_matched_functions(
+    FileContentStorage &storage, NamedFunctionsPair named_functions_pair, const MatchedFunctions &matched_functions)
+{
+    bool success = true;
+    for (const MatchedFunction &matched : matched_functions)
+    {
+        for (size_t i = 0; i < 2; ++i)
+        {
+            NamedFunction &named = named_functions_pair[i]->at(matched.named_idx_pair[i]);
+            success &= load_source_file_for_function(storage, named);
+        }
+    }
+    return success;
+}
+
+bool Runner::load_source_files_for_bundled_functions(
+    FileContentStorage &storage, NamedFunctions &named_functions, MatchBundle &bundle)
+{
+    bool success = true;
+    success &=
+        load_source_files_for_bundled_functions(storage, named_functions, span<const IndexT>{bundle.matchedNamedFunctions});
+    success &= load_source_files_for_bundled_functions(
+        storage, named_functions, span<const IndexT>{bundle.unmatchedNamedFunctions});
+    bundle.update_loaded_source_file_count(named_functions);
+    return success;
+}
+
+bool Runner::load_source_files_for_bundled_functions(
+    FileContentStorage &storage, NamedFunctions &named_functions, span<const IndexT> named_function_indices)
+{
+    bool success = true;
+    for (IndexT index : named_function_indices)
+    {
+        success &= load_source_file_for_function(storage, named_functions[index]);
+    }
+    return success;
+}
+
+bool Runner::load_source_files_for_functions(FileContentStorage &storage, span<NamedFunction> named_functions)
+{
+    bool success = true;
+    for (NamedFunction &named : named_functions)
+    {
+        success &= load_source_file_for_function(storage, named);
+    }
+    return success;
 }
 
 void Runner::build_comparison_record(
@@ -675,6 +752,7 @@ bool Runner::output_comparison_results(
     ConstNamedFunctionsPair named_functions_pair,
     const MatchedFunctions &matched_functions,
     const MatchBundles &bundles,
+    const FileContentStorage &source_file_storage,
     MatchBundleType bundle_type,
     const std::string &output_file,
     const StringPair &exe_filenames,
@@ -688,21 +766,8 @@ bool Runner::output_comparison_results(
     size_t file_write_count = 0;
     size_t bundle_idx = 0;
 
-    FileContentStorage cpp_files;
-
     for (const MatchBundle &bundle : bundles)
     {
-        for (IndexT i : bundle.matchedFunctions)
-        {
-            const MatchedFunction &matched = matched_functions[i];
-            ConstFunctionPair function_pair = to_const_function_pair(named_functions_pair, matched);
-            const std::string &source_file0 = function_pair[0]->get_source_file_name();
-            const std::string &source_file1 = function_pair[1]->get_source_file_name();
-
-            cpp_files.load_content(source_file0);
-            cpp_files.load_content(source_file1);
-        }
-
         std::string output_file_variant = build_cmp_output_path(bundle_idx, bundle.name, output_file);
 
         std::ofstream fs(output_file_variant, std::ofstream::binary);
@@ -719,16 +784,16 @@ bool Runner::output_comparison_results(
                 const std::string &source_file0 = function_pair[0]->get_source_file_name();
                 const std::string &source_file1 = function_pair[1]->get_source_file_name();
 
-                TextFileContentPair cpp_texts;
-                cpp_texts.pair[0] = cpp_files.find_content(source_file0);
-                cpp_texts.pair[1] = cpp_files.find_content(source_file1);
+                TextFileContentPair source_file_texts;
+                source_file_texts.pair[0] = source_file_storage.find_content(source_file0);
+                source_file_texts.pair[1] = source_file_storage.find_content(source_file1);
 
                 text.clear();
                 printer.append_to_string(
                     text,
                     matched.comparison,
                     exe_filenames,
-                    cpp_texts,
+                    source_file_texts,
                     match_strictness,
                     indent_len,
                     asm_len,

@@ -169,6 +169,11 @@ bool NamedFunction::is_linked_to_source_file() const
     return !function.get_source_file_name().empty();
 }
 
+bool NamedFunction::Has_loaded_source_file() const
+{
+    return has_loaded_source_file;
+}
+
 bool NamedFunction::is_matched() const
 {
     return matched_index != ~IndexT(0);
@@ -187,6 +192,11 @@ bool MatchBundle::has_completed_disassembling() const
 bool MatchBundle::has_completed_source_file_linking() const
 {
     return linkedSourceFileCount + missingSourceFileCount == get_total_function_count();
+}
+
+bool MatchBundle::has_completed_source_file_loading() const
+{
+    return has_completed_source_file_linking() && loadedSourceFileCount == linkedSourceFileCount;
 }
 
 bool MatchBundle::has_completed_comparison() const
@@ -225,6 +235,21 @@ void MatchBundle::update_linked_source_file_count(const NamedFunctions &named_fu
             ++linkedSourceFileCount;
         else if (!named_functions[i].can_link_to_source_file)
             ++missingSourceFileCount;
+    }
+}
+
+void MatchBundle::update_loaded_source_file_count(const NamedFunctions &named_functions)
+{
+    loadedSourceFileCount = 0;
+    for (IndexT i : matchedNamedFunctions)
+    {
+        if (named_functions[i].Has_loaded_source_file())
+            ++loadedSourceFileCount;
+    }
+    for (IndexT i : unmatchedNamedFunctions)
+    {
+        if (named_functions[i].Has_loaded_source_file())
+            ++loadedSourceFileCount;
     }
 }
 
