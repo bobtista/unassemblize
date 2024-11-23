@@ -18,6 +18,31 @@
 
 namespace unassemblize
 {
+class FileContentStorage
+{
+    using FileContentMap = std::map<std::string, TextFileContent>;
+
+public:
+    enum class LoadResult
+    {
+        Failed,
+        Loaded,
+        AlreadyLoaded,
+    };
+
+public:
+    FileContentStorage();
+
+    const TextFileContent *find_content(const std::string &name) const;
+    LoadResult load_content(const std::string &name);
+    size_t size() const;
+    void clear();
+
+private:
+    FileContentMap m_filesMap;
+    mutable FileContentMap::const_iterator m_lastFileIt;
+};
+
 struct LoadExeOptions
 {
     LoadExeOptions(const std::string &input_file) : input_file(input_file) {}
@@ -109,24 +134,6 @@ struct AsmComparisonOptions
 
 class Runner
 {
-    class FileContentStorage
-    {
-        using FileContentMap = std::map<std::string, TextFileContent>;
-
-    public:
-        FileContentStorage();
-
-        const TextFileContent *find_content(const std::string &name) const;
-        bool load_content(const std::string &name);
-        size_t size() const;
-        void clear();
-
-    private:
-        FileContentMap m_filesMap;
-        mutable FileContentMap::const_iterator m_lastFileIt;
-        mutable std::string m_lastFileName;
-    };
-
 public:
     Runner() = delete;
 

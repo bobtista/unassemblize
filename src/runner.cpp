@@ -20,12 +20,12 @@
 
 namespace unassemblize
 {
-Runner::FileContentStorage::FileContentStorage()
+FileContentStorage::FileContentStorage()
 {
     m_lastFileIt = m_filesMap.end();
 }
 
-const TextFileContent *Runner::FileContentStorage::find_content(const std::string &name) const
+const TextFileContent *FileContentStorage::find_content(const std::string &name) const
 {
     if (name.empty())
     {
@@ -33,9 +33,8 @@ const TextFileContent *Runner::FileContentStorage::find_content(const std::strin
     }
 
     // Fast path lookup.
-    if (name == m_lastFileName)
+    if (m_lastFileIt != m_filesMap.cend() && name == m_lastFileIt->first)
     {
-        assert(m_lastFileIt != m_filesMap.cend());
         return &m_lastFileIt->second;
     }
 
@@ -44,20 +43,19 @@ const TextFileContent *Runner::FileContentStorage::find_content(const std::strin
     if (it != m_filesMap.cend())
     {
         m_lastFileIt = it;
-        m_lastFileName = name;
         return &it->second;
     }
 
     return nullptr;
 }
 
-bool Runner::FileContentStorage::load_content(const std::string &name)
+FileContentStorage::LoadResult FileContentStorage::load_content(const std::string &name)
 {
     FileContentMap::iterator it = m_filesMap.find(name);
     if (it != m_filesMap.end())
     {
         // Is already loaded.
-        return false;
+        return LoadResult::AlreadyLoaded;
     }
 
     std::ifstream fs(name);
@@ -65,7 +63,7 @@ bool Runner::FileContentStorage::load_content(const std::string &name)
     if (!fs.is_open())
     {
         // File open failed.
-        return false;
+        return LoadResult::Failed;
     }
 
     TextFileContent content;
@@ -77,21 +75,26 @@ bool Runner::FileContentStorage::load_content(const std::string &name)
             content.lines.emplace_back(std::move(buf));
         }
     }
+
+    if (!fs.eof() && fs.fail())
+    {
+        // File read failed.
+        return LoadResult::Failed;
+    }
+
     m_lastFileIt = m_filesMap.insert(it, std::make_pair(name, std::move(content)));
-    m_lastFileName = name;
-    return true;
+    return LoadResult::Loaded;
 }
 
-size_t Runner::FileContentStorage::size() const
+size_t FileContentStorage::size() const
 {
     return m_filesMap.size();
 }
 
-void Runner::FileContentStorage::clear()
+void FileContentStorage::clear()
 {
     m_filesMap.clear();
     m_lastFileIt = m_filesMap.cend();
-    m_lastFileName.clear();
 }
 
 std::unique_ptr<Executable> Runner::load_exe(const LoadExeOptions &o)

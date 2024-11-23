@@ -95,7 +95,7 @@ void AsmPrinter::append_to_string(
     std::string &str,
     const AsmComparisonResult &comparison,
     const StringPair &exe_filenames,
-    const TextFileContentPair &cpp_texts,
+    const TextFileContentPair &source_file_texts,
     AsmMatchStrictness match_strictness,
     uint32_t indent_len,
     uint32_t asm_len,
@@ -129,10 +129,10 @@ void AsmPrinter::append_to_string(
         const uint32_t source_len = sourcecode_len + sourceline_len;
         size_t i = 0;
 
-        if (source_len > 0 && cpp_texts.pair[i] != nullptr)
+        if (source_len > 0 && source_file_texts.pair[i] != nullptr)
         {
             source_code_regions[i].begin = m_buffers.lines[0].size();
-            append_source_code(m_buffers, comparison.records, *cpp_texts.pair[i], i, sourcecode_len, sourceline_len);
+            append_source_code(m_buffers, comparison.records, *source_file_texts.pair[i], i, sourcecode_len, sourceline_len);
             source_code_regions[i].end = m_buffers.lines[0].size();
         }
 
@@ -157,10 +157,10 @@ void AsmPrinter::append_to_string(
             append_bytes(m_buffers, comparison.records, i, byte_count);
         }
 
-        if (source_len > 0 && cpp_texts.pair[i] != nullptr)
+        if (source_len > 0 && source_file_texts.pair[i] != nullptr)
         {
             source_code_regions[i].begin = m_buffers.lines[0].size();
-            append_source_code(m_buffers, comparison.records, *cpp_texts.pair[i], i, sourcecode_len, sourceline_len);
+            append_source_code(m_buffers, comparison.records, *source_file_texts.pair[i], i, sourcecode_len, sourceline_len);
             source_code_regions[i].end = m_buffers.lines[0].size();
         }
     }
@@ -215,7 +215,7 @@ void AsmPrinter::append_to_string(
             if (region.begin < region.end)
             {
                 pad_whitespace_inplace(m_buffers.misc_buf, region.begin);
-                std::string filename_copy = cpp_texts.pair[0]->filename;
+                std::string filename_copy = source_file_texts.pair[0]->filename;
                 front_truncate_inplace(filename_copy, region.end - region.begin);
                 m_buffers.misc_buf += filename_copy;
                 pad_whitespace_inplace(m_buffers.misc_buf, region.end);

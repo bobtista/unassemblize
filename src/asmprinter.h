@@ -38,7 +38,7 @@ public:
         std::string &str,
         const AsmComparisonResult &comparison,
         const StringPair &exe_filenames,
-        const TextFileContentPair &cpp_texts,
+        const TextFileContentPair &source_file_texts,
         AsmMatchStrictness match_strictness,
         uint32_t indent_len,
         uint32_t asm_len,
