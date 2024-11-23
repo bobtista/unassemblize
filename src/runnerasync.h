@@ -221,14 +221,14 @@ struct AsyncSaveExeConfigResult : public WorkQueueResult
 {
     virtual ~AsyncSaveExeConfigResult() override = default;
 
-    bool success;
+    bool success = false;
 };
 
 struct AsyncSavePdbConfigResult : public WorkQueueResult
 {
     virtual ~AsyncSavePdbConfigResult() override = default;
 
-    bool success;
+    bool success = false;
 };
 
 struct AsyncBuildFunctionsResult : public WorkQueueResult
@@ -307,21 +307,21 @@ struct AsyncLoadSourceFilesForMatchedFunctionsResult : public WorkQueueResult
 {
     virtual ~AsyncLoadSourceFilesForMatchedFunctionsResult() override = default;
 
-    bool success;
+    bool success = false;
 };
 
 struct AsyncLoadSourceFilesForBundledFunctionsResult : public WorkQueueResult
 {
     virtual ~AsyncLoadSourceFilesForBundledFunctionsResult() override = default;
 
-    bool success;
+    bool success = false;
 };
 
 struct AsyncLoadSourceFilesForFunctionsResult : public WorkQueueResult
 {
     virtual ~AsyncLoadSourceFilesForFunctionsResult() override = default;
 
-    bool success;
+    bool success = false;
 };
 
 struct AsyncBuildComparisonRecordsForMatchedFunctionsResult : public WorkQueueResult
@@ -338,14 +338,14 @@ struct AsyncProcessAsmOutputResult : public WorkQueueResult
 {
     virtual ~AsyncProcessAsmOutputResult() override = default;
 
-    bool success;
+    bool success = false;
 };
 
 struct AsyncProcessAsmComparisonResult : public WorkQueueResult
 {
     virtual ~AsyncProcessAsmComparisonResult() override = default;
 
-    bool success;
+    bool success = false;
 };
 
 // ...

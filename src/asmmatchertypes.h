@@ -65,7 +65,7 @@ struct AsmLabelPair
 
 struct AsmInstructionPair
 {
-    std::array<const AsmInstruction *, 2> pair; // A pointer can be null.
+    std::array<const AsmInstruction *, 2> pair = {}; // A pointer can be null.
     AsmMismatchInfo mismatch_info;
 };
 
@@ -124,7 +124,7 @@ struct MatchedFunction
 {
     bool is_compared() const;
 
-    std::array<IndexT, 2> named_idx_pair; // Links to NamedFunctions.
+    std::array<IndexT, 2> named_idx_pair = {}; // Links to NamedFunctions.
     AsmComparisonResult comparison;
 };
 using MatchedFunctions = std::vector<MatchedFunction>;

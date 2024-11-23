@@ -445,7 +445,7 @@ AsmMismatchInfo AsmMatcher::compare_asm_text(const InstructionTextArray &array0,
     }
 
     // Verifies that no bits are shared across both bit fields.
-    assert(result.mismatch_bits ^ result.maybe_mismatch_bits == result.mismatch_bits | result.maybe_mismatch_bits);
+    assert((result.mismatch_bits ^ result.maybe_mismatch_bits) == (result.mismatch_bits | result.maybe_mismatch_bits));
 
     return result;
 }
