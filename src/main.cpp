@@ -280,7 +280,7 @@ std::unique_ptr<unassemblize::Executable> load_and_process_exe(
     {
         if (g_options.dump_syms)
         {
-            unassemblize::SaveExeConfigOptions o(executable.get(), evaluated_config_file);
+            unassemblize::SaveExeConfigOptions o(*executable, evaluated_config_file);
             unassemblize::Runner::save_exe_config(o);
         }
         if (g_options.print_secs)
@@ -315,7 +315,7 @@ std::unique_ptr<unassemblize::PdbReader> load_and_process_pdb(const std::string 
         if (g_options.dump_syms)
         {
             const std::string evaluated_config_file = get_config_file_name(input_file, config_file);
-            unassemblize::SavePdbConfigOptions o(pdb_reader.get(), evaluated_config_file);
+            unassemblize::SavePdbConfigOptions o(*pdb_reader, evaluated_config_file);
             unassemblize::Runner::save_pdb_config(o);
         }
     }

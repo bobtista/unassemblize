@@ -322,7 +322,7 @@ WorkQueueCommandPtr ImGuiApp::create_save_exe_config_command(ProgramFileDescript
 
     const std::string config_filename = descriptor->evaluate_exe_config_filename();
     auto command =
-        std::make_unique<AsyncSaveExeConfigCommand>(SaveExeConfigOptions(descriptor->executable.get(), config_filename));
+        std::make_unique<AsyncSaveExeConfigCommand>(SaveExeConfigOptions(*descriptor->executable, config_filename));
 
     command->callback = [descriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSaveExeConfigResult *>(result.get());
@@ -348,7 +348,7 @@ WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(ProgramFileDescript
 
     const std::string config_filename = descriptor->evaluate_pdb_config_filename();
     auto command =
-        std::make_unique<AsyncSavePdbConfigCommand>(SavePdbConfigOptions(descriptor->pdbReader.get(), config_filename));
+        std::make_unique<AsyncSavePdbConfigCommand>(SavePdbConfigOptions(*descriptor->pdbReader, config_filename));
 
     command->callback = [descriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSavePdbConfigResult *>(result.get());

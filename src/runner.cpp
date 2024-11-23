@@ -86,18 +86,16 @@ std::unique_ptr<PdbReader> Runner::load_pdb(const LoadPdbOptions &o)
 
 bool Runner::save_exe_config(const SaveExeConfigOptions &o)
 {
-    assert(o.executable != nullptr);
     assert(!o.config_file.empty());
 
-    return o.executable->save_config(o.config_file.c_str());
+    return o.executable.save_config(o.config_file.c_str());
 }
 
 bool Runner::save_pdb_config(const SavePdbConfigOptions &o)
 {
-    assert(o.pdb_reader != nullptr);
     assert(!o.config_file.empty());
 
-    return o.pdb_reader->save_config(o.config_file, o.overwrite_sections);
+    return o.pdb_reader.save_config(o.config_file, o.overwrite_sections);
 }
 
 NamedFunctions Runner::build_functions(const BuildFunctionsOptions &o)

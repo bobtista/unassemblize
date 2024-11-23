@@ -31,12 +31,12 @@ struct LoadExeOptions
 
 struct SaveExeConfigOptions
 {
-    SaveExeConfigOptions(const Executable *executable, const std::string &config_file) :
+    SaveExeConfigOptions(const Executable &executable, const std::string &config_file) :
         executable(executable), config_file(config_file)
     {
     }
 
-    const Executable *const executable;
+    const Executable &executable;
     const std::string config_file;
 };
 
@@ -50,12 +50,12 @@ struct LoadPdbOptions
 
 struct SavePdbConfigOptions
 {
-    SavePdbConfigOptions(const PdbReader *pdb_reader, const std::string &config_file) :
+    SavePdbConfigOptions(const PdbReader &pdb_reader, const std::string &config_file) :
         pdb_reader(pdb_reader), config_file(config_file)
     {
     }
 
-    const PdbReader *const pdb_reader;
+    const PdbReader &pdb_reader;
     const std::string config_file;
     bool overwrite_sections = false;
 };
