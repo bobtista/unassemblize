@@ -11,7 +11,9 @@
  *            LICENSE
  */
 #include "imguiapp.h"
+#include "executable.h"
 #include "options.h"
+#include "pdbreader.h"
 #include "util.h"
 #include "utility/imgui_scoped.h"
 #include <algorithm>
@@ -23,6 +25,14 @@ namespace unassemblize::gui
 {
 ImGuiApp::ProgramFileId ImGuiApp::ProgramFileDescriptor::s_id = 1;
 ImGuiApp::AsmComparisonId ImGuiApp::AsmComparisonDescriptor::s_id = 1;
+
+ImGuiApp::ProgramFileDescriptor::ProgramFileDescriptor() : id(s_id++)
+{
+}
+
+ImGuiApp::ProgramFileDescriptor::~ProgramFileDescriptor()
+{
+}
 
 void ImGuiApp::ProgramFileDescriptor::invalidate_command_id()
 {
@@ -72,6 +82,22 @@ std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_short_e
         return create_descriptor_name();
     else
         return fmt::format("File {:d} - {:s}", id, exe_name);
+}
+
+ImGuiApp::AsmComparisonDescriptor::AsmComparisonDescriptor() : id(s_id++)
+{
+}
+
+ImGuiApp::AsmComparisonDescriptor::~AsmComparisonDescriptor()
+{
+}
+
+ImGuiApp::ImGuiApp()
+{
+}
+
+ImGuiApp::~ImGuiApp()
+{
 }
 
 ImGuiStatus ImGuiApp::init(const CommandLineOptions &clo)

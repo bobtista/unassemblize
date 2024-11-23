@@ -12,6 +12,8 @@
  *            LICENSE
  */
 #include "runnerasync.h"
+#include "executable.h"
+#include "pdbreader.h"
 #include "runner.h"
 
 namespace unassemblize

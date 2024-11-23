@@ -11,6 +11,7 @@
  *            LICENSE
  */
 #include "asmprinter.h"
+#include "filecontentstorage.h"
 #include "util.h"
 #include <fmt/core.h>
 
@@ -268,7 +269,7 @@ void AsmPrinter::append_to_string(
 void AsmPrinter::append_source_code(
     Buffers &buffers,
     const AsmComparisonRecords &records,
-    const TextFileContent &cpp_text,
+    const TextFileContent &source_file_text,
     size_t side_idx,
     uint32_t sourcecode_len,
     uint32_t sourceline_len)
@@ -294,7 +295,7 @@ void AsmPrinter::append_source_code(
             {
                 const uint16_t line_idx = instruction->get_line_index();
 
-                if (line_idx < cpp_text.lines.size())
+                if (line_idx < source_file_text.lines.size())
                 {
                     buffers.misc_buf.assign(fmt::format("{:05d}:", instruction->lineNumber));
                     if (buffers.misc_buf.size() > sourceline_len)
@@ -306,7 +307,7 @@ void AsmPrinter::append_source_code(
                     if (last_line_number != instruction->lineNumber)
                     {
                         last_line_number = instruction->lineNumber;
-                        buffers.misc_buf.assign(cpp_text.lines[line_idx]);
+                        buffers.misc_buf.assign(source_file_text.lines[line_idx]);
                         truncate_inplace(buffers.misc_buf, sourcecode_len);
                         line.append(buffers.misc_buf);
                     }

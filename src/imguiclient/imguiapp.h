@@ -53,7 +53,8 @@ class ImGuiApp
 
     struct ProgramFileDescriptor
     {
-        ProgramFileDescriptor() : id(s_id++) {}
+        ProgramFileDescriptor();
+        ~ProgramFileDescriptor();
 
         void invalidate_command_id();
 
@@ -109,7 +110,8 @@ class ImGuiApp
 
     struct AsmComparisonDescriptor
     {
-        AsmComparisonDescriptor() : id(s_id++) {}
+        AsmComparisonDescriptor();
+        ~AsmComparisonDescriptor();
 
         const AsmComparisonId id = 0;
 
@@ -121,8 +123,8 @@ class ImGuiApp
     using AsmComparisonDescriptorPtr = std::unique_ptr<AsmComparisonDescriptor>;
 
 public:
-    ImGuiApp() = default;
-    ~ImGuiApp() = default;
+    ImGuiApp();
+    ~ImGuiApp();
 
     ImGuiStatus init(const CommandLineOptions &clo);
 

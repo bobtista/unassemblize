@@ -172,17 +172,6 @@ struct StringPair
     std::array<std::string, 2> pair;
 };
 
-struct TextFileContent
-{
-    std::string filename;
-    std::vector<std::string> lines;
-};
-
-struct TextFileContentPair
-{
-    std::array<const TextFileContent *, 2> pair;
-};
-
 inline ConstFunctionPair to_const_function_pair(ConstNamedFunctionsPair named_functions_pair, const MatchedFunction &matched)
 {
     // clang-format off

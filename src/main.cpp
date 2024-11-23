@@ -10,6 +10,8 @@
  *            A full copy of the GNU General Public License can be found in
  *            LICENSE
  */
+#include "executable.h"
+#include "pdbreader.h"
 #include "runner.h"
 #include "version.h"
 #include <assert.h>

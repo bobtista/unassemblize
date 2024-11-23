@@ -17,6 +17,9 @@
 
 namespace unassemblize
 {
+struct TextFileContent;
+struct TextFileContentPair;
+
 class AsmPrinter
 {
     struct Buffers
@@ -53,7 +56,7 @@ private:
     static void append_source_code(
         Buffers &buffers,
         const AsmComparisonRecords &records,
-        const TextFileContent &cpp_text,
+        const TextFileContent &source_file_text,
         size_t side_idx,
         uint32_t sourcecode_len,
         uint32_t sourceline_len);

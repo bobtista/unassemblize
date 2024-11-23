@@ -136,6 +136,8 @@ target_sources(unassemblize PRIVATE
     src/executable.h
     src/executabletypes.cpp
     src/executabletypes.h
+    src/filecontentstorage.cpp
+    src/filecontentstorage.h
     src/function.cpp
     src/function.h
     src/functiontypes.cpp
@@ -151,6 +153,7 @@ target_sources(unassemblize PRIVATE
     src/runner.h
     src/runnerasync.cpp
     src/runnerasync.h
+    src/runneroptions.h
     src/util.cpp
     src/util.h
     src/version.cpp
