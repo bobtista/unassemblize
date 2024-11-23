@@ -132,7 +132,7 @@ using MatchedFunctions = std::vector<MatchedFunction>;
 /*
  * Groups function matches of the same compiland or source file together.
  */
-struct MatchBundle
+struct NamedFunctionBundle
 {
     size_t get_total_function_count() const;
     bool has_completed_disassembling() const;
@@ -156,7 +156,7 @@ struct MatchBundle
     uint32_t loadedSourceFileCount = 0; // Count of functions that have the linked source file loaded.
     uint32_t comparedCount = 0; // Count of matched functions that have been compared.
 };
-using MatchBundles = std::vector<MatchBundle>;
+using NamedFunctionBundles = std::vector<NamedFunctionBundle>;
 
 enum class MatchBundleType
 {

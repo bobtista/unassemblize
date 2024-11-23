@@ -154,7 +154,7 @@ float AsmComparisonResult::get_max_similarity(AsmMatchStrictness strictness) con
     return float(get_max_match_count(strictness)) / float(get_instruction_count());
 }
 
-size_t MatchBundle::get_total_function_count() const
+size_t NamedFunctionBundle::get_total_function_count() const
 {
     return matchedNamedFunctions.size() + unmatchedNamedFunctions.size();
 }
@@ -184,27 +184,27 @@ bool MatchedFunction::is_compared() const
     return !comparison.records.empty();
 }
 
-bool MatchBundle::has_completed_disassembling() const
+bool NamedFunctionBundle::has_completed_disassembling() const
 {
     return disassembledCount == get_total_function_count();
 }
 
-bool MatchBundle::has_completed_source_file_linking() const
+bool NamedFunctionBundle::has_completed_source_file_linking() const
 {
     return linkedSourceFileCount + missingSourceFileCount == get_total_function_count();
 }
 
-bool MatchBundle::has_completed_source_file_loading() const
+bool NamedFunctionBundle::has_completed_source_file_loading() const
 {
     return has_completed_source_file_linking() && loadedSourceFileCount == linkedSourceFileCount;
 }
 
-bool MatchBundle::has_completed_comparison() const
+bool NamedFunctionBundle::has_completed_comparison() const
 {
     return comparedCount == get_total_function_count();
 }
 
-void MatchBundle::update_disassembled_count(const NamedFunctions &named_functions)
+void NamedFunctionBundle::update_disassembled_count(const NamedFunctions &named_functions)
 {
     disassembledCount = 0;
     for (IndexT i : matchedNamedFunctions)
@@ -219,7 +219,7 @@ void MatchBundle::update_disassembled_count(const NamedFunctions &named_function
     }
 }
 
-void MatchBundle::update_linked_source_file_count(const NamedFunctions &named_functions)
+void NamedFunctionBundle::update_linked_source_file_count(const NamedFunctions &named_functions)
 {
     linkedSourceFileCount = 0;
     for (IndexT i : matchedNamedFunctions)
@@ -238,7 +238,7 @@ void MatchBundle::update_linked_source_file_count(const NamedFunctions &named_fu
     }
 }
 
-void MatchBundle::update_loaded_source_file_count(const NamedFunctions &named_functions)
+void NamedFunctionBundle::update_loaded_source_file_count(const NamedFunctions &named_functions)
 {
     loadedSourceFileCount = 0;
     for (IndexT i : matchedNamedFunctions)
@@ -253,7 +253,7 @@ void MatchBundle::update_loaded_source_file_count(const NamedFunctions &named_fu
     }
 }
 
-void MatchBundle::update_compared_count(const MatchedFunctions &matched_functions)
+void NamedFunctionBundle::update_compared_count(const MatchedFunctions &matched_functions)
 {
     comparedCount = 0;
     for (IndexT i : matchedNamedFunctions)
