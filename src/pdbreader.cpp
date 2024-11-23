@@ -666,7 +666,10 @@ void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IndexT co
 }
 
 void PdbReader::read_compiland_function(
-    PdbCompilandInfo &compiland_info, PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSymbol *pSymbol)
+    PdbCompilandInfo &compiland_info,
+    PdbFunctionInfo &functionInfo,
+    IndexT functionId,
+    IDiaSymbol *pSymbol)
 {
     ULONGLONG dwVA;
     DWORD dwRVA;

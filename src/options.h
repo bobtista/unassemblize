@@ -29,13 +29,14 @@ enum class InputType
 
 inline constexpr char *const s_input_type_names[] = {"exe", "pdb", "none"};
 
-// clang-format off
 std::string get_config_file_name(const std::string &input_file, const std::string &config_file);
 std::string get_asm_output_file_name(const std::string &input_file, const std::string &output_file);
-std::string get_cmp_output_file_name(const std::string &input_file0, const std::string &input_file1, const std::string &output_file);
+std::string get_cmp_output_file_name(
+    const std::string &input_file0,
+    const std::string &input_file1,
+    const std::string &output_file);
 InputType to_input_type(const char *str);
-InputType get_input_type(const std::string &input_file, const std::string& input_type);
-// clang-format on
+InputType get_input_type(const std::string &input_file, const std::string &input_type);
 
 template<typename T>
 struct CommandLineType

@@ -127,19 +127,34 @@ private:
 
     // Zydis formatter callbacks
     static ZyanStatus UnasmFormatterPrintAddressAbsolute(
-        const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context);
+        const ZydisFormatter *formatter,
+        ZydisFormatterBuffer *buffer,
+        ZydisFormatterContext *context);
     static ZyanStatus UnasmFormatterPrintAddressRelative(
-        const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context);
+        const ZydisFormatter *formatter,
+        ZydisFormatterBuffer *buffer,
+        ZydisFormatterContext *context);
     static ZyanStatus UnasmFormatterPrintDISP(
-        const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context);
+        const ZydisFormatter *formatter,
+        ZydisFormatterBuffer *buffer,
+        ZydisFormatterContext *context);
     static ZyanStatus UnasmFormatterPrintIMM(
-        const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context);
+        const ZydisFormatter *formatter,
+        ZydisFormatterBuffer *buffer,
+        ZydisFormatterContext *context);
     static ZyanStatus UnasmFormatterFormatOperandPTR(
-        const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context);
+        const ZydisFormatter *formatter,
+        ZydisFormatterBuffer *buffer,
+        ZydisFormatterContext *context);
     static ZyanStatus UnasmFormatterFormatOperandMEM(
-        const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context);
+        const ZydisFormatter *formatter,
+        ZydisFormatterBuffer *buffer,
+        ZydisFormatterContext *context);
     static ZyanStatus UnasmFormatterPrintRegister(
-        const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context, ZydisRegister reg);
+        const ZydisFormatter *formatter,
+        ZydisFormatterBuffer *buffer,
+        ZydisFormatterContext *context,
+        ZydisRegister reg);
 
     static ZyanStatus UnasmDisassembleNoFormat(
         const ZydisDecoder &decoder,

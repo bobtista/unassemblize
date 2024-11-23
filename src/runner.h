@@ -64,18 +64,14 @@ public:
     static std::string create_exe_filename(const PdbExeInfo &info);
 
 private:
-    // clang-format off
+    static bool in_code_section(const ExeSymbol &symbol, const Executable &executable);
 
-    static bool in_code_section(const ExeSymbol &symbol, const Executable& executable);
+    static StringToIndexMapT build_function_name_to_index_map(const NamedFunctions &named_functions);
+    static Address64ToIndexMapT build_function_address_to_index_map(const NamedFunctions &named_functions);
 
-    static StringToIndexMapT build_function_name_to_index_map(const NamedFunctions& named_functions);
-    static Address64ToIndexMapT build_function_address_to_index_map(const NamedFunctions& named_functions);
+    static NamedFunctions build_functions(const Executable &executable);
 
-    static NamedFunctions build_functions(
-        const Executable& executable);
-
-    static MatchedFunctions build_matched_functions(
-        NamedFunctionsPair named_functions_pair);
+    static MatchedFunctions build_matched_functions(NamedFunctionsPair named_functions_pair);
 
     static std::vector<IndexT> build_unmatched_functions(
         const NamedFunctions &named_functions,
@@ -117,9 +113,7 @@ private:
         const NamedFunctions &named_functions,
         const Address64ToIndexMapT &named_function_to_index_map);
 
-    static void disassemble_function(
-        NamedFunction &named,
-        const FunctionSetup& setup);
+    static void disassemble_function(NamedFunction &named, const FunctionSetup &setup);
 
     static void disassemble_matched_functions(
         NamedFunctionsPair named_functions_pair,
@@ -129,26 +123,21 @@ private:
 
     static void disassemble_bundled_functions(
         NamedFunctions &named_functions,
-        NamedFunctionBundle& bundle,
-        const Executable& executable,
+        NamedFunctionBundle &bundle,
+        const Executable &executable,
         AsmFormat format);
 
     // Can be used to disassemble a complete bundle with two calls.
     static void disassemble_bundled_functions(
         NamedFunctions &named_functions,
         span<const IndexT> named_function_indices,
-        const Executable& executable,
+        const Executable &executable,
         AsmFormat format);
 
     // Can be used to disassemble a single function too.
-    static void disassemble_functions(
-        span<NamedFunction> named_functions,
-        const Executable& executable,
-        AsmFormat format);
+    static void disassemble_functions(span<NamedFunction> named_functions, const Executable &executable, AsmFormat format);
 
-    static void build_source_lines_for_function(
-        NamedFunction &named,
-        const PdbReader &pdb_reader);
+    static void build_source_lines_for_function(NamedFunction &named, const PdbReader &pdb_reader);
 
     static void build_source_lines_for_matched_functions(
         NamedFunctionsPair named_functions_pair,
@@ -157,47 +146,41 @@ private:
 
     static void build_source_lines_for_bundled_functions(
         NamedFunctions &named_functions,
-        NamedFunctionBundle& bundle,
-        const PdbReader& pdb_reader);
+        NamedFunctionBundle &bundle,
+        const PdbReader &pdb_reader);
 
     // Can be used to build source lines of a complete bundle with two calls.
     static void build_source_lines_for_bundled_functions(
         NamedFunctions &named_functions,
         span<const IndexT> named_function_indices,
-        const PdbReader& pdb_reader);
+        const PdbReader &pdb_reader);
 
     // Can be used to build source lines of a single function too.
-    static void build_source_lines_for_functions(
-        span<NamedFunction> named_functions,
-        const PdbReader& pdb_reader);
+    static void build_source_lines_for_functions(span<NamedFunction> named_functions, const PdbReader &pdb_reader);
 
     // Note: requires a prior call to build_source_lines_for_functions!
-    static bool load_source_file_for_function(
-        FileContentStorage& storage,
-        NamedFunction &named);
+    static bool load_source_file_for_function(FileContentStorage &storage, NamedFunction &named);
 
     // Note: requires a prior call to build_source_lines_for_functions!
     static bool load_source_files_for_matched_functions(
-        FileContentStorage& storage,
+        FileContentStorage &storage,
         NamedFunctionsPair named_functions_pair,
         const MatchedFunctions &matched_functions);
 
     // Note: requires a prior call to build_source_lines_for_functions!
     static bool load_source_files_for_bundled_functions(
-        FileContentStorage& storage,
+        FileContentStorage &storage,
         NamedFunctions &named_functions,
-        NamedFunctionBundle& bundle);
+        NamedFunctionBundle &bundle);
 
     // Note: requires a prior call to build_source_lines_for_functions!
     static bool load_source_files_for_bundled_functions(
-        FileContentStorage& storage,
+        FileContentStorage &storage,
         NamedFunctions &named_functions,
         span<const IndexT> named_function_indices);
 
     // Note: requires a prior call to build_source_lines_for_functions!
-    static bool load_source_files_for_functions(
-        FileContentStorage& storage,
-        span<NamedFunction> named_functions);
+    static bool load_source_files_for_functions(FileContentStorage &storage, span<NamedFunction> named_functions);
 
     static void build_comparison_record(
         MatchedFunction &matched,
@@ -212,7 +195,7 @@ private:
     static void build_comparison_records_for_bundled_functions(
         MatchedFunctions &matched_functions,
         ConstNamedFunctionsPair named_functions_pair,
-        NamedFunctionBundle& bundle,
+        NamedFunctionBundle &bundle,
         uint32_t lookahead_limit);
 
     static void build_comparison_records_for_bundled_functions(
@@ -223,9 +206,9 @@ private:
 
     static bool output_comparison_results(
         ConstNamedFunctionsPair named_functions_pair,
-        const MatchedFunctions& matched_functions,
+        const MatchedFunctions &matched_functions,
         const NamedFunctionBundles &bundles,
-        const FileContentStorage& source_file_storage,
+        const FileContentStorage &source_file_storage,
         MatchBundleType bundle_type,
         const std::string &output_file,
         const StringPair &exe_filenames,
@@ -240,8 +223,6 @@ private:
         size_t bundle_idx,
         const std::string &bundle_name,
         const std::string &output_file);
-
-    // clang-format on
 };
 
 } // namespace unassemblize

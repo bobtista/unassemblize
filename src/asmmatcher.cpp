@@ -253,7 +253,10 @@ AsmMatcher::LookaheadResult AsmMatcher::run_lookahead_comparison(
         const AsmInstruction &lookahead_last_instruction = std::get<AsmInstruction>(*lookahead_last_it);
 
         lookahead_result.mismatch_info = create_mismatch_info(
-            &lookahead_last_instruction, &opposite_base_instruction, &lookahead_last_array, &opposite_base_array);
+            &lookahead_last_instruction,
+            &opposite_base_instruction,
+            &lookahead_last_array,
+            &opposite_base_array);
 
         if (lookahead_result.mismatch_info.is_match())
         {

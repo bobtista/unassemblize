@@ -78,7 +78,9 @@ struct AsmOutputOptions
 struct AsmComparisonOptions
 {
     AsmComparisonOptions(
-        ConstExecutablePair executable_pair, ConstPdbReaderPair pdb_reader_pair, const std::string &output_file) :
+        ConstExecutablePair executable_pair,
+        ConstPdbReaderPair pdb_reader_pair,
+        const std::string &output_file) :
         executable_pair(executable_pair), pdb_reader_pair(pdb_reader_pair), output_file(output_file)
     {
     }
@@ -158,7 +160,9 @@ struct BuildBundlesFromSourceFilesOptions
 struct BuildSingleBundleOptions
 {
     BuildSingleBundleOptions(
-        const NamedFunctions &named_functions, const MatchedFunctions &matched_functions, size_t bundle_file_idx) :
+        const NamedFunctions &named_functions,
+        const MatchedFunctions &matched_functions,
+        size_t bundle_file_idx) :
         named_functions(named_functions), matched_functions(matched_functions), bundle_file_idx(bundle_file_idx)
     {
     }
@@ -187,7 +191,9 @@ struct DisassembleMatchedFunctionsOptions
 struct DisassembleBundledFunctionsOptions
 {
     DisassembleBundledFunctionsOptions(
-        NamedFunctions &named_functions, NamedFunctionBundle &bundle, ConstExecutablePair executable_pair) :
+        NamedFunctions &named_functions,
+        NamedFunctionBundle &bundle,
+        ConstExecutablePair executable_pair) :
         named_functions(named_functions), bundle(bundle), executable(executable)
     {
     }
@@ -228,7 +234,9 @@ struct BuildSourceLinesForMatchedFunctionsOptions
 struct BuildSourceLinesForBundledFunctionsOptions
 {
     BuildSourceLinesForBundledFunctionsOptions(
-        NamedFunctions &named_functions, NamedFunctionBundle &bundle, const PdbReader &pdb_reader) :
+        NamedFunctions &named_functions,
+        NamedFunctionBundle &bundle,
+        const PdbReader &pdb_reader) :
         named_functions(named_functions), bundle(bundle), pdb_reader(pdb_reader)
     {
     }
@@ -252,7 +260,9 @@ struct BuildSourceLinesForFunctionsOptions
 struct LoadSourceFilesForMatchedFunctionsOptions
 {
     LoadSourceFilesForMatchedFunctionsOptions(
-        FileContentStorage &storage, NamedFunctionsPair named_functions_pair, const MatchedFunctions &matched_functions) :
+        FileContentStorage &storage,
+        NamedFunctionsPair named_functions_pair,
+        const MatchedFunctions &matched_functions) :
         storage(storage), named_functions_pair(named_functions_pair), matched_functions(matched_functions)
     {
     }
@@ -265,7 +275,9 @@ struct LoadSourceFilesForMatchedFunctionsOptions
 struct LoadSourceFilesForBundledFunctionsOptions
 {
     LoadSourceFilesForBundledFunctionsOptions(
-        FileContentStorage &storage, NamedFunctions &named_functions, NamedFunctionBundle &bundle) :
+        FileContentStorage &storage,
+        NamedFunctions &named_functions,
+        NamedFunctionBundle &bundle) :
         storage(storage), named_functions(named_functions), bundle(bundle)
     {
     }
@@ -289,7 +301,8 @@ struct LoadSourceFilesForFunctionsOptions
 struct BuildComparisonRecordsForMatchedFunctionsOptions
 {
     BuildComparisonRecordsForMatchedFunctionsOptions(
-        MatchedFunctions &matched_functions, ConstNamedFunctionsPair named_functions_pair) :
+        MatchedFunctions &matched_functions,
+        ConstNamedFunctionsPair named_functions_pair) :
         matched_functions(matched_functions), named_functions_pair(named_functions_pair)
     {
     }
@@ -302,7 +315,9 @@ struct BuildComparisonRecordsForMatchedFunctionsOptions
 struct BuildComparisonRecordsForBundledFunctionsOptions
 {
     BuildComparisonRecordsForBundledFunctionsOptions(
-        MatchedFunctions &matched_functions, ConstNamedFunctionsPair named_functions_pair, NamedFunctionBundle &bundle) :
+        MatchedFunctions &matched_functions,
+        ConstNamedFunctionsPair named_functions_pair,
+        NamedFunctionBundle &bundle) :
         matched_functions(matched_functions), named_functions_pair(named_functions_pair), bundle(bundle)
     {
     }

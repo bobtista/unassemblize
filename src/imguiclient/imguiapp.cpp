@@ -1026,9 +1026,9 @@ void ImGuiApp::FileManagerInfoExeSymbols(ProgramFileDescriptor &descriptor)
         const ExeSymbols &symbols = descriptor.executable->get_symbols();
 
         UpdateFilter(
-            descriptor.exeSymbolsDescriptor, symbols, [](const ImGuiTextFilterEx &filter, const ExeSymbol &symbol) -> bool {
-                return filter.PassFilter(symbol.name);
-            });
+            descriptor.exeSymbolsDescriptor,
+            symbols,
+            [](const ImGuiTextFilterEx &filter, const ExeSymbol &symbol) -> bool { return filter.PassFilter(symbol.name); });
 
         ImGui::Text("Count: %zu, Filtered: %d", symbols.size(), filtered.size());
     }

@@ -263,7 +263,9 @@ void parse_options(int argc, char **argv)
 }
 
 std::unique_ptr<unassemblize::Executable> load_and_process_exe(
-    const std::string &input_file, const std::string &config_file, const unassemblize::PdbReader *pdb_reader = nullptr)
+    const std::string &input_file,
+    const std::string &config_file,
+    const unassemblize::PdbReader *pdb_reader = nullptr)
 {
     const std::string evaluated_config_file = get_config_file_name(input_file, config_file);
     std::unique_ptr<unassemblize::Executable> executable;

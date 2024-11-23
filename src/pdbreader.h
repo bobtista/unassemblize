@@ -71,7 +71,10 @@ private:
     bool read_compilands();
     void read_compiland_symbol(PdbCompilandInfo &compilandInfo, IndexT compilandId, IDiaSymbol *pSymbol);
     void read_compiland_function(
-        PdbCompilandInfo &compilandInfo, PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSymbol *pSymbol);
+        PdbCompilandInfo &compilandInfo,
+        PdbFunctionInfo &functionInfo,
+        IndexT functionId,
+        IDiaSymbol *pSymbol);
     void read_compiland_function_start(PdbFunctionInfo &functionInfo, IDiaSymbol *pSymbol);
     void read_compiland_function_end(PdbFunctionInfo &functionInfo, IDiaSymbol *pSymbol);
 

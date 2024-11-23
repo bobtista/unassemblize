@@ -368,7 +368,11 @@ void AsmPrinter::append_bytes(Buffers &buffers, const AsmComparisonRecords &reco
 }
 
 void AsmPrinter::append_assembler(
-    Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t asm_len, uint32_t indent_len)
+    Buffers &buffers,
+    const AsmComparisonRecords &records,
+    size_t side_idx,
+    uint32_t asm_len,
+    uint32_t indent_len)
 {
     constexpr size_t address_len = 8;
 
@@ -426,7 +430,9 @@ void AsmPrinter::append_assembler(
 }
 
 void AsmPrinter::append_comparison(
-    Buffers &buffers, const AsmComparisonRecords &records, AsmMatchStrictness match_strictness)
+    Buffers &buffers,
+    const AsmComparisonRecords &records,
+    AsmMatchStrictness match_strictness)
 {
     constexpr std::string_view equal = " == ";
     constexpr std::string_view unequal = " xx ";

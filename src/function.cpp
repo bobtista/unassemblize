@@ -233,7 +233,9 @@ ZyanStatus FunctionSetup::initialize()
 }
 
 ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
-    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
+    const ZydisFormatter *formatter,
+    ZydisFormatterBuffer *buffer,
+    ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
     ZyanU64 address;
@@ -291,7 +293,9 @@ ZyanStatus Function::UnasmFormatterPrintAddressAbsolute(
 }
 
 ZyanStatus Function::UnasmFormatterPrintAddressRelative(
-    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
+    const ZydisFormatter *formatter,
+    ZydisFormatterBuffer *buffer,
+    ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
     ZyanU64 address;
@@ -340,7 +344,9 @@ ZyanStatus Function::UnasmFormatterPrintAddressRelative(
 }
 
 ZyanStatus Function::UnasmFormatterPrintDISP(
-    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
+    const ZydisFormatter *formatter,
+    ZydisFormatterBuffer *buffer,
+    ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
 
@@ -402,7 +408,9 @@ ZyanStatus Function::UnasmFormatterPrintDISP(
 }
 
 ZyanStatus Function::UnasmFormatterPrintIMM(
-    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
+    const ZydisFormatter *formatter,
+    ZydisFormatterBuffer *buffer,
+    ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
     ZyanU64 value = context->operand->imm.value.u;
@@ -460,7 +468,9 @@ ZyanStatus Function::UnasmFormatterPrintIMM(
 }
 
 ZyanStatus Function::UnasmFormatterFormatOperandPTR(
-    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
+    const ZydisFormatter *formatter,
+    ZydisFormatterBuffer *buffer,
+    ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
     ZyanU64 offset = context->operand->ptr.offset;
@@ -508,7 +518,9 @@ ZyanStatus Function::UnasmFormatterFormatOperandPTR(
 }
 
 ZyanStatus Function::UnasmFormatterFormatOperandMEM(
-    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context)
+    const ZydisFormatter *formatter,
+    ZydisFormatterBuffer *buffer,
+    ZydisFormatterContext *context)
 {
     Function *func = static_cast<Function *>(context->user_data);
 
@@ -588,7 +600,10 @@ ZyanStatus Function::UnasmFormatterFormatOperandMEM(
 }
 
 ZyanStatus Function::UnasmFormatterPrintRegister(
-    const ZydisFormatter *formatter, ZydisFormatterBuffer *buffer, ZydisFormatterContext *context, ZydisRegister reg)
+    const ZydisFormatter *formatter,
+    ZydisFormatterBuffer *buffer,
+    ZydisFormatterContext *context,
+    ZydisRegister reg)
 {
     // Copied from internal FormatterBase.h
 #define ZYDIS_BUFFER_APPEND_TOKEN(buffer, type) \
@@ -862,7 +877,10 @@ void Function::disassemble(const FunctionSetup &setup)
                 // Is only stable when jumping within a single function.
                 ZyanU64 jump_address;
                 if (ZYAN_SUCCESS(ZydisCalcAbsoluteAddress(
-                        &instruction.info, &instruction.operands[0], instruction_address, &jump_address)))
+                        &instruction.info,
+                        &instruction.operands[0],
+                        instruction_address,
+                        &jump_address)))
                 {
                     if (jump_address >= get_begin_address() && jump_address < get_end_address())
                     {

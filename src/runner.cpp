@@ -237,7 +237,11 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
     MatchedFunctions matched_functions = build_matched_functions(named_functions_pair);
 
     NamedFunctionBundles bundles = build_bundles(
-        named_functions[o.bundle_file_idx], matched_functions, o.bundling_pdb_reader(), o.bundle_type, o.bundle_file_idx);
+        named_functions[o.bundle_file_idx],
+        matched_functions,
+        o.bundling_pdb_reader(),
+        o.bundle_type,
+        o.bundle_file_idx);
 
     disassemble_matched_functions(named_functions_pair, matched_functions, o.executable_pair, o.format);
 
@@ -373,8 +377,9 @@ MatchedFunctions Runner::build_matched_functions(NamedFunctionsPair named_functi
     return matched_functions;
 }
 
-std::vector<IndexT>
-    Runner::build_unmatched_functions(const NamedFunctions &named_functions, const MatchedFunctions &matched_functions)
+std::vector<IndexT> Runner::build_unmatched_functions(
+    const NamedFunctions &named_functions,
+    const MatchedFunctions &matched_functions)
 {
     const size_t named_size = named_functions.size();
     const size_t matched_size = matched_functions.size();
@@ -426,8 +431,9 @@ NamedFunctionBundles Runner::build_bundles(
     return bundles;
 }
 
-NamedFunctionBundles
-    Runner::build_bundles_from_compilands(const NamedFunctions &named_functions, const PdbReader &pdb_reader)
+NamedFunctionBundles Runner::build_bundles_from_compilands(
+    const NamedFunctions &named_functions,
+    const PdbReader &pdb_reader)
 {
     const PdbCompilandInfoVector &compilands = pdb_reader.get_compilands();
     const PdbFunctionInfoVector &functions = pdb_reader.get_functions();
@@ -435,8 +441,9 @@ NamedFunctionBundles
     return build_bundles(compilands, functions, named_functions);
 }
 
-NamedFunctionBundles
-    Runner::build_bundles_from_source_files(const NamedFunctions &named_functions, const PdbReader &pdb_reader)
+NamedFunctionBundles Runner::build_bundles_from_source_files(
+    const NamedFunctions &named_functions,
+    const PdbReader &pdb_reader)
 {
     const PdbSourceFileInfoVector &sources = pdb_reader.get_source_files();
     const PdbFunctionInfoVector &functions = pdb_reader.get_functions();
@@ -445,7 +452,9 @@ NamedFunctionBundles
 }
 
 NamedFunctionBundle Runner::build_single_bundle(
-    const NamedFunctions &named_functions, const MatchedFunctions &matched_functions, size_t bundle_file_idx)
+    const NamedFunctions &named_functions,
+    const MatchedFunctions &matched_functions,
+    size_t bundle_file_idx)
 {
     assert(bundle_file_idx < 2);
 
@@ -468,7 +477,9 @@ NamedFunctionBundle Runner::build_single_bundle(
 
 template<class SourceInfoVectorT>
 NamedFunctionBundles Runner::build_bundles(
-    const SourceInfoVectorT &sources, const PdbFunctionInfoVector &functions, const NamedFunctions &named_functions)
+    const SourceInfoVectorT &sources,
+    const PdbFunctionInfoVector &functions,
+    const NamedFunctions &named_functions)
 {
     const Address64ToIndexMapT named_function_to_index_map = build_function_address_to_index_map(named_functions);
     const IndexT sources_count = sources.size();
@@ -555,7 +566,10 @@ void Runner::disassemble_matched_functions(
 }
 
 void Runner::disassemble_bundled_functions(
-    NamedFunctions &named_functions, NamedFunctionBundle &bundle, const Executable &executable, AsmFormat format)
+    NamedFunctions &named_functions,
+    NamedFunctionBundle &bundle,
+    const Executable &executable,
+    AsmFormat format)
 {
     disassemble_bundled_functions(named_functions, span<const IndexT>{bundle.matchedNamedFunctions}, executable, format);
     disassemble_bundled_functions(named_functions, span<const IndexT>{bundle.unmatchedNamedFunctions}, executable, format);
@@ -607,7 +621,9 @@ void Runner::build_source_lines_for_function(NamedFunction &named, const PdbRead
 }
 
 void Runner::build_source_lines_for_matched_functions(
-    NamedFunctionsPair named_functions_pair, const MatchedFunctions &matched_functions, ConstPdbReaderPair pdb_reader_pair)
+    NamedFunctionsPair named_functions_pair,
+    const MatchedFunctions &matched_functions,
+    ConstPdbReaderPair pdb_reader_pair)
 {
     for (size_t i = 0; i < 2; ++i)
     {
@@ -631,16 +647,22 @@ void Runner::build_source_lines_for_matched_functions(
 }
 
 void Runner::build_source_lines_for_bundled_functions(
-    NamedFunctions &named_functions, NamedFunctionBundle &bundle, const PdbReader &pdb_reader)
+    NamedFunctions &named_functions,
+    NamedFunctionBundle &bundle,
+    const PdbReader &pdb_reader)
 {
     build_source_lines_for_bundled_functions(named_functions, span<const IndexT>{bundle.matchedNamedFunctions}, pdb_reader);
     build_source_lines_for_bundled_functions(
-        named_functions, span<const IndexT>{bundle.unmatchedNamedFunctions}, pdb_reader);
+        named_functions,
+        span<const IndexT>{bundle.unmatchedNamedFunctions},
+        pdb_reader);
     bundle.update_linked_source_file_count(named_functions);
 }
 
 void Runner::build_source_lines_for_bundled_functions(
-    NamedFunctions &named_functions, span<const IndexT> named_function_indices, const PdbReader &pdb_reader)
+    NamedFunctions &named_functions,
+    span<const IndexT> named_function_indices,
+    const PdbReader &pdb_reader)
 {
     for (IndexT index : named_function_indices)
     {
@@ -672,7 +694,9 @@ bool Runner::load_source_file_for_function(FileContentStorage &storage, NamedFun
 }
 
 bool Runner::load_source_files_for_matched_functions(
-    FileContentStorage &storage, NamedFunctionsPair named_functions_pair, const MatchedFunctions &matched_functions)
+    FileContentStorage &storage,
+    NamedFunctionsPair named_functions_pair,
+    const MatchedFunctions &matched_functions)
 {
     bool success = true;
     for (const MatchedFunction &matched : matched_functions)
@@ -687,19 +711,25 @@ bool Runner::load_source_files_for_matched_functions(
 }
 
 bool Runner::load_source_files_for_bundled_functions(
-    FileContentStorage &storage, NamedFunctions &named_functions, NamedFunctionBundle &bundle)
+    FileContentStorage &storage,
+    NamedFunctions &named_functions,
+    NamedFunctionBundle &bundle)
 {
     bool success = true;
     success &=
         load_source_files_for_bundled_functions(storage, named_functions, span<const IndexT>{bundle.matchedNamedFunctions});
     success &= load_source_files_for_bundled_functions(
-        storage, named_functions, span<const IndexT>{bundle.unmatchedNamedFunctions});
+        storage,
+        named_functions,
+        span<const IndexT>{bundle.unmatchedNamedFunctions});
     bundle.update_loaded_source_file_count(named_functions);
     return success;
 }
 
 bool Runner::load_source_files_for_bundled_functions(
-    FileContentStorage &storage, NamedFunctions &named_functions, span<const IndexT> named_function_indices)
+    FileContentStorage &storage,
+    NamedFunctions &named_functions,
+    span<const IndexT> named_function_indices)
 {
     bool success = true;
     for (IndexT index : named_function_indices)
@@ -720,7 +750,9 @@ bool Runner::load_source_files_for_functions(FileContentStorage &storage, span<N
 }
 
 void Runner::build_comparison_record(
-    MatchedFunction &matched, ConstNamedFunctionsPair named_functions_pair, uint32_t lookahead_limit)
+    MatchedFunction &matched,
+    ConstNamedFunctionsPair named_functions_pair,
+    uint32_t lookahead_limit)
 {
     if (matched.is_compared())
         return;
@@ -730,7 +762,9 @@ void Runner::build_comparison_record(
 }
 
 void Runner::build_comparison_records_for_matched_functions(
-    MatchedFunctions &matched_functions, ConstNamedFunctionsPair named_functions_pair, uint32_t lookahead_limit)
+    MatchedFunctions &matched_functions,
+    ConstNamedFunctionsPair named_functions_pair,
+    uint32_t lookahead_limit)
 {
     for (MatchedFunction &matched : matched_functions)
     {
@@ -745,7 +779,10 @@ void Runner::build_comparison_records_for_bundled_functions(
     uint32_t lookahead_limit)
 {
     build_comparison_records_for_bundled_functions(
-        matched_functions, named_functions_pair, span<const IndexT>{bundle.matchedFunctions}, lookahead_limit);
+        matched_functions,
+        named_functions_pair,
+        span<const IndexT>{bundle.matchedFunctions},
+        lookahead_limit);
     bundle.update_compared_count(matched_functions);
 }
 

@@ -174,20 +174,16 @@ struct StringPair
 
 inline ConstFunctionPair to_const_function_pair(ConstNamedFunctionsPair named_functions_pair, const MatchedFunction &matched)
 {
-    // clang-format off
     return ConstFunctionPair{
         &named_functions_pair[0]->at(matched.named_idx_pair[0]).function,
         &named_functions_pair[1]->at(matched.named_idx_pair[1]).function};
-    // clang-format on
 }
 
 inline NamedFunctionPair to_named_function_pair(NamedFunctionsPair named_functions_pair, const MatchedFunction &matched)
 {
-    // clang-format off
     return NamedFunctionPair{
         &named_functions_pair[0]->at(matched.named_idx_pair[0]),
         &named_functions_pair[1]->at(matched.named_idx_pair[1])};
-    // clang-format on
 }
 
 } // namespace unassemblize

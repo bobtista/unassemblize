@@ -62,9 +62,15 @@ private:
         uint32_t sourceline_len);
     static void append_bytes(Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t byte_count);
     static void append_assembler(
-        Buffers &buffers, const AsmComparisonRecords &records, size_t side_idx, uint32_t asm_len, uint32_t indent_len);
-    static void
-        append_comparison(Buffers &buffers, const AsmComparisonRecords &records, AsmMatchStrictness match_strictness);
+        Buffers &buffers,
+        const AsmComparisonRecords &records,
+        size_t side_idx,
+        uint32_t asm_len,
+        uint32_t indent_len);
+    static void append_comparison(
+        Buffers &buffers,
+        const AsmComparisonRecords &records,
+        AsmMatchStrictness match_strictness);
 
     static void truncate_inplace(std::string &str, size_t max_len);
     static void front_truncate_inplace(std::string &str, size_t max_len);

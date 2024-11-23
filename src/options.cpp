@@ -53,8 +53,10 @@ std::string get_asm_output_file_name(const std::string &input_file, const std::s
     return output_file;
 }
 
-std::string
-    get_cmp_output_file_name(const std::string &input_file0, const std::string &input_file1, const std::string &output_file)
+std::string get_cmp_output_file_name(
+    const std::string &input_file0,
+    const std::string &input_file1,
+    const std::string &output_file)
 {
     if (is_auto_str(output_file))
     {
