@@ -132,6 +132,211 @@ struct AsmComparisonOptions
     AsmMatchStrictness match_strictness = AsmMatchStrictness::Undecided;
 };
 
+struct BuildFunctionsOptions
+{
+    BuildFunctionsOptions(const Executable &executable) : executable(executable) {}
+
+    const Executable &executable;
+};
+
+struct BuildMatchedFunctionsOptions
+{
+    BuildMatchedFunctionsOptions(NamedFunctionsPair pair) : named_functions_pair(pair) {}
+
+    const NamedFunctionsPair named_functions_pair;
+};
+
+struct BuildUnmatchedFunctionsOptions
+{
+    BuildUnmatchedFunctionsOptions(const NamedFunctions &named_functions, const MatchedFunctions &matched_functions) :
+        named_functions(named_functions), matched_functions(matched_functions)
+    {
+    }
+
+    const NamedFunctions &named_functions;
+    const MatchedFunctions &matched_functions;
+};
+
+struct BuildBundlesFromCompilandsOptions
+{
+    BuildBundlesFromCompilandsOptions(const NamedFunctions &named_functions, const PdbReader &pdb_reader) :
+        named_functions(named_functions), pdb_reader(pdb_reader)
+    {
+    }
+
+    const NamedFunctions &named_functions;
+    const PdbReader &pdb_reader;
+};
+
+struct BuildBundlesFromSourceFilesOptions
+{
+    BuildBundlesFromSourceFilesOptions(const NamedFunctions &named_functions, const PdbReader &pdb_reader) :
+        named_functions(named_functions), pdb_reader(pdb_reader)
+    {
+    }
+
+    const NamedFunctions &named_functions;
+    const PdbReader &pdb_reader;
+};
+
+struct BuildSingleBundleOptions
+{
+    BuildSingleBundleOptions(
+        const NamedFunctions &named_functions, const MatchedFunctions &matched_functions, size_t bundle_file_idx) :
+        named_functions(named_functions), matched_functions(matched_functions), bundle_file_idx(bundle_file_idx)
+    {
+    }
+
+    const NamedFunctions &named_functions;
+    const MatchedFunctions &matched_functions;
+    const size_t bundle_file_idx;
+};
+
+struct DisassembleMatchedFunctionsOptions
+{
+    DisassembleMatchedFunctionsOptions(
+        NamedFunctionsPair named_functions_pair,
+        const MatchedFunctions &matched_functions,
+        ConstExecutablePair executable_pair) :
+        named_functions_pair(named_functions_pair), matched_functions(matched_functions), executable_pair(executable_pair)
+    {
+    }
+
+    const NamedFunctionsPair named_functions_pair;
+    const MatchedFunctions &matched_functions;
+    const ConstExecutablePair executable_pair;
+    AsmFormat format = AsmFormat::IGAS;
+};
+
+struct DisassembleBundledFunctionsOptions
+{
+    DisassembleBundledFunctionsOptions(
+        NamedFunctions &named_functions, NamedFunctionBundle &bundle, ConstExecutablePair executable_pair) :
+        named_functions(named_functions), bundle(bundle), executable(executable)
+    {
+    }
+
+    NamedFunctions &named_functions;
+    NamedFunctionBundle &bundle;
+    const Executable &executable;
+    AsmFormat format = AsmFormat::IGAS;
+};
+
+struct DisassembleFunctionsOptions
+{
+    DisassembleFunctionsOptions(span<NamedFunction> named_functions, const Executable &executable) :
+        named_functions(named_functions), executable(executable)
+    {
+    }
+
+    const span<NamedFunction> named_functions;
+    const Executable &executable;
+    AsmFormat format = AsmFormat::IGAS;
+};
+
+struct BuildSourceLinesForMatchedFunctionsOptions
+{
+    BuildSourceLinesForMatchedFunctionsOptions(
+        NamedFunctionsPair named_functions_pair,
+        const MatchedFunctions &matched_functions,
+        ConstPdbReaderPair pdb_reader_pair) :
+        named_functions_pair(named_functions_pair), matched_functions(matched_functions), pdb_reader_pair(pdb_reader_pair)
+    {
+    }
+
+    const NamedFunctionsPair named_functions_pair;
+    const MatchedFunctions &matched_functions;
+    const ConstPdbReaderPair pdb_reader_pair;
+};
+
+struct BuildSourceLinesForBundledFunctionsOptions
+{
+    BuildSourceLinesForBundledFunctionsOptions(
+        NamedFunctions &named_functions, NamedFunctionBundle &bundle, const PdbReader &pdb_reader) :
+        named_functions(named_functions), bundle(bundle), pdb_reader(pdb_reader)
+    {
+    }
+
+    NamedFunctions &named_functions;
+    NamedFunctionBundle &bundle;
+    const PdbReader &pdb_reader;
+};
+
+struct BuildSourceLinesForFunctionsOptions
+{
+    BuildSourceLinesForFunctionsOptions(span<NamedFunction> named_functions, const PdbReader &pdb_reader) :
+        named_functions(named_functions), pdb_reader(pdb_reader)
+    {
+    }
+
+    const span<NamedFunction> named_functions;
+    const PdbReader &pdb_reader;
+};
+
+struct LoadSourceFilesForMatchedFunctionsOptions
+{
+    LoadSourceFilesForMatchedFunctionsOptions(
+        FileContentStorage &storage, NamedFunctionsPair named_functions_pair, const MatchedFunctions &matched_functions) :
+        storage(storage), named_functions_pair(named_functions_pair), matched_functions(matched_functions)
+    {
+    }
+
+    FileContentStorage &storage;
+    const NamedFunctionsPair named_functions_pair;
+    const MatchedFunctions &matched_functions;
+};
+
+struct LoadSourceFilesForBundledFunctionsOptions
+{
+    LoadSourceFilesForBundledFunctionsOptions(
+        FileContentStorage &storage, NamedFunctions &named_functions, NamedFunctionBundle &bundle) :
+        storage(storage), named_functions(named_functions), bundle(bundle)
+    {
+    }
+
+    FileContentStorage &storage;
+    NamedFunctions &named_functions;
+    NamedFunctionBundle &bundle;
+};
+
+struct LoadSourceFilesForFunctionsOptions
+{
+    LoadSourceFilesForFunctionsOptions(FileContentStorage &storage, span<NamedFunction> named_functions) :
+        storage(storage), named_functions(named_functions)
+    {
+    }
+
+    FileContentStorage &storage;
+    const span<NamedFunction> named_functions;
+};
+
+struct BuildComparisonRecordsForMatchedFunctionsOptions
+{
+    BuildComparisonRecordsForMatchedFunctionsOptions(
+        MatchedFunctions &matched_functions, ConstNamedFunctionsPair named_functions_pair) :
+        matched_functions(matched_functions), named_functions_pair(named_functions_pair)
+    {
+    }
+
+    MatchedFunctions &matched_functions;
+    const ConstNamedFunctionsPair named_functions_pair;
+    uint32_t lookahead_limit = 20;
+};
+
+struct BuildComparisonRecordsForBundledFunctionsOptions
+{
+    BuildComparisonRecordsForBundledFunctionsOptions(
+        MatchedFunctions &matched_functions, ConstNamedFunctionsPair named_functions_pair, NamedFunctionBundle &bundle) :
+        matched_functions(matched_functions), named_functions_pair(named_functions_pair), bundle(bundle)
+    {
+    }
+
+    MatchedFunctions &matched_functions;
+    const ConstNamedFunctionsPair named_functions_pair;
+    NamedFunctionBundle &bundle;
+    uint32_t lookahead_limit = 20;
+};
+
 class Runner
 {
 public:
@@ -142,6 +347,37 @@ public:
 
     static bool save_exe_config(const SaveExeConfigOptions &o);
     static bool save_pdb_config(const SavePdbConfigOptions &o);
+
+    static NamedFunctions build_functions(const BuildFunctionsOptions &o);
+    static MatchedFunctions build_matched_functions(const BuildMatchedFunctionsOptions &o);
+    static std::vector<IndexT> build_unmatched_functions(const BuildUnmatchedFunctionsOptions &o);
+
+    // Note: requires a prior call to build_matched_functions!
+    static NamedFunctionBundles build_bundles_from_compilands(const BuildBundlesFromCompilandsOptions &o);
+    // Note: requires a prior call to build_matched_functions!
+    static NamedFunctionBundles build_bundles_from_source_files(const BuildBundlesFromSourceFilesOptions &o);
+    // Create a single bundle with all functions.
+    static NamedFunctionBundle build_single_bundle(const BuildSingleBundleOptions &o);
+
+    static void disassemble_matched_functions(const DisassembleMatchedFunctionsOptions &o);
+    static void disassemble_bundled_functions(const DisassembleBundledFunctionsOptions &o);
+    // Can be used to disassemble a single function too.
+    static void disassemble_functions(const DisassembleFunctionsOptions &o);
+
+    static void build_source_lines_for_matched_functions(const BuildSourceLinesForMatchedFunctionsOptions &o);
+    static void build_source_lines_for_bundled_functions(const BuildSourceLinesForBundledFunctionsOptions &o);
+    // Can be used to build source lines of a single function too.
+    static void build_source_lines_for_functions(const BuildSourceLinesForFunctionsOptions &o);
+
+    // Note: requires a prior call to build_source_lines_for_functions!
+    static bool load_source_files_for_matched_functions(const LoadSourceFilesForMatchedFunctionsOptions &o);
+    // Note: requires a prior call to build_source_lines_for_functions!
+    static bool load_source_files_for_bundled_functions(const LoadSourceFilesForBundledFunctionsOptions &o);
+    // Note: requires a prior call to build_source_lines_for_functions!
+    static bool load_source_files_for_functions(const LoadSourceFilesForFunctionsOptions &o);
+
+    static void build_comparison_records_for_matched_functions(const BuildComparisonRecordsForMatchedFunctionsOptions &o);
+    static void build_comparison_records_for_bundled_functions(const BuildComparisonRecordsForBundledFunctionsOptions &o);
 
     static bool process_asm_output(const AsmOutputOptions &o);
     static bool process_asm_comparison(const AsmComparisonOptions &o);

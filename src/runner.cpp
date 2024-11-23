@@ -174,6 +174,91 @@ bool Runner::save_pdb_config(const SavePdbConfigOptions &o)
     return o.pdb_reader->save_config(o.config_file, o.overwrite_sections);
 }
 
+NamedFunctions Runner::build_functions(const BuildFunctionsOptions &o)
+{
+    return build_functions(o.executable);
+}
+
+MatchedFunctions Runner::build_matched_functions(const BuildMatchedFunctionsOptions &o)
+{
+    return build_matched_functions(o.named_functions_pair);
+}
+
+std::vector<IndexT> Runner::build_unmatched_functions(const BuildUnmatchedFunctionsOptions &o)
+{
+    return build_unmatched_functions(o.named_functions, o.matched_functions);
+}
+
+NamedFunctionBundles Runner::build_bundles_from_compilands(const BuildBundlesFromCompilandsOptions &o)
+{
+    return build_bundles_from_compilands(o.named_functions, o.pdb_reader);
+}
+
+NamedFunctionBundles Runner::build_bundles_from_source_files(const BuildBundlesFromSourceFilesOptions &o)
+{
+    return build_bundles_from_source_files(o.named_functions, o.pdb_reader);
+}
+
+NamedFunctionBundle Runner::build_single_bundle(const BuildSingleBundleOptions &o)
+{
+    return build_single_bundle(o.named_functions, o.matched_functions, o.bundle_file_idx);
+}
+
+void Runner::disassemble_matched_functions(const DisassembleMatchedFunctionsOptions &o)
+{
+    disassemble_matched_functions(o.named_functions_pair, o.matched_functions, o.executable_pair, o.format);
+}
+
+void Runner::disassemble_bundled_functions(const DisassembleBundledFunctionsOptions &o)
+{
+    disassemble_bundled_functions(o.named_functions, o.bundle, o.executable, o.format);
+}
+
+void Runner::disassemble_functions(const DisassembleFunctionsOptions &o)
+{
+    disassemble_functions(o.named_functions, o.executable, o.format);
+}
+
+void Runner::build_source_lines_for_matched_functions(const BuildSourceLinesForMatchedFunctionsOptions &o)
+{
+    build_source_lines_for_matched_functions(o.named_functions_pair, o.matched_functions, o.pdb_reader_pair);
+}
+
+void Runner::build_source_lines_for_bundled_functions(const BuildSourceLinesForBundledFunctionsOptions &o)
+{
+    build_source_lines_for_bundled_functions(o.named_functions, o.bundle, o.pdb_reader);
+}
+
+void Runner::build_source_lines_for_functions(const BuildSourceLinesForFunctionsOptions &o)
+{
+    build_source_lines_for_functions(o.named_functions, o.pdb_reader);
+}
+
+bool Runner::load_source_files_for_matched_functions(const LoadSourceFilesForMatchedFunctionsOptions &o)
+{
+    return load_source_files_for_matched_functions(o.storage, o.named_functions_pair, o.matched_functions);
+}
+
+bool Runner::load_source_files_for_bundled_functions(const LoadSourceFilesForBundledFunctionsOptions &o)
+{
+    return load_source_files_for_bundled_functions(o.storage, o.named_functions, o.bundle);
+}
+
+bool Runner::load_source_files_for_functions(const LoadSourceFilesForFunctionsOptions &o)
+{
+    return load_source_files_for_functions(o.storage, o.named_functions);
+}
+
+void Runner::build_comparison_records_for_matched_functions(const BuildComparisonRecordsForMatchedFunctionsOptions &o)
+{
+    build_comparison_records_for_matched_functions(o.matched_functions, o.named_functions_pair, o.lookahead_limit);
+}
+
+void Runner::build_comparison_records_for_bundled_functions(const BuildComparisonRecordsForBundledFunctionsOptions &o)
+{
+    build_comparison_records_for_bundled_functions(o.matched_functions, o.named_functions_pair, o.bundle, o.lookahead_limit);
+}
+
 bool Runner::process_asm_output(const AsmOutputOptions &o)
 {
     if (!(o.start_addr < o.end_addr))
