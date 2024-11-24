@@ -24,9 +24,10 @@
 namespace unassemblize::gui
 {
 ImGuiApp::ProgramFileId ImGuiApp::ProgramFileDescriptor::s_id = 1;
-ImGuiApp::AsmComparisonId ImGuiApp::AsmComparisonDescriptor::s_id = 1;
+ImGuiApp::ProgramFileRevisionId ImGuiApp::ProgramFileRevisionDescriptor::s_id = 1;
+ImGuiApp::ProgramComparisonId ImGuiApp::ProgramComparisonDescriptor::s_id = 1;
 
-ImGuiApp::ProgramFileDescriptor::ProgramFileDescriptor() : id(s_id++)
+ImGuiApp::ProgramFileDescriptor::ProgramFileDescriptor() : m_id(s_id++)
 {
 }
 
@@ -36,59 +37,211 @@ ImGuiApp::ProgramFileDescriptor::~ProgramFileDescriptor()
 
 void ImGuiApp::ProgramFileDescriptor::invalidate_command_id()
 {
-    activeCommandId = InvalidWorkQueueCommandId;
+    m_activeCommandId = InvalidWorkQueueCommandId;
+}
+
+bool ImGuiApp::ProgramFileDescriptor::has_active_command() const
+{
+    return m_activeCommandId != InvalidWorkQueueCommandId;
+}
+
+bool ImGuiApp::ProgramFileDescriptor::can_load_exe() const
+{
+    return !evaluate_exe_filename().empty();
+}
+
+bool ImGuiApp::ProgramFileDescriptor::can_load_pdb() const
+{
+    return !m_pdbFilename.empty();
+}
+
+bool ImGuiApp::ProgramFileDescriptor::can_load() const
+{
+    return can_load_exe() || can_load_pdb();
+}
+
+bool ImGuiApp::ProgramFileDescriptor::can_save_exe_config() const
+{
+    return m_fileRevisionDescriptor != nullptr && m_fileRevisionDescriptor->m_executable != nullptr
+        && !evaluate_exe_config_filename().empty();
+}
+
+bool ImGuiApp::ProgramFileDescriptor::can_save_pdb_config() const
+{
+    return m_fileRevisionDescriptor != nullptr && m_fileRevisionDescriptor->m_pdbReader != nullptr
+        && !evaluate_pdb_config_filename().empty();
+}
+
+bool ImGuiApp::ProgramFileDescriptor::can_save_config() const
+{
+    return can_save_exe_config() || can_save_pdb_config();
 }
 
 std::string ImGuiApp::ProgramFileDescriptor::evaluate_exe_filename() const
 {
-    if (is_auto_str(exeFilename))
+    if (is_auto_str(m_exeFilename))
     {
-        return exeFilenameFromPdb;
+        if (m_fileRevisionDescriptor != nullptr)
+            return m_fileRevisionDescriptor->m_exeFilenameFromPdb;
+        else
+            return std::string();
     }
     else
     {
-        return exeFilename;
+        return m_exeFilename;
     }
 }
 
 std::string ImGuiApp::ProgramFileDescriptor::evaluate_exe_config_filename() const
 {
-    return ::get_config_file_name(evaluate_exe_filename(), exeConfigFilename);
+    return ::get_config_file_name(evaluate_exe_filename(), m_exeConfigFilename);
 }
 
 std::string ImGuiApp::ProgramFileDescriptor::evaluate_pdb_config_filename() const
 {
-    return ::get_config_file_name(pdbFilename, pdbConfigFilename);
+    return ::get_config_file_name(m_pdbFilename, m_pdbConfigFilename);
 }
 
 std::string ImGuiApp::ProgramFileDescriptor::create_short_exe_name() const
 {
-    std::string name = evaluate_exe_filename();
-    if (name.empty())
-        name = exeFilename;
+    std::string name;
+    if (m_fileRevisionDescriptor != nullptr)
+    {
+        name = m_fileRevisionDescriptor->create_short_exe_name();
+    }
+    else
+    {
+        name = evaluate_exe_filename();
+        if (name.empty())
+            name = m_exeFilename;
+    }
     std::filesystem::path path(name);
     return path.filename().string();
 }
 
 std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name() const
 {
-    return fmt::format("File {:d}", id);
+    return fmt::format("File {:d}", m_id);
 }
 
-std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_short_exe_name() const
+std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_file_info() const
 {
-    const std::string exe_name = create_short_exe_name();
-    if (exe_name.empty())
+    std::string revision;
+    ProgramFileRevisionId revisionId = get_revision_id();
+    if (revisionId != InvalidId)
+    {
+        revision = fmt::format(" - Revision {:d}", revisionId);
+    }
+
+    const std::string name = create_short_exe_name();
+    if (name.empty())
+    {
         return create_descriptor_name();
+    }
     else
-        return fmt::format("File {:d} - {:s}", id, exe_name);
+    {
+        return fmt::format("File {:d}{:s} - {:s}", m_id, revision, name);
+    }
 }
 
-ImGuiApp::AsmComparisonDescriptor::AsmComparisonDescriptor() : id(s_id++)
+ImGuiApp::ProgramFileRevisionId ImGuiApp::ProgramFileDescriptor::get_revision_id() const
+{
+    if (m_fileRevisionDescriptor != nullptr)
+        return m_fileRevisionDescriptor->m_id;
+    else
+        return InvalidId;
+}
+
+ImGuiApp::ProgramFileRevisionDescriptor::ProgramFileRevisionDescriptor() : m_id(s_id++)
 {
 }
 
-ImGuiApp::AsmComparisonDescriptor::~AsmComparisonDescriptor()
+ImGuiApp::ProgramFileRevisionDescriptor::~ProgramFileRevisionDescriptor()
+{
+}
+
+bool ImGuiApp::ProgramFileRevisionDescriptor::can_load_exe() const
+{
+    return !evaluate_exe_filename().empty();
+}
+
+bool ImGuiApp::ProgramFileRevisionDescriptor::can_load_pdb() const
+{
+    return !m_pdbFilenameCopy.empty();
+}
+
+bool ImGuiApp::ProgramFileRevisionDescriptor::can_save_exe_config() const
+{
+    return m_executable != nullptr && !evaluate_exe_config_filename().empty();
+}
+
+bool ImGuiApp::ProgramFileRevisionDescriptor::can_save_pdb_config() const
+{
+    return m_pdbReader != nullptr && !evaluate_pdb_config_filename().empty();
+}
+
+std::string ImGuiApp::ProgramFileRevisionDescriptor::evaluate_exe_filename() const
+{
+    if (is_auto_str(m_exeFilenameCopy))
+    {
+        return m_exeFilenameFromPdb;
+    }
+    else
+    {
+        return m_exeFilenameCopy;
+    }
+}
+
+std::string ImGuiApp::ProgramFileRevisionDescriptor::evaluate_exe_config_filename() const
+{
+    return ::get_config_file_name(evaluate_exe_filename(), m_exeConfigFilenameCopy);
+}
+
+std::string ImGuiApp::ProgramFileRevisionDescriptor::evaluate_pdb_config_filename() const
+{
+    return ::get_config_file_name(m_pdbFilenameCopy, m_pdbConfigFilenameCopy);
+}
+
+std::string ImGuiApp::ProgramFileRevisionDescriptor::create_short_exe_name() const
+{
+    std::string name;
+    if (m_executable != nullptr)
+    {
+        name = m_executable->get_filename();
+    }
+    else
+    {
+        name = evaluate_exe_filename();
+        if (name.empty())
+            name = m_exeFilenameCopy;
+    }
+    std::filesystem::path path(name);
+    return path.filename().string();
+}
+
+std::string ImGuiApp::ProgramFileRevisionDescriptor::create_descriptor_name() const
+{
+    return fmt::format("Revision {:d}", m_id);
+}
+
+std::string ImGuiApp::ProgramFileRevisionDescriptor::create_descriptor_name_with_file_info() const
+{
+    const std::string name = create_short_exe_name();
+    if (name.empty())
+    {
+        return create_descriptor_name();
+    }
+    else
+    {
+        return fmt::format("Revision {:d} - {:s}", m_id, name);
+    }
+}
+
+ImGuiApp::ProgramComparisonDescriptor::ProgramComparisonDescriptor() : id(s_id++)
+{
+}
+
+ImGuiApp::ProgramComparisonDescriptor::~ProgramComparisonDescriptor()
 {
 }
 
@@ -167,14 +320,14 @@ ImGuiStatus ImGuiApp::init(const CommandLineOptions &clo)
         switch (input_type)
         {
             case InputType::Exe:
-                descriptor->exeFilename = clo.input_file[i];
-                descriptor->exeConfigFilename = clo.config_file[i];
+                descriptor->m_exeFilename = clo.input_file[i];
+                descriptor->m_exeConfigFilename = clo.config_file[i];
                 break;
             case InputType::Pdb:
-                descriptor->exeFilename = auto_str;
-                descriptor->exeConfigFilename = clo.config_file[i];
-                descriptor->pdbFilename = clo.input_file[i];
-                descriptor->pdbConfigFilename = clo.config_file[i];
+                descriptor->m_exeFilename = auto_str;
+                descriptor->m_exeConfigFilename = clo.config_file[i];
+                descriptor->m_pdbFilename = clo.input_file[i];
+                descriptor->m_pdbConfigFilename = clo.config_file[i];
                 break;
             default:
                 break;
@@ -260,116 +413,145 @@ void ImGuiApp::update_app()
     AsmComparisonManagerWindows();
 }
 
-WorkQueueCommandPtr ImGuiApp::create_load_exe_command(ProgramFileDescriptor *descriptor)
+WorkQueueCommandPtr ImGuiApp::create_load_exe_command(
+    ProgramFileDescriptor *fileDescriptor,
+    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
-    assert(descriptor->can_load_exe());
+    assert(revisionDescriptor->can_load_exe());
 
-    if (descriptor->pdbReader == nullptr)
+    if (revisionDescriptor->m_pdbReader == nullptr)
     {
-        descriptor->exeFilenameFromPdb.clear();
+        revisionDescriptor->m_exeFilenameFromPdb.clear();
     }
 
-    const std::string exe_filename = descriptor->evaluate_exe_filename();
+    const std::string exe_filename = revisionDescriptor->evaluate_exe_filename();
     auto command = std::make_unique<AsyncLoadExeCommand>(LoadExeOptions(exe_filename));
 
-    command->options.config_file = descriptor->evaluate_exe_config_filename();
-    command->options.pdb_reader = descriptor->pdbReader.get();
-    command->callback = [descriptor](WorkQueueResultPtr &result) {
+    command->options.config_file = revisionDescriptor->evaluate_exe_config_filename();
+    command->options.pdb_reader = revisionDescriptor->m_pdbReader.get();
+    command->callback = [fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncLoadExeResult *>(result.get());
-        descriptor->executable = std::move(res->executable);
-        descriptor->exeLoadTimepoint = std::chrono::system_clock::now();
-        descriptor->invalidate_command_id();
+        revisionDescriptor->m_executable = std::move(res->executable);
+        revisionDescriptor->m_exeLoadTimepoint = std::chrono::system_clock::now();
+        fileDescriptor->invalidate_command_id();
     };
 
-    descriptor->exeSymbolsDescriptor.reset();
-    descriptor->executable.reset();
-    descriptor->exeLoadTimepoint = InvalidTimePoint;
-    descriptor->exeSaveConfigFilename.clear();
-    descriptor->exeSaveConfigTimepoint = InvalidTimePoint;
-    descriptor->activeCommandId = command->command_id;
+    revisionDescriptor->m_executable.reset();
+    revisionDescriptor->m_exeLoadTimepoint = InvalidTimePoint;
+    revisionDescriptor->m_exeSaveConfigFilename.clear();
+    revisionDescriptor->m_exeSaveConfigTimepoint = InvalidTimePoint;
+    fileDescriptor->m_exeSymbolsFilter.reset();
+    fileDescriptor->m_activeCommandId = command->command_id;
 
     return command;
 }
 
-WorkQueueCommandPtr ImGuiApp::create_load_pdb_command(ProgramFileDescriptor *descriptor)
+WorkQueueCommandPtr ImGuiApp::create_load_pdb_command(
+    ProgramFileDescriptor *fileDescriptor,
+    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
-    assert(descriptor->can_load_pdb());
+    assert(revisionDescriptor->can_load_pdb());
 
-    auto command = std::make_unique<AsyncLoadPdbCommand>(LoadPdbOptions(descriptor->pdbFilename));
+    auto command = std::make_unique<AsyncLoadPdbCommand>(LoadPdbOptions(revisionDescriptor->m_pdbFilenameCopy));
 
-    command->callback = [descriptor](WorkQueueResultPtr &result) {
+    command->callback = [fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncLoadPdbResult *>(result.get());
-        descriptor->pdbReader = std::move(res->pdbReader);
-        descriptor->pdbLoadTimepoint = std::chrono::system_clock::now();
-        descriptor->invalidate_command_id();
+        revisionDescriptor->m_pdbReader = std::move(res->pdbReader);
+        revisionDescriptor->m_pdbLoadTimepoint = std::chrono::system_clock::now();
+        fileDescriptor->invalidate_command_id();
     };
 
-    descriptor->pdbSymbolsDescriptor.reset();
-    descriptor->pdbFunctionsDescriptor.reset();
-    descriptor->pdbReader.reset();
-    descriptor->pdbLoadTimepoint = InvalidTimePoint;
-    descriptor->pdbSaveConfigFilename.clear();
-    descriptor->pdbSaveConfigTimepoint = InvalidTimePoint;
-    descriptor->exeFilenameFromPdb.clear();
-    descriptor->activeCommandId = command->command_id;
+    revisionDescriptor->m_pdbReader.reset();
+    revisionDescriptor->m_pdbLoadTimepoint = InvalidTimePoint;
+    revisionDescriptor->m_pdbSaveConfigFilename.clear();
+    revisionDescriptor->m_pdbSaveConfigTimepoint = InvalidTimePoint;
+    revisionDescriptor->m_exeFilenameFromPdb.clear();
+    fileDescriptor->m_pdbSymbolsFilter.reset();
+    fileDescriptor->m_pdbFunctionsFilter.reset();
+    fileDescriptor->m_activeCommandId = command->command_id;
 
     return command;
 }
 
-WorkQueueCommandPtr ImGuiApp::create_save_exe_config_command(ProgramFileDescriptor *descriptor)
+WorkQueueCommandPtr ImGuiApp::create_save_exe_config_command(
+    ProgramFileDescriptor *fileDescriptor,
+    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
-    assert(descriptor->can_save_exe_config());
+    assert(revisionDescriptor->can_save_exe_config());
 
-    const std::string config_filename = descriptor->evaluate_exe_config_filename();
-    auto command =
-        std::make_unique<AsyncSaveExeConfigCommand>(SaveExeConfigOptions(*descriptor->executable, config_filename));
+    const std::string config_filename = revisionDescriptor->evaluate_exe_config_filename();
+    auto command = std::make_unique<AsyncSaveExeConfigCommand>(
+        SaveExeConfigOptions(*revisionDescriptor->m_executable, config_filename));
 
-    command->callback = [descriptor](WorkQueueResultPtr &result) {
+    command->callback = [fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSaveExeConfigResult *>(result.get());
         if (res->success)
         {
             auto com = static_cast<AsyncSaveExeConfigCommand *>(result->command.get());
-            descriptor->exeSaveConfigFilename = util::abs_path(com->options.config_file);
-            descriptor->exeSaveConfigTimepoint = std::chrono::system_clock::now();
+            revisionDescriptor->m_exeSaveConfigFilename = util::abs_path(com->options.config_file);
+            revisionDescriptor->m_exeSaveConfigTimepoint = std::chrono::system_clock::now();
         }
-        descriptor->invalidate_command_id();
+        fileDescriptor->invalidate_command_id();
     };
 
-    descriptor->exeSaveConfigFilename.clear();
-    descriptor->exeSaveConfigTimepoint = InvalidTimePoint;
-    descriptor->activeCommandId = command->command_id;
+    revisionDescriptor->m_exeSaveConfigFilename.clear();
+    revisionDescriptor->m_exeSaveConfigTimepoint = InvalidTimePoint;
+    fileDescriptor->m_activeCommandId = command->command_id;
 
     return command;
 }
 
-WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(ProgramFileDescriptor *descriptor)
+WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(
+    ProgramFileDescriptor *fileDescriptor,
+    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
-    assert(descriptor->can_save_pdb_config());
+    assert(revisionDescriptor->can_save_pdb_config());
 
-    const std::string config_filename = descriptor->evaluate_pdb_config_filename();
+    const std::string config_filename = revisionDescriptor->evaluate_pdb_config_filename();
     auto command =
-        std::make_unique<AsyncSavePdbConfigCommand>(SavePdbConfigOptions(*descriptor->pdbReader, config_filename));
+        std::make_unique<AsyncSavePdbConfigCommand>(SavePdbConfigOptions(*revisionDescriptor->m_pdbReader, config_filename));
 
-    command->callback = [descriptor](WorkQueueResultPtr &result) {
+    command->callback = [fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSavePdbConfigResult *>(result.get());
         if (res->success)
         {
             auto com = static_cast<AsyncSavePdbConfigCommand *>(result->command.get());
-            descriptor->pdbSaveConfigFilename = util::abs_path(com->options.config_file);
-            descriptor->pdbSaveConfigTimepoint = std::chrono::system_clock::now();
+            revisionDescriptor->m_pdbSaveConfigFilename = util::abs_path(com->options.config_file);
+            revisionDescriptor->m_pdbSaveConfigTimepoint = std::chrono::system_clock::now();
         }
-        descriptor->invalidate_command_id();
+        fileDescriptor->invalidate_command_id();
     };
 
-    descriptor->pdbSaveConfigFilename.clear();
-    descriptor->pdbSaveConfigTimepoint = InvalidTimePoint;
-    descriptor->activeCommandId = command->command_id;
+    revisionDescriptor->m_pdbSaveConfigFilename.clear();
+    revisionDescriptor->m_pdbSaveConfigTimepoint = InvalidTimePoint;
+    fileDescriptor->m_activeCommandId = command->command_id;
 
     return command;
 }
 
+ImGuiApp::ProgramFileDescriptor *ImGuiApp::get_program_file_descriptor(size_t program_file_idx)
+{
+    if (program_file_idx < m_programFiles.size())
+    {
+        return m_programFiles[program_file_idx].get();
+    }
+    return nullptr;
+}
+
+bool ImGuiApp::CanLoad(size_t program_file_idx) const
+{
+    if (program_file_idx < m_programFiles.size())
+    {
+        const ProgramFileDescriptor *descriptor = m_programFiles[program_file_idx].get();
+        return descriptor->can_load();
+    }
+    return false;
+}
+
 void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 {
+    assert(descriptor != nullptr);
+
     if (descriptor->can_load_pdb())
     {
         load_pdb_and_exe_async(descriptor);
@@ -387,44 +569,65 @@ void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 
 void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
 {
-    m_workQueue.enqueue(create_load_exe_command(descriptor));
+    assert(descriptor != nullptr);
+
+    descriptor->m_fileRevisionDescriptor = std::make_shared<ProgramFileRevisionDescriptor>();
+    descriptor->m_fileRevisionDescriptor->m_exeFilenameCopy = descriptor->m_exeFilename;
+
+    m_workQueue.enqueue(create_load_exe_command(descriptor, descriptor->m_fileRevisionDescriptor));
 }
 
 void ImGuiApp::load_pdb_and_exe_async(ProgramFileDescriptor *descriptor)
 {
-    auto command = create_load_pdb_command(descriptor);
+    assert(descriptor != nullptr);
 
-    command->chain([descriptor](WorkQueueResultPtr &result) {
-        if (descriptor->pdbReader == nullptr)
-            return WorkQueueCommandPtr();
+    descriptor->m_fileRevisionDescriptor = std::make_shared<ProgramFileRevisionDescriptor>();
+    descriptor->m_fileRevisionDescriptor->m_exeFilenameCopy = descriptor->m_exeFilename;
+    descriptor->m_fileRevisionDescriptor->m_pdbFilenameCopy = descriptor->m_pdbFilename;
 
-        const unassemblize::PdbExeInfo &exe_info = descriptor->pdbReader->get_exe_info();
-        descriptor->exeFilenameFromPdb = unassemblize::Runner::create_exe_filename(exe_info);
+    auto command = create_load_pdb_command(descriptor, descriptor->m_fileRevisionDescriptor);
 
-        if (!descriptor->can_load_exe())
-            return WorkQueueCommandPtr();
+    command->chain(
+        [descriptor, revisionDescriptor = descriptor->m_fileRevisionDescriptor](WorkQueueResultPtr &result) mutable {
+            if (revisionDescriptor->m_pdbReader == nullptr)
+                return WorkQueueCommandPtr();
 
-        return create_load_exe_command(descriptor);
-    });
+            const unassemblize::PdbExeInfo &exe_info = revisionDescriptor->m_pdbReader->get_exe_info();
+            revisionDescriptor->m_exeFilenameFromPdb = unassemblize::Runner::create_exe_filename(exe_info);
+
+            if (!revisionDescriptor->can_load_exe())
+                return WorkQueueCommandPtr();
+
+            return create_load_exe_command(descriptor, revisionDescriptor);
+        });
 
     m_workQueue.enqueue(std::move(command));
 }
 
 void ImGuiApp::save_config_async(ProgramFileDescriptor *descriptor)
 {
+    assert(descriptor != nullptr);
+    assert(descriptor->m_fileRevisionDescriptor != nullptr);
+
     WorkQueueDelayedCommand head_command;
     WorkQueueDelayedCommand *next_command = &head_command;
 
     if (descriptor->can_save_exe_config())
     {
+        descriptor->m_fileRevisionDescriptor->m_exeConfigFilenameCopy = descriptor->m_exeConfigFilename;
         next_command = next_command->chain(
-            [descriptor](WorkQueueResultPtr &result) { return create_save_exe_config_command(descriptor); });
+            [descriptor, revisionDescriptor = descriptor->m_fileRevisionDescriptor](WorkQueueResultPtr &result) mutable {
+                return create_save_exe_config_command(descriptor, revisionDescriptor);
+            });
     }
 
     if (descriptor->can_save_pdb_config())
     {
+        descriptor->m_fileRevisionDescriptor->m_pdbConfigFilenameCopy = descriptor->m_pdbConfigFilename;
         next_command = next_command->chain(
-            [descriptor](WorkQueueResultPtr &result) { return create_save_pdb_config_command(descriptor); });
+            [descriptor, revisionDescriptor = descriptor->m_fileRevisionDescriptor](WorkQueueResultPtr &result) mutable {
+                return create_save_pdb_config_command(descriptor, revisionDescriptor);
+            });
     }
 
     assert(head_command.next_delayed_command != nullptr);
@@ -452,18 +655,18 @@ void ImGuiApp::remove_all_files()
 
 void ImGuiApp::add_asm_comparison()
 {
-    m_asmComparisons.emplace_back(std::make_unique<AsmComparisonDescriptor>());
+    m_programComparisons.emplace_back(std::make_unique<ProgramComparisonDescriptor>());
 }
 
 void ImGuiApp::remove_closed_asm_comparisons()
 {
     // Remove descriptor when window was closed.
-    m_asmComparisons.erase(
+    m_programComparisons.erase(
         std::remove_if(
-            m_asmComparisons.begin(),
-            m_asmComparisons.end(),
-            [](const AsmComparisonDescriptorPtr &p) { return !p->has_open_window; }),
-        m_asmComparisons.end());
+            m_programComparisons.begin(),
+            m_programComparisons.end(),
+            [](const ProgramComparisonDescriptorPtr &p) { return !p->has_open_window; }),
+        m_programComparisons.end());
 }
 
 std::string ImGuiApp::create_section_string(uint32_t section_index, const ExeSections *sections)
@@ -597,10 +800,10 @@ void ImGuiApp::AsmOutputManagerWindow(bool *p_open)
 
 void ImGuiApp::AsmComparisonManagerWindows()
 {
-    const size_t count = m_asmComparisons.size();
+    const size_t count = m_programComparisons.size();
     for (size_t i = 0; i < count; ++i)
     {
-        AsmComparisonDescriptor &descriptor = *m_asmComparisons[i];
+        ProgramComparisonDescriptor &descriptor = *m_programComparisons[i];
 
         const std::string title = fmt::format("Assembler Comparison {:d}", descriptor.id);
 
@@ -659,7 +862,7 @@ void ImGuiApp::FileManagerBody()
             }
             else
             {
-                const std::string title = descriptor.create_descriptor_name_with_short_exe_name();
+                const std::string title = descriptor.create_descriptor_name_with_file_info();
                 is_open = ImGui::TreeNodeEx("file_tree", ImGuiTreeNodeFlags_DefaultOpen, title.c_str());
             }
 
@@ -716,20 +919,26 @@ void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, bool &er
         group_rect.Min = ImGui::GetItemRectMin();
         group_rect.Max = ImGui::GetItemRectMax();
 
-        const std::string overlay = fmt::format("Processing command {:d} ..", descriptor.activeCommandId);
+        const std::string overlay = fmt::format("Processing command {:d} ..", descriptor.m_activeCommandId);
 
         OverlayProgressBar(group_rect, -1.0f * (float)ImGui::GetTime(), overlay.c_str());
     }
 
-    FileManagerDescriptorSaveLoadStatus(descriptor);
+    ProgramFileRevisionDescriptor *revisionDescriptor = descriptor.m_fileRevisionDescriptor.get();
 
-    // Draw some details
-    if (descriptor.executable != nullptr || descriptor.pdbReader != nullptr)
+    if (revisionDescriptor != nullptr)
     {
-        ImScoped::TreeNode tree("Info");
-        if (tree.IsOpen)
+        FileManagerDescriptorSaveLoadStatus(*revisionDescriptor);
+
+        // Draw some details
+
+        if (revisionDescriptor->m_executable != nullptr || revisionDescriptor->m_pdbReader != nullptr)
         {
-            FileManagerInfo(descriptor);
+            ImScoped::TreeNode tree("Info");
+            if (tree.IsOpen)
+            {
+                FileManagerInfo(descriptor, *revisionDescriptor);
+            }
         }
     }
 
@@ -740,17 +949,17 @@ void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, bool &er
 void ImGuiApp::FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor)
 {
     AddFileDialogButton(
-        &descriptor.exeFilename,
+        &descriptor.m_exeFilename,
         g_browse_file_button_label,
-        fmt::format("exe_file_dialog{:d}", descriptor.id),
+        fmt::format("exe_file_dialog{:d}", descriptor.m_id),
         g_select_file_dialog_title,
         "Program (*.*){((.*))}"); // ((.*)) is regex for all files
 
     ImGui::SameLine();
-    ImGui::InputTextWithHint("Program File", auto_str, &descriptor.exeFilename);
+    ImGui::InputTextWithHint("Program File", auto_str, &descriptor.m_exeFilename);
 
     // Tooltip on hover 'auto'
-    if (is_auto_str(descriptor.exeFilename) && !descriptor.has_active_command())
+    if (is_auto_str(descriptor.m_exeFilename) && !descriptor.has_active_command())
     {
         const std::string exe_filename = descriptor.evaluate_exe_filename();
         if (exe_filename.empty())
@@ -767,17 +976,17 @@ void ImGuiApp::FileManagerDescriptorExeFile(ProgramFileDescriptor &descriptor)
 void ImGuiApp::FileManagerDescriptorExeConfig(ProgramFileDescriptor &descriptor)
 {
     AddFileDialogButton(
-        &descriptor.exeConfigFilename,
+        &descriptor.m_exeConfigFilename,
         g_browse_file_button_label,
-        fmt::format("exe_config_file_dialog{:d}", descriptor.id),
+        fmt::format("exe_config_file_dialog{:d}", descriptor.m_id),
         g_select_file_dialog_title,
         "Config (*.json){.json}");
 
     ImGui::SameLine();
-    ImGui::InputTextWithHint("Program Config File", auto_str, &descriptor.exeConfigFilename);
+    ImGui::InputTextWithHint("Program Config File", auto_str, &descriptor.m_exeConfigFilename);
 
     // Tooltip on hover 'auto'
-    if (is_auto_str(descriptor.exeConfigFilename) && !descriptor.exeFilename.empty() && !descriptor.has_active_command())
+    if (is_auto_str(descriptor.m_exeConfigFilename) && !descriptor.m_exeFilename.empty() && !descriptor.has_active_command())
     {
         const std::string exe_filename = descriptor.evaluate_exe_filename();
         if (exe_filename.empty())
@@ -795,30 +1004,30 @@ void ImGuiApp::FileManagerDescriptorExeConfig(ProgramFileDescriptor &descriptor)
 void ImGuiApp::FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor)
 {
     AddFileDialogButton(
-        &descriptor.pdbFilename,
+        &descriptor.m_pdbFilename,
         g_browse_file_button_label,
-        fmt::format("pdb_file_dialog{:d}", descriptor.id),
+        fmt::format("pdb_file_dialog{:d}", descriptor.m_id),
         g_select_file_dialog_title,
         "Program Database (*.pdb){.pdb}");
 
     ImGui::SameLine();
-    ImGui::InputText("Pdb File", &descriptor.pdbFilename);
+    ImGui::InputText("Pdb File", &descriptor.m_pdbFilename);
 }
 
 void ImGuiApp::FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor)
 {
     AddFileDialogButton(
-        &descriptor.pdbConfigFilename,
+        &descriptor.m_pdbConfigFilename,
         g_browse_file_button_label,
-        fmt::format("pdb_config_file_dialog{:d}", descriptor.id),
+        fmt::format("pdb_config_file_dialog{:d}", descriptor.m_id),
         g_select_file_dialog_title,
         "Config (*.json){.json}");
 
     ImGui::SameLine();
-    ImGui::InputTextWithHint("Pdb Config File", auto_str, &descriptor.pdbConfigFilename);
+    ImGui::InputTextWithHint("Pdb Config File", auto_str, &descriptor.m_pdbConfigFilename);
 
     // Tooltip on hover 'auto'
-    if (is_auto_str(descriptor.pdbConfigFilename) && !descriptor.pdbFilename.empty())
+    if (is_auto_str(descriptor.m_pdbConfigFilename) && !descriptor.m_pdbFilename.empty())
     {
         const std::string config_filename = descriptor.evaluate_pdb_config_filename();
         TooltipText("'%s' evaluates to '%s'", auto_str, config_filename.c_str());
@@ -874,44 +1083,48 @@ void ImGuiApp::FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, b
     }
 }
 
-void ImGuiApp::FileManagerDescriptorSaveLoadStatus(const ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerDescriptorSaveLoadStatus(const ProgramFileRevisionDescriptor &descriptor)
 {
     constexpr ImU32 green = IM_COL32(0, 255, 0, 255);
 
-    if (descriptor.executable != nullptr)
+    if (descriptor.m_executable != nullptr)
     {
         DrawInTextCircle(green);
         ImGui::Text(
-            " Loaded Exe: [%s] %s",
-            create_time_string(descriptor.exeLoadTimepoint).c_str(),
-            descriptor.executable->get_filename().c_str());
+            " Loaded Exe: [rev:%u] [%s] %s",
+            descriptor.m_id,
+            create_time_string(descriptor.m_exeLoadTimepoint).c_str(),
+            descriptor.m_executable->get_filename().c_str());
     }
 
-    if (descriptor.pdbReader != nullptr)
+    if (descriptor.m_pdbReader != nullptr)
     {
         DrawInTextCircle(green);
         ImGui::Text(
-            " Loaded Pdb: [%s] %s",
-            create_time_string(descriptor.pdbLoadTimepoint).c_str(),
-            descriptor.pdbReader->get_filename().c_str());
+            " Loaded Pdb: [rev:%u] [%s] %s",
+            descriptor.m_id,
+            create_time_string(descriptor.m_pdbLoadTimepoint).c_str(),
+            descriptor.m_pdbReader->get_filename().c_str());
     }
 
-    if (descriptor.exeSaveConfigTimepoint != InvalidTimePoint)
+    if (descriptor.m_exeSaveConfigTimepoint != InvalidTimePoint)
     {
         DrawInTextCircle(green);
         ImGui::Text(
-            " Saved Exe Config: [%s] %s",
-            create_time_string(descriptor.exeSaveConfigTimepoint).c_str(),
-            descriptor.exeSaveConfigFilename.c_str());
+            " Saved Exe Config: [rev:%u] [%s] %s",
+            descriptor.m_id,
+            create_time_string(descriptor.m_exeSaveConfigTimepoint).c_str(),
+            descriptor.m_exeSaveConfigFilename.c_str());
     }
 
-    if (descriptor.pdbSaveConfigTimepoint != InvalidTimePoint)
+    if (descriptor.m_pdbSaveConfigTimepoint != InvalidTimePoint)
     {
         DrawInTextCircle(green);
         ImGui::Text(
-            " Saved Pdb Config: [%s] %s",
-            create_time_string(descriptor.pdbSaveConfigTimepoint).c_str(),
-            descriptor.pdbSaveConfigFilename.c_str());
+            " Saved Pdb Config: [rev:%u] [%s] %s",
+            descriptor.m_id,
+            create_time_string(descriptor.m_pdbSaveConfigTimepoint).c_str(),
+            descriptor.m_pdbSaveConfigFilename.c_str());
     }
     // #TODO: Also draw fail status.
 }
@@ -947,42 +1160,44 @@ void ImGuiApp::FileManagerGlobalButtons()
     }
 }
 
-void ImGuiApp::FileManagerInfo(ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerInfo(
+    ProgramFileDescriptor &fileDescriptor,
+    const ProgramFileRevisionDescriptor &revisionDescriptor)
 {
-    if (descriptor.executable != nullptr)
+    if (revisionDescriptor.m_executable != nullptr)
     {
         if (m_showFileManagerExeSectionInfo)
-            FileManagerInfoExeSections(descriptor);
+            FileManagerInfoExeSections(revisionDescriptor);
 
         if (m_showFileManagerExeSymbolInfo)
-            FileManagerInfoExeSymbols(descriptor);
+            FileManagerInfoExeSymbols(fileDescriptor, revisionDescriptor);
     }
-    if (descriptor.pdbReader != nullptr)
+    if (revisionDescriptor.m_pdbReader != nullptr)
     {
         if (m_showFileManagerPdbCompilandInfo)
-            FileManagerInfoPdbCompilands(descriptor);
+            FileManagerInfoPdbCompilands(revisionDescriptor);
 
         if (m_showFileManagerPdbSourceFileInfo)
-            FileManagerInfoPdbSourceFiles(descriptor);
+            FileManagerInfoPdbSourceFiles(revisionDescriptor);
 
         if (m_showFileManagerPdbSymbolInfo)
-            FileManagerInfoPdbSymbols(descriptor);
+            FileManagerInfoPdbSymbols(fileDescriptor, revisionDescriptor);
 
         if (m_showFileManagerPdbFunctionInfo)
-            FileManagerInfoPdbFunctions(descriptor);
+            FileManagerInfoPdbFunctions(fileDescriptor, revisionDescriptor);
 
         if (m_showFileManagerPdbExeInfo)
-            FileManagerInfoPdbExeInfo(descriptor);
+            FileManagerInfoPdbExeInfo(revisionDescriptor);
     }
 }
 
-void ImGuiApp::FileManagerInfoExeSections(ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerInfoExeSections(const ProgramFileRevisionDescriptor &descriptor)
 {
     ImGui::SeparatorText("Exe Sections");
 
-    ImGui::Text("Exe Image base: x%08x", down_cast<uint32_t>(descriptor.executable->image_base()));
+    ImGui::Text("Exe Image base: x%08x", down_cast<uint32_t>(descriptor.m_executable->image_base()));
 
-    const ExeSections &sections = descriptor.executable->get_sections();
+    const ExeSections &sections = descriptor.m_executable->get_sections();
 
     ImGui::Text("Count: %zu", sections.size());
 
@@ -1017,16 +1232,18 @@ void ImGuiApp::FileManagerInfoExeSections(ProgramFileDescriptor &descriptor)
     }
 }
 
-void ImGuiApp::FileManagerInfoExeSymbols(ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerInfoExeSymbols(
+    ProgramFileDescriptor &fileDescriptor,
+    const ProgramFileRevisionDescriptor &revisionDescriptor)
 {
     ImGui::SeparatorText("Exe Symbols");
 
-    const auto &filtered = descriptor.exeSymbolsDescriptor.filtered;
+    const auto &filtered = fileDescriptor.m_exeSymbolsFilter.filtered;
     {
-        const ExeSymbols &symbols = descriptor.executable->get_symbols();
+        const ExeSymbols &symbols = revisionDescriptor.m_executable->get_symbols();
 
         UpdateFilter(
-            descriptor.exeSymbolsDescriptor,
+            fileDescriptor.m_exeSymbolsFilter,
             symbols,
             [](const ImGuiTextFilterEx &filter, const ExeSymbol &symbol) -> bool { return filter.PassFilter(symbol.name); });
 
@@ -1073,11 +1290,11 @@ void ImGuiApp::FileManagerInfoExeSymbols(ProgramFileDescriptor &descriptor)
     }
 }
 
-void ImGuiApp::FileManagerInfoPdbCompilands(ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerInfoPdbCompilands(const ProgramFileRevisionDescriptor &descriptor)
 {
     ImGui::SeparatorText("Pdb Compilands");
 
-    const PdbCompilandInfoVector &compilands = descriptor.pdbReader->get_compilands();
+    const PdbCompilandInfoVector &compilands = descriptor.m_pdbReader->get_compilands();
 
     ImGui::Text("Count: %zu", compilands.size());
 
@@ -1113,11 +1330,11 @@ void ImGuiApp::FileManagerInfoPdbCompilands(ProgramFileDescriptor &descriptor)
     }
 }
 
-void ImGuiApp::FileManagerInfoPdbSourceFiles(ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerInfoPdbSourceFiles(const ProgramFileRevisionDescriptor &descriptor)
 {
     ImGui::SeparatorText("Pdb Source Files");
 
-    const PdbSourceFileInfoVector &source_files = descriptor.pdbReader->get_source_files();
+    const PdbSourceFileInfoVector &source_files = descriptor.m_pdbReader->get_source_files();
 
     ImGui::Text("Count: %zu", source_files.size());
 
@@ -1178,16 +1395,18 @@ void ImGuiApp::FileManagerInfoPdbSourceFiles(ProgramFileDescriptor &descriptor)
     }
 }
 
-void ImGuiApp::FileManagerInfoPdbSymbols(ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerInfoPdbSymbols(
+    ProgramFileDescriptor &fileDescriptor,
+    const ProgramFileRevisionDescriptor &revisionDescriptor)
 {
     ImGui::SeparatorText("Pdb Symbols");
 
-    const auto &filtered = descriptor.pdbSymbolsDescriptor.filtered;
+    const auto &filtered = fileDescriptor.m_pdbSymbolsFilter.filtered;
     {
-        const PdbSymbolInfoVector &symbols = descriptor.pdbReader->get_symbols();
+        const PdbSymbolInfoVector &symbols = revisionDescriptor.m_pdbReader->get_symbols();
 
         UpdateFilter(
-            descriptor.pdbSymbolsDescriptor,
+            fileDescriptor.m_pdbSymbolsFilter,
             symbols,
             [](const ImGuiTextFilterEx &filter, const PdbSymbolInfo &symbol) -> bool {
                 if (filter.PassFilter(symbol.decoratedName))
@@ -1203,8 +1422,8 @@ void ImGuiApp::FileManagerInfoPdbSymbols(ProgramFileDescriptor &descriptor)
     }
 
     const ExeSections *sections = nullptr;
-    if (descriptor.executable != nullptr)
-        sections = &descriptor.executable->get_sections();
+    if (revisionDescriptor.m_executable != nullptr)
+        sections = &revisionDescriptor.m_executable->get_sections();
 
     const ImVec2 outer_size = OuterSizeForTable(10 + 1, filtered.size() + 1);
 
@@ -1259,16 +1478,18 @@ void ImGuiApp::FileManagerInfoPdbSymbols(ProgramFileDescriptor &descriptor)
     }
 }
 
-void ImGuiApp::FileManagerInfoPdbFunctions(ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerInfoPdbFunctions(
+    ProgramFileDescriptor &fileDescriptor,
+    const ProgramFileRevisionDescriptor &revisionDescriptor)
 {
     ImGui::SeparatorText("Pdb Functions");
 
-    const auto &filtered = descriptor.pdbFunctionsDescriptor.filtered;
+    const auto &filtered = fileDescriptor.m_pdbFunctionsFilter.filtered;
     {
-        const PdbFunctionInfoVector &functions = descriptor.pdbReader->get_functions();
+        const PdbFunctionInfoVector &functions = revisionDescriptor.m_pdbReader->get_functions();
 
         UpdateFilter(
-            descriptor.pdbFunctionsDescriptor,
+            fileDescriptor.m_pdbFunctionsFilter,
             functions,
             [](const ImGuiTextFilterEx &filter, const PdbFunctionInfo &function) -> bool {
                 if (filter.PassFilter(function.decoratedName))
@@ -1331,11 +1552,11 @@ void ImGuiApp::FileManagerInfoPdbFunctions(ProgramFileDescriptor &descriptor)
     }
 }
 
-void ImGuiApp::FileManagerInfoPdbExeInfo(ProgramFileDescriptor &descriptor)
+void ImGuiApp::FileManagerInfoPdbExeInfo(const ProgramFileRevisionDescriptor &descriptor)
 {
     ImGui::SeparatorText("Pdb Exe Info");
 
-    const PdbExeInfo &exe_info = descriptor.pdbReader->get_exe_info();
+    const PdbExeInfo &exe_info = descriptor.m_pdbReader->get_exe_info();
     ImGui::Text("Exe File Name: %s", exe_info.exeFileName.c_str());
     ImGui::Text("Pdb File Path: %s", exe_info.pdbFilePath.c_str());
 }
@@ -1347,7 +1568,7 @@ void ImGuiApp::AsmOutputManagerBody()
     ImGui::TextUnformatted("Not implemented");
 }
 
-void ImGuiApp::AsmComparisonManagerBody(AsmComparisonDescriptor &descriptor)
+void ImGuiApp::AsmComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
 {
 }
 

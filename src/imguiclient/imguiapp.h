@@ -48,8 +48,19 @@ class ImGuiApp
     // clang-format on
 
     static constexpr std::chrono::system_clock::time_point InvalidTimePoint = std::chrono::system_clock::time_point::min();
+    static constexpr uint32_t InvalidId = 0;
+
     using ProgramFileId = uint32_t;
-    using AsmComparisonId = uint32_t;
+    using ProgramFileRevisionId = uint32_t;
+    using ProgramComparisonId = uint32_t;
+
+    struct ProgramFileDescriptor;
+    struct ProgramFileRevisionDescriptor;
+    struct ProgramComparisonDescriptor;
+
+    using ProgramFileDescriptorPtr = std::unique_ptr<ProgramFileDescriptor>;
+    using ProgramFileRevisionDescriptorPtr = std::shared_ptr<ProgramFileRevisionDescriptor>;
+    using ProgramComparisonDescriptorPtr = std::unique_ptr<ProgramComparisonDescriptor>;
 
     struct ProgramFileDescriptor
     {
@@ -58,14 +69,14 @@ class ImGuiApp
 
         void invalidate_command_id();
 
-        bool has_active_command() const { return activeCommandId != InvalidWorkQueueCommandId; }
+        bool has_active_command() const;
 
-        bool can_load_exe() const { return !evaluate_exe_filename().empty(); }
-        bool can_load_pdb() const { return !pdbFilename.empty(); }
-        bool can_load() const { return can_load_exe() || can_load_pdb(); }
-        bool can_save_exe_config() const { return executable != nullptr && !evaluate_exe_config_filename().empty(); }
-        bool can_save_pdb_config() const { return pdbReader != nullptr && !evaluate_pdb_config_filename().empty(); }
-        bool can_save_config() const { return can_save_exe_config() || can_save_pdb_config(); }
+        bool can_load_exe() const;
+        bool can_load_pdb() const;
+        bool can_load() const;
+        bool can_save_exe_config() const;
+        bool can_save_pdb_config() const;
+        bool can_save_config() const;
 
         std::string evaluate_exe_filename() const;
         std::string evaluate_exe_config_filename() const;
@@ -73,54 +84,102 @@ class ImGuiApp
 
         std::string create_short_exe_name() const;
         std::string create_descriptor_name() const;
-        std::string create_descriptor_name_with_short_exe_name() const;
+        std::string create_descriptor_name_with_file_info() const;
 
-        // All members must be modified by UI thread only
+        ProgramFileRevisionId get_revision_id() const;
 
-        // Must be not editable when the WorkQueue thread works on this descriptor.
-        std::string exeFilename;
-        std::string exeConfigFilename = auto_str;
-        std::string pdbFilename;
-        std::string pdbConfigFilename = auto_str;
+        // Note: All members must be modified by UI thread only
 
-        TextFilterDescriptor<const ExeSymbol *> exeSymbolsDescriptor = "exe_symbols_descriptor";
-        TextFilterDescriptor<const PdbSymbolInfo *> pdbSymbolsDescriptor = "pdb_symbols_descriptor";
-        TextFilterDescriptor<const PdbFunctionInfo *> pdbFunctionsDescriptor = "pdb_functions_descriptor";
-
-        const ProgramFileId id = 0;
+        const ProgramFileId m_id = InvalidId;
 
         // Has pending asynchronous command(s) running when not invalid.
-        WorkQueueCommandId activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
+        WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
 
-        std::unique_ptr<Executable> executable;
-        std::unique_ptr<PdbReader> pdbReader;
-        std::string exeFilenameFromPdb;
-        std::string exeSaveConfigFilename;
-        std::string pdbSaveConfigFilename;
+        // Must be not editable when the WorkQueue thread works on this descriptor.
+        std::string m_exeFilename;
+        std::string m_exeConfigFilename = auto_str;
+        std::string m_pdbFilename;
+        std::string m_pdbConfigFilename = auto_str;
 
-        std::chrono::time_point<std::chrono::system_clock> exeLoadTimepoint = InvalidTimePoint;
-        std::chrono::time_point<std::chrono::system_clock> exeSaveConfigTimepoint = InvalidTimePoint;
-        std::chrono::time_point<std::chrono::system_clock> pdbLoadTimepoint = InvalidTimePoint;
-        std::chrono::time_point<std::chrono::system_clock> pdbSaveConfigTimepoint = InvalidTimePoint;
+        TextFilterDescriptor<const ExeSymbol *> m_exeSymbolsFilter = "exe_symbols_filter";
+        TextFilterDescriptor<const PdbSymbolInfo *> m_pdbSymbolsFilter = "pdb_symbols_filter";
+        TextFilterDescriptor<const PdbFunctionInfo *> m_pdbFunctionsFilter = "pdb_functions_filter";
+
+        ProgramFileRevisionDescriptorPtr m_fileRevisionDescriptor;
 
     private:
         static ProgramFileId s_id;
     };
-    using ProgramFileDescriptorPtr = std::unique_ptr<ProgramFileDescriptor>;
 
-    struct AsmComparisonDescriptor
+    // Note: Pass down a shared pointer of the ProgramSymbolsDescriptor when chaining async commands.
+    struct ProgramFileRevisionDescriptor
     {
-        AsmComparisonDescriptor();
-        ~AsmComparisonDescriptor();
+        ProgramFileRevisionDescriptor();
+        ~ProgramFileRevisionDescriptor();
 
-        const AsmComparisonId id = 0;
+        bool can_load_exe() const;
+        bool can_load_pdb() const;
+        bool can_save_exe_config() const;
+        bool can_save_pdb_config() const;
+
+        std::string evaluate_exe_filename() const;
+        std::string evaluate_exe_config_filename() const;
+        std::string evaluate_pdb_config_filename() const;
+
+        std::string create_short_exe_name() const;
+        std::string create_descriptor_name() const;
+        std::string create_descriptor_name_with_file_info() const;
+
+        const ProgramFileRevisionId m_id = InvalidId;
+
+        // String copies of the file descriptor at the time of async command chain creation.
+        // These allows to evaluate async save load operations without a dependency to the file descriptor.
+        std::string m_exeFilenameCopy;
+        std::string m_exeConfigFilenameCopy;
+        std::string m_pdbFilenameCopy;
+        std::string m_pdbConfigFilenameCopy;
+
+        std::unique_ptr<Executable> m_executable;
+        std::unique_ptr<PdbReader> m_pdbReader;
+        std::string m_exeFilenameFromPdb;
+        std::string m_exeSaveConfigFilename;
+        std::string m_pdbSaveConfigFilename;
+
+        std::chrono::time_point<std::chrono::system_clock> m_exeLoadTimepoint = InvalidTimePoint;
+        std::chrono::time_point<std::chrono::system_clock> m_exeSaveConfigTimepoint = InvalidTimePoint;
+        std::chrono::time_point<std::chrono::system_clock> m_pdbLoadTimepoint = InvalidTimePoint;
+        std::chrono::time_point<std::chrono::system_clock> m_pdbSaveConfigTimepoint = InvalidTimePoint;
+
+        NamedFunctions m_namedFunctions;
+
+    private:
+        static ProgramFileRevisionId s_id;
+    };
+
+    struct ProgramComparisonDescriptor
+    {
+        struct File
+        {
+            size_t selectedFileIdx = 0; // Selected file index in list box. Does not necessarily link to actual loaded file.
+            ProgramFileRevisionDescriptorPtr fileRevisionDescriptor;
+            NamedFunctionBundles compilandBundles;
+            NamedFunctionBundles sourceFileBundles;
+            NamedFunctionBundle singleBundle;
+        };
+
+        ProgramComparisonDescriptor();
+        ~ProgramComparisonDescriptor();
+
+        const ProgramComparisonId id = InvalidId;
 
         bool has_open_window = true;
 
+        std::array<File, 2> files;
+        MatchedFunctions matchedFunctions;
+
     private:
         static ProgramFileId s_id;
     };
-    using AsmComparisonDescriptorPtr = std::unique_ptr<AsmComparisonDescriptor>;
 
 public:
     ImGuiApp();
@@ -142,10 +201,24 @@ public:
 private:
     void update_app();
 
-    static WorkQueueCommandPtr create_load_exe_command(ProgramFileDescriptor *descriptor);
-    static WorkQueueCommandPtr create_load_pdb_command(ProgramFileDescriptor *descriptor);
-    static WorkQueueCommandPtr create_save_exe_config_command(ProgramFileDescriptor *descriptor);
-    static WorkQueueCommandPtr create_save_pdb_config_command(ProgramFileDescriptor *descriptor);
+    static WorkQueueCommandPtr create_load_exe_command(
+        ProgramFileDescriptor *fileDescriptor,
+        ProgramFileRevisionDescriptorPtr &symbolsDescriptor);
+
+    static WorkQueueCommandPtr create_load_pdb_command(
+        ProgramFileDescriptor *fileDescriptor,
+        ProgramFileRevisionDescriptorPtr &symbolsDescriptor);
+
+    static WorkQueueCommandPtr create_save_exe_config_command(
+        ProgramFileDescriptor *fileDescriptor,
+        ProgramFileRevisionDescriptorPtr &symbolsDescriptor);
+
+    static WorkQueueCommandPtr create_save_pdb_config_command(
+        ProgramFileDescriptor *fileDescriptor,
+        ProgramFileRevisionDescriptorPtr &symbolsDescriptor);
+
+    ProgramFileDescriptor *get_program_file_descriptor(size_t program_file_idx);
+    bool CanLoad(size_t program_file_idx) const;
 
     void load_async(ProgramFileDescriptor *descriptor);
     void load_exe_async(ProgramFileDescriptor *descriptor);
@@ -175,20 +248,26 @@ private:
     void FileManagerDescriptorPdbFile(ProgramFileDescriptor &descriptor);
     void FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor);
     void FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, bool &erased);
-    void FileManagerDescriptorSaveLoadStatus(const ProgramFileDescriptor &descriptor);
+    void FileManagerDescriptorSaveLoadStatus(const ProgramFileRevisionDescriptor &descriptor);
     void FileManagerGlobalButtons();
-    void FileManagerInfo(ProgramFileDescriptor &descriptor);
-    void FileManagerInfoExeSections(ProgramFileDescriptor &descriptor);
-    void FileManagerInfoExeSymbols(ProgramFileDescriptor &descriptor);
-    void FileManagerInfoPdbCompilands(ProgramFileDescriptor &descriptor);
-    void FileManagerInfoPdbSourceFiles(ProgramFileDescriptor &descriptor);
-    void FileManagerInfoPdbSymbols(ProgramFileDescriptor &descriptor);
-    void FileManagerInfoPdbFunctions(ProgramFileDescriptor &descriptor);
-    void FileManagerInfoPdbExeInfo(ProgramFileDescriptor &descriptor);
+    void FileManagerInfo(ProgramFileDescriptor &fileDescriptor, const ProgramFileRevisionDescriptor &revisionDescriptor);
+    void FileManagerInfoExeSections(const ProgramFileRevisionDescriptor &descriptor);
+    void FileManagerInfoExeSymbols(
+        ProgramFileDescriptor &fileDescriptor,
+        const ProgramFileRevisionDescriptor &revisionDescriptor);
+    void FileManagerInfoPdbCompilands(const ProgramFileRevisionDescriptor &descriptor);
+    void FileManagerInfoPdbSourceFiles(const ProgramFileRevisionDescriptor &descriptor);
+    void FileManagerInfoPdbSymbols(
+        ProgramFileDescriptor &fileDescriptor,
+        const ProgramFileRevisionDescriptor &revisionDescriptor);
+    void FileManagerInfoPdbFunctions(
+        ProgramFileDescriptor &fileDescriptor,
+        const ProgramFileRevisionDescriptor &revisionDescriptor);
+    void FileManagerInfoPdbExeInfo(const ProgramFileRevisionDescriptor &descriptor);
 
     void AsmOutputManagerBody();
 
-    void AsmComparisonManagerBody(AsmComparisonDescriptor &descriptor);
+    void AsmComparisonManagerBody(ProgramComparisonDescriptor &descriptor);
 
 private:
     ImVec2 m_windowPos = ImVec2(0, 0);
@@ -211,7 +290,7 @@ private:
     WorkQueue m_workQueue;
 
     std::vector<ProgramFileDescriptorPtr> m_programFiles;
-    std::vector<AsmComparisonDescriptorPtr> m_asmComparisons;
+    std::vector<ProgramComparisonDescriptorPtr> m_programComparisons;
 };
 
 } // namespace unassemblize::gui
