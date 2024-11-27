@@ -15,6 +15,14 @@
 
 namespace unassemblize
 {
+WorkQueueDelayedCommand *get_last_delayed_command(WorkQueueDelayedCommand *delayedCommand)
+{
+    WorkQueueDelayedCommand *nextCommand = delayedCommand;
+    while (nextCommand->has_delayed_command())
+        nextCommand = nextCommand->next_delayed_command.get();
+    return nextCommand;
+}
+
 WorkQueueCommandId WorkQueueCommand::s_id = InvalidWorkQueueCommandId + 1; // 1
 
 WorkQueue::~WorkQueue()

@@ -65,6 +65,8 @@ private:
     WorkQueueCommandCreateFunction create;
 };
 
+WorkQueueDelayedCommand *get_last_delayed_command(WorkQueueDelayedCommand *delayedCommand);
+
 struct WorkQueueCommand : public WorkQueueDelayedCommand
 {
     WorkQueueCommand() : command_id(s_id++) {}

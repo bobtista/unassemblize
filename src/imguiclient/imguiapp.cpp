@@ -62,14 +62,12 @@ bool ImGuiApp::ProgramFileDescriptor::can_load() const
 
 bool ImGuiApp::ProgramFileDescriptor::can_save_exe_config() const
 {
-    return m_fileRevisionDescriptor != nullptr && m_fileRevisionDescriptor->m_executable != nullptr
-        && !evaluate_exe_config_filename().empty();
+    return exe_loaded() && !evaluate_exe_config_filename().empty();
 }
 
 bool ImGuiApp::ProgramFileDescriptor::can_save_pdb_config() const
 {
-    return m_fileRevisionDescriptor != nullptr && m_fileRevisionDescriptor->m_pdbReader != nullptr
-        && !evaluate_pdb_config_filename().empty();
+    return pdb_loaded() && !evaluate_pdb_config_filename().empty();
 }
 
 bool ImGuiApp::ProgramFileDescriptor::can_save_config() const
@@ -77,12 +75,22 @@ bool ImGuiApp::ProgramFileDescriptor::can_save_config() const
     return can_save_exe_config() || can_save_pdb_config();
 }
 
+bool ImGuiApp::ProgramFileDescriptor::exe_loaded() const
+{
+    return m_revisionDescriptor != nullptr && m_revisionDescriptor->exe_loaded();
+}
+
+bool ImGuiApp::ProgramFileDescriptor::pdb_loaded() const
+{
+    return m_revisionDescriptor != nullptr && m_revisionDescriptor->pdb_loaded();
+}
+
 std::string ImGuiApp::ProgramFileDescriptor::evaluate_exe_filename() const
 {
     if (is_auto_str(m_exeFilename))
     {
-        if (m_fileRevisionDescriptor != nullptr)
-            return m_fileRevisionDescriptor->m_exeFilenameFromPdb;
+        if (m_revisionDescriptor != nullptr)
+            return m_revisionDescriptor->m_exeFilenameFromPdb;
         else
             return std::string();
     }
@@ -105,9 +113,9 @@ std::string ImGuiApp::ProgramFileDescriptor::evaluate_pdb_config_filename() cons
 std::string ImGuiApp::ProgramFileDescriptor::create_short_exe_name() const
 {
     std::string name;
-    if (m_fileRevisionDescriptor != nullptr)
+    if (m_revisionDescriptor != nullptr)
     {
-        name = m_fileRevisionDescriptor->create_short_exe_name();
+        name = m_revisionDescriptor->create_short_exe_name();
     }
     else
     {
@@ -146,10 +154,19 @@ std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_file_in
 
 ImGuiApp::ProgramFileRevisionId ImGuiApp::ProgramFileDescriptor::get_revision_id() const
 {
-    if (m_fileRevisionDescriptor != nullptr)
-        return m_fileRevisionDescriptor->m_id;
+    if (m_revisionDescriptor != nullptr)
+        return m_revisionDescriptor->m_id;
     else
         return InvalidId;
+}
+
+void ImGuiApp::ProgramFileDescriptor::create_new_revision_descriptor()
+{
+    m_revisionDescriptor = std::make_shared<ProgramFileRevisionDescriptor>();
+    m_revisionDescriptor->m_exeFilenameCopy = m_exeFilename;
+    m_revisionDescriptor->m_exeConfigFilenameCopy = m_exeConfigFilename;
+    m_revisionDescriptor->m_pdbFilenameCopy = m_pdbFilename;
+    m_revisionDescriptor->m_pdbConfigFilenameCopy = m_pdbConfigFilename;
 }
 
 ImGuiApp::ProgramFileRevisionDescriptor::ProgramFileRevisionDescriptor() : m_id(s_id++)
@@ -172,12 +189,27 @@ bool ImGuiApp::ProgramFileRevisionDescriptor::can_load_pdb() const
 
 bool ImGuiApp::ProgramFileRevisionDescriptor::can_save_exe_config() const
 {
-    return m_executable != nullptr && !evaluate_exe_config_filename().empty();
+    return exe_loaded() && !evaluate_exe_config_filename().empty();
 }
 
 bool ImGuiApp::ProgramFileRevisionDescriptor::can_save_pdb_config() const
 {
-    return m_pdbReader != nullptr && !evaluate_pdb_config_filename().empty();
+    return pdb_loaded() && !evaluate_pdb_config_filename().empty();
+}
+
+bool ImGuiApp::ProgramFileRevisionDescriptor::exe_loaded() const
+{
+    return m_executable != nullptr;
+}
+
+bool ImGuiApp::ProgramFileRevisionDescriptor::pdb_loaded() const
+{
+    return m_pdbReader != nullptr;
+}
+
+bool ImGuiApp::ProgramFileRevisionDescriptor::named_functions_built() const
+{
+    return m_namedFunctionsBuilt;
 }
 
 std::string ImGuiApp::ProgramFileRevisionDescriptor::evaluate_exe_filename() const
@@ -237,12 +269,75 @@ std::string ImGuiApp::ProgramFileRevisionDescriptor::create_descriptor_name_with
     }
 }
 
-ImGuiApp::ProgramComparisonDescriptor::ProgramComparisonDescriptor() : id(s_id++)
+ImGuiApp::ProgramComparisonDescriptor::ProgramComparisonDescriptor() : m_id(s_id++)
 {
 }
 
 ImGuiApp::ProgramComparisonDescriptor::~ProgramComparisonDescriptor()
 {
+}
+
+bool ImGuiApp::ProgramComparisonDescriptor::File::exe_loaded() const
+{
+    return m_revisionDescriptor != nullptr && m_revisionDescriptor->exe_loaded();
+}
+
+bool ImGuiApp::ProgramComparisonDescriptor::File::pdb_loaded() const
+{
+    return m_revisionDescriptor != nullptr && m_revisionDescriptor->pdb_loaded();
+}
+
+bool ImGuiApp::ProgramComparisonDescriptor::File::named_functions_built() const
+{
+    return m_revisionDescriptor != nullptr && m_revisionDescriptor->named_functions_built();
+}
+
+bool ImGuiApp::ProgramComparisonDescriptor::File::bundled_functions_built() const
+{
+    // Note: Compiland and Source Files bundles are only built when a Pdb was present.
+    // Therefore, only the single bundle is always built for an executable.
+    return m_singleBundleBuilt;
+}
+
+bool ImGuiApp::ProgramComparisonDescriptor::executables_loaded() const
+{
+    int count = 0;
+
+    for (const File &file : m_files)
+    {
+        if (file.exe_loaded())
+            ++count;
+    }
+    return count == m_files.size();
+}
+
+bool ImGuiApp::ProgramComparisonDescriptor::named_functions_built() const
+{
+    int count = 0;
+
+    for (const File &file : m_files)
+    {
+        if (file.named_functions_built())
+            ++count;
+    }
+    return count == m_files.size();
+}
+
+bool ImGuiApp::ProgramComparisonDescriptor::matched_functions_built() const
+{
+    return m_matchedFunctionsBuilt;
+}
+
+bool ImGuiApp::ProgramComparisonDescriptor::bundled_functions_built() const
+{
+    int count = 0;
+
+    for (const File &file : m_files)
+    {
+        if (file.bundled_functions_built())
+            ++count;
+    }
+    return count == m_files.size();
 }
 
 ImGuiApp::ImGuiApp()
@@ -407,10 +502,10 @@ void ImGuiApp::update_app()
     if (m_showFileManager)
         FileManagerWindow(&m_showFileManager);
 
-    if (m_showAsmOutputManager)
-        AsmOutputManagerWindow(&m_showAsmOutputManager);
+    if (m_showOutputManager)
+        OutputManagerWindow(&m_showOutputManager);
 
-    AsmComparisonManagerWindows();
+    ComparisonManagerWindows();
 }
 
 WorkQueueCommandPtr ImGuiApp::create_load_command(
@@ -571,6 +666,144 @@ WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(
     return command;
 }
 
+WorkQueueCommandPtr ImGuiApp::create_build_named_functions_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+{
+    assert(revisionDescriptor != nullptr);
+    assert(revisionDescriptor->m_executable != nullptr);
+
+    auto command = std::make_unique<AsyncBuildFunctionsCommand>(BuildFunctionsOptions(*revisionDescriptor->m_executable));
+
+    command->callback = [revisionDescriptor](WorkQueueResultPtr &result) {
+        auto res = static_cast<AsyncBuildFunctionsResult *>(result.get());
+        revisionDescriptor->m_namedFunctions = std::move(res->named_functions);
+        revisionDescriptor->m_namedFunctionsBuilt = true;
+
+        // TODO: Invalidate command
+    };
+
+    revisionDescriptor->m_namedFunctions.clear();
+    revisionDescriptor->m_namedFunctionsBuilt = false;
+
+    // TODO: Set active command
+
+    return command;
+}
+
+WorkQueueCommandPtr ImGuiApp::create_build_matched_functions_command(ProgramComparisonDescriptor *comparisonDescriptor)
+{
+    assert(comparisonDescriptor != nullptr);
+    ProgramFileRevisionDescriptor *revisionDescriptor0 = comparisonDescriptor->m_files[0].m_revisionDescriptor.get();
+    ProgramFileRevisionDescriptor *revisionDescriptor1 = comparisonDescriptor->m_files[1].m_revisionDescriptor.get();
+    assert(revisionDescriptor0 != nullptr);
+    assert(revisionDescriptor1 != nullptr);
+
+    auto command = std::make_unique<AsyncBuildMatchedFunctionsCommand>(
+        BuildMatchedFunctionsOptions({&revisionDescriptor0->m_namedFunctions, &revisionDescriptor1->m_namedFunctions}));
+
+    command->callback = [comparisonDescriptor](WorkQueueResultPtr &result) {
+        auto res = static_cast<AsyncBuildMatchedFunctionsResult *>(result.get());
+
+        comparisonDescriptor->m_matchedFunctions = std::move(res->matchedFunctionsData.matchedFunctions);
+        comparisonDescriptor->m_files[0].m_namedFunctionsMatchInfos =
+            std::move(res->matchedFunctionsData.namedFunctionMatchInfosArray[0]);
+        comparisonDescriptor->m_files[1].m_namedFunctionsMatchInfos =
+            std::move(res->matchedFunctionsData.namedFunctionMatchInfosArray[1]);
+        comparisonDescriptor->m_matchedFunctionsBuilt = true;
+
+        // TODO: Invalidate command
+    };
+
+    comparisonDescriptor->m_matchedFunctions.clear();
+    comparisonDescriptor->m_files[0].m_namedFunctionsMatchInfos.clear();
+    comparisonDescriptor->m_files[1].m_namedFunctionsMatchInfos.clear();
+    comparisonDescriptor->m_matchedFunctionsBuilt = false;
+
+    // TODO: Set active command
+
+    return command;
+}
+
+WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_compilands_command(ProgramComparisonDescriptor::File *file)
+{
+    assert(file != nullptr);
+    assert(file->m_revisionDescriptor != nullptr);
+    assert(file->m_revisionDescriptor->m_pdbReader != nullptr);
+
+    auto command = std::make_unique<AsyncBuildBundlesFromCompilandsCommand>(BuildBundlesFromCompilandsOptions(
+        file->m_revisionDescriptor->m_namedFunctions,
+        file->m_namedFunctionsMatchInfos,
+        *file->m_revisionDescriptor->m_pdbReader));
+
+    command->callback = [file](WorkQueueResultPtr &result) {
+        auto res = static_cast<AsyncBuildBundlesFromCompilandsResult *>(result.get());
+        file->m_compilandBundles = std::move(res->bundles);
+        file->m_compilandBundlesBuilt = true;
+
+        // TODO: Invalidate command
+    };
+
+    file->m_compilandBundles.clear();
+    file->m_compilandBundlesBuilt = false;
+
+    // TODO: Set active command
+
+    return command;
+}
+
+WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_source_files_command(ProgramComparisonDescriptor::File *file)
+{
+    assert(file != nullptr);
+    assert(file->m_revisionDescriptor != nullptr);
+    assert(file->m_revisionDescriptor->m_pdbReader != nullptr);
+
+    auto command = std::make_unique<AsyncBuildBundlesFromSourceFilesCommand>(BuildBundlesFromSourceFilesOptions(
+        file->m_revisionDescriptor->m_namedFunctions,
+        file->m_namedFunctionsMatchInfos,
+        *file->m_revisionDescriptor->m_pdbReader));
+
+    command->callback = [file](WorkQueueResultPtr &result) {
+        auto res = static_cast<AsyncBuildBundlesFromSourceFilesResult *>(result.get());
+        file->m_sourceFileBundles = std::move(res->bundles);
+        file->m_sourceFileBundlesBuilt = true;
+
+        // TODO: Invalidate command
+    };
+
+    file->m_sourceFileBundles.clear();
+    file->m_sourceFileBundlesBuilt = false;
+
+    // TODO: Set active command
+
+    return command;
+}
+
+WorkQueueCommandPtr ImGuiApp::create_build_single_bundle_command(
+    ProgramComparisonDescriptor::File *file,
+    const MatchedFunctions &matched_functions,
+    size_t bundle_file_idx)
+{
+    assert(file != nullptr);
+    assert(file->m_revisionDescriptor != nullptr);
+
+    auto command = std::make_unique<AsyncBuildSingleBundleCommand>(
+        BuildSingleBundleOptions(file->m_namedFunctionsMatchInfos, matched_functions, bundle_file_idx));
+
+    command->callback = [file](WorkQueueResultPtr &result) {
+        auto res = static_cast<AsyncBuildSingleBundleResult *>(result.get());
+        file->m_singleBundle = std::move(res->bundle);
+        file->m_singleBundleBuilt = true;
+
+        // TODO: Invalidate command
+    };
+
+    file->m_sourceFileBundles.clear();
+    file->m_singleBundleBuilt = false;
+
+    // TODO: Set active command
+
+    return command;
+}
+
 ImGuiApp::ProgramFileDescriptor *ImGuiApp::get_program_file_descriptor(size_t program_file_idx)
 {
     if (program_file_idx < m_programFiles.size())
@@ -584,13 +817,9 @@ void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor != nullptr);
 
-    descriptor->m_fileRevisionDescriptor = std::make_shared<ProgramFileRevisionDescriptor>();
-    descriptor->m_fileRevisionDescriptor->m_exeFilenameCopy = descriptor->m_exeFilename;
-    descriptor->m_fileRevisionDescriptor->m_exeConfigFilenameCopy = descriptor->m_exeConfigFilename;
-    descriptor->m_fileRevisionDescriptor->m_pdbFilenameCopy = descriptor->m_pdbFilename;
-    descriptor->m_fileRevisionDescriptor->m_pdbConfigFilenameCopy = descriptor->m_pdbConfigFilename;
+    descriptor->create_new_revision_descriptor();
 
-    auto command = create_load_command(descriptor, descriptor->m_fileRevisionDescriptor);
+    auto command = create_load_command(descriptor, descriptor->m_revisionDescriptor);
 
     m_workQueue.enqueue(std::move(command));
 }
@@ -598,32 +827,217 @@ void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 void ImGuiApp::save_config_async(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor != nullptr);
-    assert(descriptor->m_fileRevisionDescriptor != nullptr);
+    assert(descriptor->m_revisionDescriptor != nullptr);
 
     WorkQueueDelayedCommand head_command;
     WorkQueueDelayedCommand *next_command = &head_command;
 
     if (descriptor->can_save_exe_config())
     {
-        descriptor->m_fileRevisionDescriptor->m_exeConfigFilenameCopy = descriptor->m_exeConfigFilename;
+        descriptor->m_revisionDescriptor->m_exeConfigFilenameCopy = descriptor->m_exeConfigFilename;
         next_command = next_command->chain(
-            [descriptor, revisionDescriptor = descriptor->m_fileRevisionDescriptor](WorkQueueResultPtr &result) mutable {
-                return create_save_exe_config_command(descriptor, revisionDescriptor);
-            });
+            [descriptor, revisionDescriptor = descriptor->m_revisionDescriptor](WorkQueueResultPtr &result) mutable
+            -> WorkQueueCommandPtr { return create_save_exe_config_command(descriptor, revisionDescriptor); });
     }
 
     if (descriptor->can_save_pdb_config())
     {
-        descriptor->m_fileRevisionDescriptor->m_pdbConfigFilenameCopy = descriptor->m_pdbConfigFilename;
+        descriptor->m_revisionDescriptor->m_pdbConfigFilenameCopy = descriptor->m_pdbConfigFilename;
         next_command = next_command->chain(
-            [descriptor, revisionDescriptor = descriptor->m_fileRevisionDescriptor](WorkQueueResultPtr &result) mutable {
-                return create_save_pdb_config_command(descriptor, revisionDescriptor);
-            });
+            [descriptor, revisionDescriptor = descriptor->m_revisionDescriptor](WorkQueueResultPtr &result) mutable
+            -> WorkQueueCommandPtr { return create_save_pdb_config_command(descriptor, revisionDescriptor); });
     }
 
     assert(head_command.next_delayed_command != nullptr);
 
     m_workQueue.enqueue(head_command);
+}
+
+void ImGuiApp::load_and_compare_async(
+    ProgramFileDescriptorPair fileDescriptorPair,
+    ProgramComparisonDescriptor *comparisonDescriptor)
+{
+    assert(fileDescriptorPair[0]->can_load() || fileDescriptorPair[0]->exe_loaded());
+    assert(fileDescriptorPair[1]->can_load() || fileDescriptorPair[1]->exe_loaded());
+
+    bool isAnyncLoading = false;
+
+    const bool isComparingSameFile = fileDescriptorPair[0] == fileDescriptorPair[1];
+    const int loadFileCount = isComparingSameFile ? 1 : 2;
+
+    for (int i = 0; i < loadFileCount; ++i)
+    {
+        ProgramComparisonDescriptor::File &file = comparisonDescriptor->m_files[i];
+
+        if (file.m_revisionDescriptor == nullptr || file.m_revisionDescriptor != fileDescriptorPair[i]->m_revisionDescriptor)
+        {
+            // Force rebuild matched functions when at least one of the files needs to be loaded first or has changed.
+            comparisonDescriptor->m_matchedFunctionsBuilt = false;
+            break;
+        }
+    }
+
+    for (int i = 0; i < loadFileCount; ++i)
+    {
+        ProgramFileDescriptor *fileDescriptor = fileDescriptorPair[i];
+
+        if (fileDescriptor->exe_loaded())
+        {
+            // Executable is already loaded. Use it.
+
+            if (isComparingSameFile)
+            {
+                comparisonDescriptor->m_files[0].m_revisionDescriptor = fileDescriptor->m_revisionDescriptor;
+                comparisonDescriptor->m_files[1].m_revisionDescriptor = fileDescriptor->m_revisionDescriptor;
+            }
+            else
+            {
+                comparisonDescriptor->m_files[i].m_revisionDescriptor = fileDescriptor->m_revisionDescriptor;
+            }
+
+            if (!comparisonDescriptor->matched_functions_built())
+            {
+                // Force rebuild bundles because bundles are dependent on matched functions.
+                comparisonDescriptor->m_files[i].m_compilandBundlesBuilt = false;
+                comparisonDescriptor->m_files[i].m_sourceFileBundlesBuilt = false;
+                comparisonDescriptor->m_files[i].m_singleBundleBuilt = false;
+            }
+        }
+        else
+        {
+            // Executable is not yet loaded. Load it first.
+
+            fileDescriptor->create_new_revision_descriptor();
+
+            if (isComparingSameFile)
+            {
+                comparisonDescriptor->m_files[0].m_revisionDescriptor = fileDescriptor->m_revisionDescriptor;
+                comparisonDescriptor->m_files[1].m_revisionDescriptor = fileDescriptor->m_revisionDescriptor;
+            }
+            else
+            {
+                comparisonDescriptor->m_files[i].m_revisionDescriptor = fileDescriptor->m_revisionDescriptor;
+            }
+
+            auto command = create_load_command(fileDescriptor, fileDescriptor->m_revisionDescriptor);
+
+            WorkQueueDelayedCommand *next_command = get_last_delayed_command(command.get());
+
+            next_command->chain([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
+                if (comparisonDescriptor->executables_loaded())
+                {
+                    compare_async(comparisonDescriptor);
+                }
+                return nullptr;
+            });
+
+            m_workQueue.enqueue(std::move(command));
+            isAnyncLoading = true;
+        }
+    }
+
+    if (!isAnyncLoading)
+    {
+        compare_async(comparisonDescriptor);
+    }
+}
+
+void ImGuiApp::compare_async(ProgramComparisonDescriptor *comparisonDescriptor)
+{
+    assert(comparisonDescriptor != nullptr);
+
+    if (!comparisonDescriptor->named_functions_built())
+    {
+        build_named_functions_async(comparisonDescriptor);
+    }
+    else if (!comparisonDescriptor->matched_functions_built())
+    {
+        build_matched_functions_async(comparisonDescriptor);
+    }
+    else if (!comparisonDescriptor->bundled_functions_built())
+    {
+        build_bundled_functions_async(comparisonDescriptor);
+    }
+    else
+    {
+        // Nothing to do.
+    }
+}
+
+void ImGuiApp::build_named_functions_async(ProgramComparisonDescriptor *comparisonDescriptor)
+{
+    std::array<ProgramFileRevisionDescriptorPtr, 2> revisionDescriptorPair = {
+        comparisonDescriptor->m_files[0].m_revisionDescriptor,
+        comparisonDescriptor->m_files[1].m_revisionDescriptor};
+
+    const bool isComparingSameFile = revisionDescriptorPair[0] == revisionDescriptorPair[1];
+    const int loadFileCount = isComparingSameFile ? 1 : 2;
+
+    for (size_t i = 0; i < loadFileCount; ++i)
+    {
+        assert(revisionDescriptorPair[i] != nullptr);
+
+        if (!revisionDescriptorPair[i]->named_functions_built())
+        {
+            auto command = create_build_named_functions_command(revisionDescriptorPair[i]);
+
+            WorkQueueDelayedCommand *next_command = get_last_delayed_command(command.get());
+
+            next_command->chain([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
+                if (comparisonDescriptor->named_functions_built())
+                {
+                    // Go to next async task.
+                    compare_async(comparisonDescriptor);
+                }
+                return nullptr;
+            });
+
+            m_workQueue.enqueue(std::move(command));
+        }
+    }
+}
+
+void ImGuiApp::build_matched_functions_async(ProgramComparisonDescriptor *comparisonDescriptor)
+{
+    auto command = create_build_matched_functions_command(comparisonDescriptor);
+
+    WorkQueueDelayedCommand *next_command = get_last_delayed_command(command.get());
+
+    next_command->chain([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
+        assert(comparisonDescriptor->matched_functions_built());
+
+        // Go to next async task.
+        compare_async(comparisonDescriptor);
+
+        return nullptr;
+    });
+
+    m_workQueue.enqueue(std::move(command));
+}
+
+void ImGuiApp::build_bundled_functions_async(ProgramComparisonDescriptor *comparisonDescriptor)
+{
+    for (size_t i = 0; i < 2; ++i)
+    {
+        ProgramComparisonDescriptor::File &file = comparisonDescriptor->m_files[i];
+        assert(file.m_revisionDescriptor != nullptr);
+
+        if (!file.bundled_functions_built())
+        {
+            const MatchedFunctions &matchedFunctions = comparisonDescriptor->m_matchedFunctions;
+
+            if (file.pdb_loaded())
+            {
+                auto command1 = create_build_bundles_from_compilands_command(&file);
+                auto command2 = create_build_bundles_from_source_files_command(&file);
+                m_workQueue.enqueue(std::move(command1));
+                m_workQueue.enqueue(std::move(command2));
+            }
+
+            auto command3 = create_build_single_bundle_command(&file, matchedFunctions, i);
+            m_workQueue.enqueue(std::move(command3));
+        }
+    }
 }
 
 void ImGuiApp::add_file()
@@ -656,7 +1070,7 @@ void ImGuiApp::remove_closed_asm_comparisons()
         std::remove_if(
             m_programComparisons.begin(),
             m_programComparisons.end(),
-            [](const ProgramComparisonDescriptorPtr &p) { return !p->has_open_window; }),
+            [](const ProgramComparisonDescriptorPtr &p) { return !p->m_has_open_window; }),
         m_programComparisons.end());
 }
 
@@ -728,7 +1142,7 @@ void ImGuiApp::BackgroundWindow()
                 if (menu.IsOpen)
                 {
                     ImGui::MenuItem("Program File Manager", nullptr, &m_showFileManager);
-                    ImGui::MenuItem("Assembler Output", nullptr, &m_showAsmOutputManager);
+                    ImGui::MenuItem("Assembler Output", nullptr, &m_showOutputManager);
 
                     if (ImGui::MenuItem("New Assembler Comparison"))
                     {
@@ -780,29 +1194,29 @@ void ImGuiApp::FileManagerWindow(bool *p_open)
     }
 }
 
-void ImGuiApp::AsmOutputManagerWindow(bool *p_open)
+void ImGuiApp::OutputManagerWindow(bool *p_open)
 {
     ImScoped::Window window("Assembler Output Manager", p_open);
     if (window.IsContentVisible)
     {
-        AsmOutputManagerBody();
+        OutputManagerBody();
     }
 }
 
-void ImGuiApp::AsmComparisonManagerWindows()
+void ImGuiApp::ComparisonManagerWindows()
 {
     const size_t count = m_programComparisons.size();
     for (size_t i = 0; i < count; ++i)
     {
         ProgramComparisonDescriptor &descriptor = *m_programComparisons[i];
 
-        const std::string title = fmt::format("Assembler Comparison {:d}", descriptor.id);
+        const std::string title = fmt::format("Assembler Comparison {:d}", descriptor.m_id);
 
-        ImScoped::Window window(title.c_str(), &descriptor.has_open_window);
+        ImScoped::Window window(title.c_str(), &descriptor.m_has_open_window);
         ImScoped::ID id(i);
-        if (window.IsContentVisible && descriptor.has_open_window)
+        if (window.IsContentVisible && descriptor.m_has_open_window)
         {
-            AsmComparisonManagerBody(descriptor);
+            ComparisonManagerBody(descriptor);
         }
     }
 
@@ -915,7 +1329,7 @@ void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, bool &er
         OverlayProgressBar(group_rect, -1.0f * (float)ImGui::GetTime(), overlay.c_str());
     }
 
-    ProgramFileRevisionDescriptor *revisionDescriptor = descriptor.m_fileRevisionDescriptor.get();
+    ProgramFileRevisionDescriptor *revisionDescriptor = descriptor.m_revisionDescriptor.get();
 
     if (revisionDescriptor != nullptr)
     {
@@ -1552,15 +1966,83 @@ void ImGuiApp::FileManagerInfoPdbExeInfo(const ProgramFileRevisionDescriptor &de
     ImGui::Text("Pdb File Path: %s", exe_info.pdbFilePath.c_str());
 }
 
-void ImGuiApp::AsmOutputManagerBody()
+void ImGuiApp::OutputManagerBody()
 {
     // #TODO implement.
 
     ImGui::TextUnformatted("Not implemented");
 }
 
-void ImGuiApp::AsmComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
+void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
 {
+    {
+        const ImVec2 outer_size = ImVec2(0.0f, ImGui::GetTextLineHeightWithSpacing() * 8);
+        ImScoped::Child child("list_box_container", outer_size);
+        ImScoped::Table table("list_box_table", 2, ImGuiTableFlags_SizingStretchSame);
+        if (table.IsContentVisible)
+        {
+            ImGui::TableNextColumn();
+            ComparisonManagerProgramFileSelection(descriptor, 0);
+            ImGui::TableNextColumn();
+            ComparisonManagerProgramFileSelection(descriptor, 1);
+        }
+    }
+
+    const IndexT selectedFileIdx0 = descriptor.m_files[0].m_selectedFileIdx;
+    const IndexT selectedFileIdx1 = descriptor.m_files[1].m_selectedFileIdx;
+    ProgramFileDescriptor *fileDescriptor0 = get_program_file_descriptor(selectedFileIdx0);
+    ProgramFileDescriptor *fileDescriptor1 = get_program_file_descriptor(selectedFileIdx1);
+
+    if (fileDescriptor0 != nullptr && fileDescriptor1 != nullptr)
+    {
+        const bool canCompare0 = fileDescriptor0->can_load() || fileDescriptor0->exe_loaded();
+        const bool canCompare1 = fileDescriptor1->can_load() || fileDescriptor1->exe_loaded();
+        ImScoped::Disabled disabled(!(canCompare0 && canCompare1));
+        // Change button color.
+        ImScoped::StyleColor color1(ImGuiCol_Button, (ImVec4)ImColor::HSV(0.8f, 0.6f, 0.6f));
+        ImScoped::StyleColor color2(ImGuiCol_ButtonHovered, (ImVec4)ImColor::HSV(0.8f, 0.8f, 0.8f));
+        ImScoped::StyleColor color3(ImGuiCol_ButtonActive, (ImVec4)ImColor::HSV(0.8f, 1.0f, 1.0f));
+        // Change text color too to make it readable with the light ImGui color theme.
+        ImScoped::StyleColor text_color1(ImGuiCol_Text, ImVec4(1.00f, 1.00f, 1.00f, 1.00f));
+        ImScoped::StyleColor text_color2(ImGuiCol_TextDisabled, ImVec4(0.50f, 0.50f, 0.50f, 1.00f));
+        if (ImGui::Button("Compare"))
+        {
+            load_and_compare_async({fileDescriptor0, fileDescriptor1}, &descriptor);
+        }
+    }
+}
+
+void ImGuiApp::ComparisonManagerProgramFileSelection(ProgramComparisonDescriptor &descriptor, size_t list_idx)
+{
+    constexpr char *const list_name[2] = {"Select left file", "Select right file"};
+
+    ImScoped::ID id(static_cast<int>(list_idx));
+    ImScoped::Child child("file_list_container");
+
+    ProgramComparisonDescriptor::File &file = descriptor.m_files[list_idx];
+    {
+        ImGui::Text(list_name[list_idx]);
+        const float column_width = ImGui::GetContentRegionAvail().x;
+        const float column_height = ImGui::GetContentRegionAvail().y;
+        const ImVec2 size(column_width, column_height);
+        ImScoped::ListBox list_box("file_list", size);
+
+        if (list_box.IsContentVisible)
+        {
+            const size_t file_count = m_programFiles.size();
+            for (size_t file_idx = 0; file_idx < file_count; ++file_idx)
+            {
+                ProgramFileDescriptor *program_file = m_programFiles[file_idx].get();
+                const std::string name = program_file->create_descriptor_name_with_file_info();
+                const bool is_selected = (file.m_selectedFileIdx == file_idx);
+
+                if (ImGui::Selectable(name.c_str(), is_selected))
+                {
+                    file.m_selectedFileIdx = file_idx;
+                }
+            }
+        }
+    }
 }
 
 } // namespace unassemblize::gui

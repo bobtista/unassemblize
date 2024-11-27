@@ -18,7 +18,10 @@
 // clang-format on
 #include "utility/imgui_text_filter.h"
 #include "utility/imgui_misc.h"
+
+#include "filecontentstorage.h"
 #include "runnerasync.h"
+
 #include <chrono>
 
 struct CommandLineOptions;
@@ -62,13 +65,14 @@ class ImGuiApp
     using ProgramFileRevisionDescriptorPtr = std::shared_ptr<ProgramFileRevisionDescriptor>;
     using ProgramComparisonDescriptorPtr = std::unique_ptr<ProgramComparisonDescriptor>;
 
+    using ProgramFileDescriptorPair = std::array<ProgramFileDescriptor *, 2>;
+
     struct ProgramFileDescriptor
     {
         ProgramFileDescriptor();
         ~ProgramFileDescriptor();
 
         void invalidate_command_id();
-
         bool has_active_command() const;
 
         bool can_load_exe() const;
@@ -77,6 +81,9 @@ class ImGuiApp
         bool can_save_exe_config() const;
         bool can_save_pdb_config() const;
         bool can_save_config() const;
+
+        bool exe_loaded() const;
+        bool pdb_loaded() const;
 
         std::string evaluate_exe_filename() const;
         std::string evaluate_exe_config_filename() const;
@@ -87,6 +94,8 @@ class ImGuiApp
         std::string create_descriptor_name_with_file_info() const;
 
         ProgramFileRevisionId get_revision_id() const;
+
+        void create_new_revision_descriptor();
 
         // Note: All members must be modified by UI thread only
 
@@ -105,13 +114,13 @@ class ImGuiApp
         TextFilterDescriptor<const PdbSymbolInfo *> m_pdbSymbolsFilter = "pdb_symbols_filter";
         TextFilterDescriptor<const PdbFunctionInfo *> m_pdbFunctionsFilter = "pdb_functions_filter";
 
-        ProgramFileRevisionDescriptorPtr m_fileRevisionDescriptor;
+        ProgramFileRevisionDescriptorPtr m_revisionDescriptor;
 
     private:
         static ProgramFileId s_id;
     };
 
-    // Note: Pass down a shared pointer of the ProgramSymbolsDescriptor when chaining async commands.
+    // Note: Pass down a shared pointer of the ProgramFileRevisionDescriptor when chaining async commands.
     struct ProgramFileRevisionDescriptor
     {
         ProgramFileRevisionDescriptor();
@@ -121,6 +130,10 @@ class ImGuiApp
         bool can_load_pdb() const;
         bool can_save_exe_config() const;
         bool can_save_pdb_config() const;
+
+        bool exe_loaded() const;
+        bool pdb_loaded() const;
+        bool named_functions_built() const;
 
         std::string evaluate_exe_filename() const;
         std::string evaluate_exe_config_filename() const;
@@ -151,6 +164,9 @@ class ImGuiApp
         std::chrono::time_point<std::chrono::system_clock> m_pdbSaveConfigTimepoint = InvalidTimePoint;
 
         NamedFunctions m_namedFunctions;
+        FileContentStorage m_fileContentStrorage;
+
+        bool m_namedFunctionsBuilt = false;
 
     private:
         static ProgramFileRevisionId s_id;
@@ -160,22 +176,40 @@ class ImGuiApp
     {
         struct File
         {
-            size_t selectedFileIdx = 0; // Selected file index in list box. Does not necessarily link to actual loaded file.
-            ProgramFileRevisionDescriptorPtr fileRevisionDescriptor;
-            NamedFunctionBundles compilandBundles;
-            NamedFunctionBundles sourceFileBundles;
-            NamedFunctionBundle singleBundle;
+            bool exe_loaded() const;
+            bool pdb_loaded() const;
+            bool named_functions_built() const;
+            bool bundled_functions_built() const;
+
+            // Selected file index in list box. Does not necessarily link to current loaded file.
+            IndexT m_selectedFileIdx = 0;
+            ProgramFileRevisionDescriptorPtr m_revisionDescriptor;
+            NamedFunctionMatchInfos m_namedFunctionsMatchInfos;
+            NamedFunctionBundles m_compilandBundles;
+            NamedFunctionBundles m_sourceFileBundles;
+            NamedFunctionBundle m_singleBundle;
+            bool m_compilandBundlesBuilt = false;
+            bool m_sourceFileBundlesBuilt = false;
+            bool m_singleBundleBuilt = false;
         };
 
         ProgramComparisonDescriptor();
         ~ProgramComparisonDescriptor();
 
-        const ProgramComparisonId id = InvalidId;
+        bool executables_loaded() const;
+        bool named_functions_built() const;
+        bool matched_functions_built() const;
+        bool bundled_functions_built() const;
 
-        bool has_open_window = true;
+        const ProgramComparisonId m_id = InvalidId;
 
-        std::array<File, 2> files;
-        MatchedFunctions matchedFunctions;
+        bool m_has_open_window = true;
+
+        std::array<File, 2> m_files;
+
+        MatchedFunctions m_matchedFunctions;
+
+        bool m_matchedFunctionsBuilt = false;
 
     private:
         static ProgramFileId s_id;
@@ -221,11 +255,28 @@ private:
         ProgramFileDescriptor *fileDescriptor,
         ProgramFileRevisionDescriptorPtr &revisionDescriptor);
 
+    static WorkQueueCommandPtr create_build_named_functions_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor);
+    static WorkQueueCommandPtr create_build_matched_functions_command(ProgramComparisonDescriptor *comparisonDescriptor);
+    static WorkQueueCommandPtr create_build_bundles_from_compilands_command(ProgramComparisonDescriptor::File *file);
+    static WorkQueueCommandPtr create_build_bundles_from_source_files_command(ProgramComparisonDescriptor::File *file);
+    static WorkQueueCommandPtr create_build_single_bundle_command(
+        ProgramComparisonDescriptor::File *file,
+        const MatchedFunctions &matched_functions,
+        size_t bundle_file_idx);
+
     ProgramFileDescriptor *get_program_file_descriptor(size_t program_file_idx);
 
     void load_async(ProgramFileDescriptor *descriptor);
 
     void save_config_async(ProgramFileDescriptor *descriptor);
+
+    void load_and_compare_async(
+        ProgramFileDescriptorPair fileDescriptorPair,
+        ProgramComparisonDescriptor *comparisonDescriptor);
+    void compare_async(ProgramComparisonDescriptor *comparisonDescriptor);
+    void build_named_functions_async(ProgramComparisonDescriptor *comparisonDescriptor);
+    void build_matched_functions_async(ProgramComparisonDescriptor *comparisonDescriptor);
+    void build_bundled_functions_async(ProgramComparisonDescriptor *comparisonDescriptor);
 
     void add_file();
     void remove_file(size_t idx);
@@ -239,8 +290,8 @@ private:
 
     void BackgroundWindow();
     void FileManagerWindow(bool *p_open);
-    void AsmOutputManagerWindow(bool *p_open);
-    void AsmComparisonManagerWindows();
+    void OutputManagerWindow(bool *p_open);
+    void ComparisonManagerWindows();
 
     void FileManagerBody();
     void FileManagerDescriptor(ProgramFileDescriptor &descriptor, bool &erased);
@@ -266,9 +317,10 @@ private:
         const ProgramFileRevisionDescriptor &revisionDescriptor);
     void FileManagerInfoPdbExeInfo(const ProgramFileRevisionDescriptor &descriptor);
 
-    void AsmOutputManagerBody();
+    void OutputManagerBody();
 
-    void AsmComparisonManagerBody(ProgramComparisonDescriptor &descriptor);
+    void ComparisonManagerBody(ProgramComparisonDescriptor &descriptor);
+    void ComparisonManagerProgramFileSelection(ProgramComparisonDescriptor &descriptor, size_t list_idx);
 
 private:
     ImVec2 m_windowPos = ImVec2(0, 0);
@@ -286,7 +338,7 @@ private:
     bool m_showFileManagerPdbFunctionInfo = true;
     bool m_showFileManagerPdbExeInfo = true;
 
-    bool m_showAsmOutputManager = true;
+    bool m_showOutputManager = true;
 
     WorkQueue m_workQueue;
 

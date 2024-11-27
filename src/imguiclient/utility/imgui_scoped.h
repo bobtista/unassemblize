@@ -317,6 +317,8 @@ namespace ImScoped
         IMGUI_DELETE_MOVE_COPY(ClipRect);
     };
 
+    
+#if 0 // DEPRECATED in 1.90.0 (from September 2023)
     struct ChildFrame
     {
         bool IsOpen;
@@ -328,6 +330,7 @@ namespace ImScoped
 
         IMGUI_DELETE_MOVE_COPY(ChildFrame);
     };
+#endif
 
     struct Disabled
     {
@@ -335,6 +338,33 @@ namespace ImScoped
         ~Disabled() { ImGui::EndDisabled(); }
 
         IMGUI_DELETE_MOVE_COPY(Disabled);
+    };
+
+    struct ListBox
+    {
+        bool IsContentVisible;
+
+        ListBox(const char* label, const ImVec2& size = ImVec2(0, 0)) { IsContentVisible = ImGui::BeginListBox(label, size); }
+        ~ListBox() { if (IsContentVisible) ImGui::EndListBox(); }
+
+        explicit operator bool() const { return IsContentVisible; }
+
+        IMGUI_DELETE_MOVE_COPY(ListBox);
+    };
+
+    struct Table
+    {
+        bool IsContentVisible;
+
+        Table(const char* str_id, int columns, ImGuiTableFlags flags = 0, const ImVec2& outer_size = ImVec2(0.0f, 0.0f), float inner_width = 0.0f)
+        {
+            IsContentVisible = ImGui::BeginTable(str_id, columns, flags, outer_size, inner_width);
+        }
+        ~Table() { if (IsContentVisible) ImGui::EndTable(); }
+
+        explicit operator bool() const { return IsContentVisible; }
+
+        IMGUI_DELETE_MOVE_COPY(Table);
     };
 
     #undef IMGUI_DELETE_MOVE_COPY
