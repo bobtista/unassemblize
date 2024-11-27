@@ -103,29 +103,29 @@ NamedFunctions Runner::build_functions(const BuildFunctionsOptions &o)
     return build_functions(o.executable);
 }
 
-MatchedFunctions Runner::build_matched_functions(const BuildMatchedFunctionsOptions &o)
+MatchedFunctionsData Runner::build_matched_functions(const BuildMatchedFunctionsOptions &o)
 {
     return build_matched_functions(o.named_functions_pair);
 }
 
 std::vector<IndexT> Runner::build_unmatched_functions(const BuildUnmatchedFunctionsOptions &o)
 {
-    return build_unmatched_functions(o.named_functions, o.matched_functions);
+    return build_unmatched_functions(o.named_functions_match_infos, o.matched_functions);
 }
 
 NamedFunctionBundles Runner::build_bundles_from_compilands(const BuildBundlesFromCompilandsOptions &o)
 {
-    return build_bundles_from_compilands(o.named_functions, o.pdb_reader);
+    return build_bundles_from_compilands(o.named_functions, o.named_functions_match_infos, o.pdb_reader);
 }
 
 NamedFunctionBundles Runner::build_bundles_from_source_files(const BuildBundlesFromSourceFilesOptions &o)
 {
-    return build_bundles_from_source_files(o.named_functions, o.pdb_reader);
+    return build_bundles_from_source_files(o.named_functions, o.named_functions_match_infos, o.pdb_reader);
 }
 
 NamedFunctionBundle Runner::build_single_bundle(const BuildSingleBundleOptions &o)
 {
-    return build_single_bundle(o.named_functions, o.matched_functions, o.bundle_file_idx);
+    return build_single_bundle(o.named_functions_match_infos, o.matched_functions, o.bundle_file_idx);
 }
 
 void Runner::disassemble_matched_functions(const DisassembleMatchedFunctionsOptions &o)
@@ -234,26 +234,30 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
         named_functions[i] = build_functions(o.get_executable(i));
     }
 
-    MatchedFunctions matched_functions = build_matched_functions(named_functions_pair);
+    MatchedFunctionsData matched_data = build_matched_functions(const_named_functions_pair);
 
     NamedFunctionBundles bundles = build_bundles(
         named_functions[o.bundle_file_idx],
-        matched_functions,
+        matched_data.namedFunctionMatchInfosArray[o.bundle_file_idx],
+        matched_data.matchedFunctions,
         o.bundling_pdb_reader(),
         o.bundle_type,
         o.bundle_file_idx);
 
-    disassemble_matched_functions(named_functions_pair, matched_functions, o.executable_pair, o.format);
+    disassemble_matched_functions(named_functions_pair, matched_data.matchedFunctions, o.executable_pair, o.format);
 
     FileContentStorage source_file_storage;
 
     if (o.print_sourceline_len + o.print_sourcecode_len > 0)
     {
-        build_source_lines_for_matched_functions(named_functions_pair, matched_functions, o.pdb_reader_pair);
-        load_source_files_for_matched_functions(source_file_storage, named_functions_pair, matched_functions);
+        build_source_lines_for_matched_functions(named_functions_pair, matched_data.matchedFunctions, o.pdb_reader_pair);
+        load_source_files_for_matched_functions(source_file_storage, named_functions_pair, matched_data.matchedFunctions);
     }
 
-    build_comparison_records_for_matched_functions(matched_functions, const_named_functions_pair, o.lookahead_limit);
+    build_comparison_records_for_matched_functions(
+        matched_data.matchedFunctions,
+        const_named_functions_pair,
+        o.lookahead_limit);
 
     StringPair exe_filenames;
     for (size_t i = 0; i < o.executable_pair.size(); ++i)
@@ -263,7 +267,7 @@ bool Runner::process_asm_comparison(const AsmComparisonOptions &o)
 
     ok = output_comparison_results(
         const_named_functions_pair,
-        matched_functions,
+        matched_data.matchedFunctions,
         bundles,
         source_file_storage,
         o.bundle_type,
@@ -341,19 +345,23 @@ NamedFunctions Runner::build_functions(const Executable &executable)
     return named_functions;
 }
 
-MatchedFunctions Runner::build_matched_functions(NamedFunctionsPair named_functions_pair)
+MatchedFunctionsData Runner::build_matched_functions(ConstNamedFunctionsPair named_functions_pair)
 {
     const size_t less_idx = named_functions_pair[0]->size() < named_functions_pair[1]->size() ? 0 : 1;
     const size_t more_idx = (less_idx + 1) % named_functions_pair.size();
-    NamedFunctions &less_named_functions = *named_functions_pair[less_idx];
-    NamedFunctions &more_named_functions = *named_functions_pair[more_idx];
+    const NamedFunctions &less_named_functions = *named_functions_pair[less_idx];
+    const NamedFunctions &more_named_functions = *named_functions_pair[more_idx];
     const MultiStringToIndexMapT less_named_functions_to_index_map = build_function_name_to_index_map(less_named_functions);
     const MultiStringToIndexMapT more_named_functions_to_index_map = build_function_name_to_index_map(more_named_functions);
     const size_t less_named_size = less_named_functions.size();
     const size_t more_named_size = more_named_functions.size();
 
-    MatchedFunctions matched_functions;
-    matched_functions.reserve(more_named_size);
+    MatchedFunctionsData result;
+    result.matchedFunctions.reserve(more_named_size);
+    NamedFunctionMatchInfos &lessNamedFunctionMatchInfos = result.namedFunctionMatchInfosArray[less_idx];
+    NamedFunctionMatchInfos &moreNamedFunctionMatchInfos = result.namedFunctionMatchInfosArray[more_idx];
+    lessNamedFunctionMatchInfos.resize(less_named_size);
+    moreNamedFunctionMatchInfos.resize(more_named_size);
 
     for (size_t less_named_idx = 0; less_named_idx < less_named_size; ++less_named_idx)
     {
@@ -373,26 +381,26 @@ MatchedFunctions Runner::build_matched_functions(NamedFunctionsPair named_functi
             continue;
         }
 
-        const IndexT matched_index = matched_functions.size();
-        matched_functions.emplace_back();
-        MatchedFunction &matched = matched_functions.back();
+        const IndexT matched_index = result.matchedFunctions.size();
+        result.matchedFunctions.emplace_back();
+        MatchedFunction &matched = result.matchedFunctions.back();
         matched.named_idx_pair[less_idx] = less_named_idx;
         matched.named_idx_pair[more_idx] = more_pair.first->second;
 
-        less_named_functions[less_named_idx].matched_index = matched_index;
-        more_named_functions[more_pair.first->second].matched_index = matched_index;
+        lessNamedFunctionMatchInfos[less_named_idx].matched_index = matched_index;
+        moreNamedFunctionMatchInfos[more_pair.first->second].matched_index = matched_index;
     }
 
-    matched_functions.shrink_to_fit();
+    result.matchedFunctions.shrink_to_fit();
 
-    return matched_functions;
+    return result;
 }
 
 std::vector<IndexT> Runner::build_unmatched_functions(
-    const NamedFunctions &named_functions,
+    const NamedFunctionMatchInfos &named_functions_match_infos,
     const MatchedFunctions &matched_functions)
 {
-    const size_t named_size = named_functions.size();
+    const size_t named_size = named_functions_match_infos.size();
     const size_t matched_size = matched_functions.size();
     assert(named_size >= matched_size);
     const size_t unmatched_size = named_size - matched_size;
@@ -403,7 +411,7 @@ std::vector<IndexT> Runner::build_unmatched_functions(
 
     for (size_t named_idx = 0; named_idx < named_size; ++named_idx)
     {
-        if (!named_functions[named_idx].is_matched())
+        if (!named_functions_match_infos[named_idx].is_matched())
         {
             unmatched_functions[unmatched_idx++] = named_idx;
         }
@@ -414,6 +422,7 @@ std::vector<IndexT> Runner::build_unmatched_functions(
 
 NamedFunctionBundles Runner::build_bundles(
     const NamedFunctions &named_functions,
+    const NamedFunctionMatchInfos &named_functions_match_infos,
     const MatchedFunctions &matched_functions,
     const PdbReader *bundling_pdb_reader,
     MatchBundleType bundle_type,
@@ -424,11 +433,11 @@ NamedFunctionBundles Runner::build_bundles(
     switch (bundle_type)
     {
         case MatchBundleType::Compiland: {
-            bundles = build_bundles_from_compilands(named_functions, *bundling_pdb_reader);
+            bundles = build_bundles_from_compilands(named_functions, named_functions_match_infos, *bundling_pdb_reader);
             break;
         }
         case MatchBundleType::SourceFile: {
-            bundles = build_bundles_from_source_files(named_functions, *bundling_pdb_reader);
+            bundles = build_bundles_from_source_files(named_functions, named_functions_match_infos, *bundling_pdb_reader);
             break;
         }
     }
@@ -436,7 +445,7 @@ NamedFunctionBundles Runner::build_bundles(
     if (bundles.empty())
     {
         bundles.resize(1);
-        bundles[0] = build_single_bundle(named_functions, matched_functions, bundle_file_idx);
+        bundles[0] = build_single_bundle(named_functions_match_infos, matched_functions, bundle_file_idx);
     }
 
     return bundles;
@@ -444,26 +453,28 @@ NamedFunctionBundles Runner::build_bundles(
 
 NamedFunctionBundles Runner::build_bundles_from_compilands(
     const NamedFunctions &named_functions,
+    const NamedFunctionMatchInfos &named_functions_match_infos,
     const PdbReader &pdb_reader)
 {
     const PdbCompilandInfoVector &compilands = pdb_reader.get_compilands();
     const PdbFunctionInfoVector &functions = pdb_reader.get_functions();
 
-    return build_bundles(compilands, functions, named_functions);
+    return build_bundles(compilands, functions, named_functions, named_functions_match_infos);
 }
 
 NamedFunctionBundles Runner::build_bundles_from_source_files(
     const NamedFunctions &named_functions,
+    const NamedFunctionMatchInfos &named_functions_match_infos,
     const PdbReader &pdb_reader)
 {
     const PdbSourceFileInfoVector &sources = pdb_reader.get_source_files();
     const PdbFunctionInfoVector &functions = pdb_reader.get_functions();
 
-    return build_bundles(sources, functions, named_functions);
+    return build_bundles(sources, functions, named_functions, named_functions_match_infos);
 }
 
 NamedFunctionBundle Runner::build_single_bundle(
-    const NamedFunctions &named_functions,
+    const NamedFunctionMatchInfos &named_functions_match_infos,
     const MatchedFunctions &matched_functions,
     size_t bundle_file_idx)
 {
@@ -481,7 +492,7 @@ NamedFunctionBundle Runner::build_single_bundle(
         bundle.matchedFunctions[i] = i;
         bundle.matchedNamedFunctions[i] = matched_functions[i].named_idx_pair[bundle_file_idx];
     }
-    bundle.unmatchedNamedFunctions = build_unmatched_functions(named_functions, matched_functions);
+    bundle.unmatchedNamedFunctions = build_unmatched_functions(named_functions_match_infos, matched_functions);
 
     return bundle;
 }
@@ -490,7 +501,8 @@ template<class SourceInfoVectorT>
 NamedFunctionBundles Runner::build_bundles(
     const SourceInfoVectorT &sources,
     const PdbFunctionInfoVector &functions,
-    const NamedFunctions &named_functions)
+    const NamedFunctions &named_functions,
+    const NamedFunctionMatchInfos &named_functions_match_infos)
 {
     const Address64ToIndexMapT named_function_to_index_map = build_function_address_to_index_map(named_functions);
     const IndexT sources_count = sources.size();
@@ -499,7 +511,8 @@ NamedFunctionBundles Runner::build_bundles(
 
     for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx)
     {
-        bundles[source_idx] = build_bundle(sources[source_idx], functions, named_functions, named_function_to_index_map);
+        bundles[source_idx] =
+            build_bundle(sources[source_idx], functions, named_functions_match_infos, named_function_to_index_map);
     }
 
     return bundles;
@@ -509,7 +522,7 @@ template<class SourceInfoT>
 NamedFunctionBundle Runner::build_bundle(
     const SourceInfoT &source,
     const PdbFunctionInfoVector &functions,
-    const NamedFunctions &named_functions,
+    const NamedFunctionMatchInfos &named_functions_match_infos,
     const Address64ToIndexMapT &named_function_to_index_map)
 {
     const IndexT function_count = source.functionIds.size();
@@ -527,10 +540,10 @@ NamedFunctionBundle Runner::build_bundle(
         if (it != named_function_to_index_map.cend())
         {
             IndexT named_idx = it->second;
-            const NamedFunction &named = named_functions[named_idx];
-            if (named.is_matched())
+            const NamedFunctionMatchInfo &matchInfo = named_functions_match_infos[named_idx];
+            if (matchInfo.is_matched())
             {
-                bundle.matchedFunctions.push_back(named_functions[named_idx].matched_index);
+                bundle.matchedFunctions.push_back(matchInfo.matched_index);
                 bundle.matchedNamedFunctions.push_back(named_idx);
             }
             else

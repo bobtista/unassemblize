@@ -28,7 +28,7 @@ public:
     static bool save_pdb_config(const SavePdbConfigOptions &o);
 
     static NamedFunctions build_functions(const BuildFunctionsOptions &o);
-    static MatchedFunctions build_matched_functions(const BuildMatchedFunctionsOptions &o);
+    static MatchedFunctionsData build_matched_functions(const BuildMatchedFunctionsOptions &o);
     static std::vector<IndexT> build_unmatched_functions(const BuildUnmatchedFunctionsOptions &o);
 
     // Note: requires a prior call to build_matched_functions!
@@ -71,14 +71,15 @@ private:
 
     static NamedFunctions build_functions(const Executable &executable);
 
-    static MatchedFunctions build_matched_functions(NamedFunctionsPair named_functions_pair);
+    static MatchedFunctionsData build_matched_functions(ConstNamedFunctionsPair named_functions_pair);
 
     static std::vector<IndexT> build_unmatched_functions(
-        const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
         const MatchedFunctions &matched_functions);
 
     static NamedFunctionBundles build_bundles(
         const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
         const MatchedFunctions &matched_functions,
         const PdbReader *bundling_pdb_reader,
         MatchBundleType bundle_type,
@@ -87,16 +88,18 @@ private:
     // Note: requires a prior call to build_matched_functions!
     static NamedFunctionBundles build_bundles_from_compilands(
         const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
         const PdbReader &pdb_reader);
 
     // Note: requires a prior call to build_matched_functions!
     static NamedFunctionBundles build_bundles_from_source_files(
         const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
         const PdbReader &pdb_reader);
 
     // Creates a single bundle with all functions.
     static NamedFunctionBundle build_single_bundle(
-        const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
         const MatchedFunctions &matched_functions,
         size_t bundle_file_idx);
 
@@ -104,13 +107,14 @@ private:
     static NamedFunctionBundles build_bundles(
         const SourceInfoVectorT &sources,
         const PdbFunctionInfoVector &functions,
-        const NamedFunctions &named_functions);
+        const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos);
 
     template<class SourceInfoT>
     static NamedFunctionBundle build_bundle(
         const SourceInfoT &source,
         const PdbFunctionInfoVector &functions,
-        const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
         const Address64ToIndexMapT &named_function_to_index_map);
 
     static void disassemble_function(NamedFunction &named, const FunctionSetup &setup);

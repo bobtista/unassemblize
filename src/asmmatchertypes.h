@@ -99,11 +99,9 @@ struct NamedFunction
     bool is_disassembled() const;
     bool is_linked_to_source_file() const;
     bool Has_loaded_source_file() const;
-    bool is_matched() const;
 
     std::string name;
     Function function;
-    IndexT matched_index = ~IndexT(0); // Links to MatchedFunctions.
 
     // Is set false if function could not be linked to a source file.
     bool can_link_to_source_file = true;
@@ -117,6 +115,14 @@ using NamedFunctionPair = std::array<NamedFunction *, 2>;
 using NamedFunctionsPair = std::array<NamedFunctions *, 2>;
 using ConstNamedFunctionsPair = std::array<const NamedFunctions *, 2>;
 
+struct NamedFunctionMatchInfo
+{
+    bool is_matched() const;
+
+    IndexT matched_index = ~IndexT(0); // Links to MatchedFunctions.
+};
+using NamedFunctionMatchInfos = std::vector<NamedFunctionMatchInfo>;
+
 /*
  * Pairs a function from 2 executables that can be matched.
  */
@@ -128,6 +134,12 @@ struct MatchedFunction
     AsmComparisonResult comparison;
 };
 using MatchedFunctions = std::vector<MatchedFunction>;
+
+struct MatchedFunctionsData
+{
+    MatchedFunctions matchedFunctions;
+    std::array<NamedFunctionMatchInfos, 2> namedFunctionMatchInfosArray;
+};
 
 /*
  * Groups function matches of the same compiland or source file together.

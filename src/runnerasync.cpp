@@ -72,7 +72,7 @@ AsyncBuildMatchedFunctionsCommand::AsyncBuildMatchedFunctionsCommand(BuildMatche
 {
     WorkQueueCommand::work = [this]() {
         auto result = std::make_unique<AsyncBuildMatchedFunctionsResult>();
-        result->matched_functions = Runner::build_matched_functions(options);
+        result->matchedFunctionsData = Runner::build_matched_functions(options);
         return result;
     };
 }

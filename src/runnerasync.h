@@ -242,7 +242,7 @@ struct AsyncBuildMatchedFunctionsResult : public WorkQueueResult
 {
     virtual ~AsyncBuildMatchedFunctionsResult() override = default;
 
-    MatchedFunctions matched_functions;
+    MatchedFunctionsData matchedFunctionsData;
 };
 
 struct AsyncBuildUnmatchedFunctionsResult : public WorkQueueResult

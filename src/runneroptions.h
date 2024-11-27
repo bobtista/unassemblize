@@ -119,55 +119,67 @@ struct BuildFunctionsOptions
 
 struct BuildMatchedFunctionsOptions
 {
-    BuildMatchedFunctionsOptions(NamedFunctionsPair pair) : named_functions_pair(pair) {}
+    BuildMatchedFunctionsOptions(ConstNamedFunctionsPair pair) : named_functions_pair(pair) {}
 
-    const NamedFunctionsPair named_functions_pair;
+    const ConstNamedFunctionsPair named_functions_pair;
 };
 
 struct BuildUnmatchedFunctionsOptions
 {
-    BuildUnmatchedFunctionsOptions(const NamedFunctions &named_functions, const MatchedFunctions &matched_functions) :
-        named_functions(named_functions), matched_functions(matched_functions)
+    BuildUnmatchedFunctionsOptions(
+        const NamedFunctionMatchInfos &named_functions_match_infos,
+        const MatchedFunctions &matched_functions) :
+        named_functions_match_infos(named_functions_match_infos), matched_functions(matched_functions)
     {
     }
 
-    const NamedFunctions &named_functions;
+    const NamedFunctionMatchInfos &named_functions_match_infos;
     const MatchedFunctions &matched_functions;
 };
 
 struct BuildBundlesFromCompilandsOptions
 {
-    BuildBundlesFromCompilandsOptions(const NamedFunctions &named_functions, const PdbReader &pdb_reader) :
-        named_functions(named_functions), pdb_reader(pdb_reader)
+    BuildBundlesFromCompilandsOptions(
+        const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
+        const PdbReader &pdb_reader) :
+        named_functions(named_functions), named_functions_match_infos(named_functions_match_infos), pdb_reader(pdb_reader)
     {
     }
 
     const NamedFunctions &named_functions;
+    const NamedFunctionMatchInfos &named_functions_match_infos;
     const PdbReader &pdb_reader;
 };
 
 struct BuildBundlesFromSourceFilesOptions
 {
-    BuildBundlesFromSourceFilesOptions(const NamedFunctions &named_functions, const PdbReader &pdb_reader) :
-        named_functions(named_functions), pdb_reader(pdb_reader)
+    BuildBundlesFromSourceFilesOptions(
+        const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
+        const PdbReader &pdb_reader) :
+        named_functions(named_functions), named_functions_match_infos(named_functions_match_infos), pdb_reader(pdb_reader)
     {
     }
 
     const NamedFunctions &named_functions;
+    const NamedFunctionMatchInfos &named_functions_match_infos;
     const PdbReader &pdb_reader;
 };
 
 struct BuildSingleBundleOptions
 {
     BuildSingleBundleOptions(
-        const NamedFunctions &named_functions,
+        const NamedFunctionMatchInfos &named_functions_match_infos,
         const MatchedFunctions &matched_functions,
         size_t bundle_file_idx) :
-        named_functions(named_functions), matched_functions(matched_functions), bundle_file_idx(bundle_file_idx)
+        named_functions_match_infos(named_functions_match_infos),
+        matched_functions(matched_functions),
+        bundle_file_idx(bundle_file_idx)
     {
     }
 
-    const NamedFunctions &named_functions;
+    const NamedFunctionMatchInfos &named_functions_match_infos;
     const MatchedFunctions &matched_functions;
     const size_t bundle_file_idx;
 };

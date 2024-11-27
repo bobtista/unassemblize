@@ -589,7 +589,7 @@ void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IndexT co
             m_functions.emplace_back();
             PdbFunctionInfo &functionInfo = m_functions.back();
             functionInfo.compilandId = compilandId;
-            read_compiland_function(compilandInfo, functionInfo, functionId, pSymbol);
+            read_compiland_function(functionInfo, functionId, pSymbol);
             assert(functionInfo.address.absVirtual != 0);
             break;
         }
@@ -665,11 +665,7 @@ void PdbReader::read_compiland_symbol(PdbCompilandInfo &compilandInfo, IndexT co
     }
 }
 
-void PdbReader::read_compiland_function(
-    PdbCompilandInfo &compiland_info,
-    PdbFunctionInfo &functionInfo,
-    IndexT functionId,
-    IDiaSymbol *pSymbol)
+void PdbReader::read_compiland_function(PdbFunctionInfo &functionInfo, IndexT functionId, IDiaSymbol *pSymbol)
 {
     ULONGLONG dwVA;
     DWORD dwRVA;

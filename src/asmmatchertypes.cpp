@@ -174,7 +174,7 @@ bool NamedFunction::Has_loaded_source_file() const
     return has_loaded_source_file;
 }
 
-bool NamedFunction::is_matched() const
+bool NamedFunctionMatchInfo::is_matched() const
 {
     return matched_index != ~IndexT(0);
 }
