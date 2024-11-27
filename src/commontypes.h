@@ -30,6 +30,7 @@ using Address32T = uint32_t;
 using IndexT = uint32_t;
 
 using StringToIndexMapT = std::unordered_map<std::string, IndexT>;
+using MultiStringToIndexMapT = std::unordered_multimap<std::string, IndexT>;
 using Address64ToIndexMapT = std::unordered_map<Address64T, IndexT>;
 
 class Executable;

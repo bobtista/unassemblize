@@ -255,13 +255,15 @@ const ExeSymbol *Executable::get_symbol(uint64_t address) const
 
 const ExeSymbol *Executable::get_symbol(const std::string &name) const
 {
-    StringToIndexMapT::const_iterator it = m_symbolNameToIndexMap.find(name);
+    auto pair = m_symbolNameToIndexMap.equal_range(name);
 
-    if (it != m_symbolNameToIndexMap.end())
+    if (std::distance(pair.first, pair.second) == 1)
     {
-        return &m_symbols[it->second];
+        // No symbol or multiple symbols with this name. Skip.
+        return nullptr;
     }
-    return nullptr;
+
+    return &m_symbols[pair.first->second];
 }
 
 const ExeSymbol *Executable::get_symbol_from_image_base(uint64_t address) const
@@ -313,11 +315,7 @@ void Executable::add_symbol(const ExeSymbol &symbol, bool overwrite)
         m_symbols.push_back(symbol);
         [[maybe_unused]] auto [_, added] = m_symbolAddressToIndexMap.try_emplace(symbol.address, index);
         assert(added);
-        // Symbol name can collide...
-        if (overwrite)
-            m_symbolNameToIndexMap.emplace(symbol.name, index);
-        else
-            m_symbolNameToIndexMap.try_emplace(symbol.name, index);
+        m_symbolNameToIndexMap.emplace(symbol.name, index);
     }
     else if (overwrite)
     {

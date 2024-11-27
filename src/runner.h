@@ -66,7 +66,7 @@ public:
 private:
     static bool in_code_section(const ExeSymbol &symbol, const Executable &executable);
 
-    static StringToIndexMapT build_function_name_to_index_map(const NamedFunctions &named_functions);
+    static MultiStringToIndexMapT build_function_name_to_index_map(const NamedFunctions &named_functions);
     static Address64ToIndexMapT build_function_address_to_index_map(const NamedFunctions &named_functions);
 
     static NamedFunctions build_functions(const Executable &executable);

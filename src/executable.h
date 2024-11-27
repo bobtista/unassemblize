@@ -90,7 +90,9 @@ private:
 
     ExeSymbols m_symbols;
     Address64ToIndexMapT m_symbolAddressToIndexMap;
-    StringToIndexMapT m_symbolNameToIndexMap;
+
+    // Using multimap, because there can be multiple symbols sharing the same name.
+    MultiStringToIndexMapT m_symbolNameToIndexMap;
 
     ExeObjects m_targetObjects;
 

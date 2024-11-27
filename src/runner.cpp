@@ -285,16 +285,16 @@ bool Runner::in_code_section(const ExeSymbol &symbol, const Executable &executab
     return symbol.address >= code_section->address && symbol.address < code_section->address + code_section->size;
 }
 
-StringToIndexMapT Runner::build_function_name_to_index_map(const NamedFunctions &named_functions)
+MultiStringToIndexMapT Runner::build_function_name_to_index_map(const NamedFunctions &named_functions)
 {
+    // Using multimap, because there can be multiple symbols sharing the same name.
+    MultiStringToIndexMapT map;
     const size_t size = named_functions.size();
-    StringToIndexMapT map;
     map.reserve(size);
 
     for (IndexT i = 0; i < size; ++i)
     {
-        [[maybe_unused]] auto [_, added] = map.try_emplace(named_functions[i].name, i);
-        assert(added);
+        map.emplace(named_functions[i].name, i);
     }
     return map;
 }
@@ -347,7 +347,8 @@ MatchedFunctions Runner::build_matched_functions(NamedFunctionsPair named_functi
     const size_t more_idx = (less_idx + 1) % named_functions_pair.size();
     NamedFunctions &less_named_functions = *named_functions_pair[less_idx];
     NamedFunctions &more_named_functions = *named_functions_pair[more_idx];
-    const StringToIndexMapT more_named_functions_to_index_map = build_function_name_to_index_map(more_named_functions);
+    const MultiStringToIndexMapT less_named_functions_to_index_map = build_function_name_to_index_map(less_named_functions);
+    const MultiStringToIndexMapT more_named_functions_to_index_map = build_function_name_to_index_map(more_named_functions);
     const size_t less_named_size = less_named_functions.size();
     const size_t more_named_size = more_named_functions.size();
 
@@ -357,19 +358,29 @@ MatchedFunctions Runner::build_matched_functions(NamedFunctionsPair named_functi
     for (size_t less_named_idx = 0; less_named_idx < less_named_size; ++less_named_idx)
     {
         const NamedFunction &less_named_function = less_named_functions[less_named_idx];
-        const StringToIndexMapT::const_iterator it = more_named_functions_to_index_map.find(less_named_function.name);
 
-        if (it == more_named_functions_to_index_map.cend())
+        const auto more_pair = more_named_functions_to_index_map.equal_range(less_named_function.name);
+        if (std::distance(more_pair.first, more_pair.second) != 1)
+        {
+            // No symbol or multiple symbols with this name. Skip.
             continue;
+        }
+
+        const auto less_pair = less_named_functions_to_index_map.equal_range(less_named_function.name);
+        if (std::distance(less_pair.first, less_pair.second) != 1)
+        {
+            // Multiple symbols with this name. Skip.
+            continue;
+        }
 
         const IndexT matched_index = matched_functions.size();
         matched_functions.emplace_back();
         MatchedFunction &matched = matched_functions.back();
         matched.named_idx_pair[less_idx] = less_named_idx;
-        matched.named_idx_pair[more_idx] = it->second;
+        matched.named_idx_pair[more_idx] = more_pair.first->second;
 
         less_named_functions[less_named_idx].matched_index = matched_index;
-        more_named_functions[it->second].matched_index = matched_index;
+        more_named_functions[more_pair.first->second].matched_index = matched_index;
     }
 
     matched_functions.shrink_to_fit();
