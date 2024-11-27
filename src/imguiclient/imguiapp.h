@@ -201,28 +201,29 @@ public:
 private:
     void update_app();
 
+    static WorkQueueCommandPtr create_load_command(
+        ProgramFileDescriptor *fileDescriptor,
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
     static WorkQueueCommandPtr create_load_exe_command(
         ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &symbolsDescriptor);
-
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
     static WorkQueueCommandPtr create_load_pdb_command(
         ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &symbolsDescriptor);
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
+    static WorkQueueCommandPtr create_load_pdb_and_exe_command(
+        ProgramFileDescriptor *fileDescriptor,
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
 
     static WorkQueueCommandPtr create_save_exe_config_command(
         ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &symbolsDescriptor);
-
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
     static WorkQueueCommandPtr create_save_pdb_config_command(
         ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &symbolsDescriptor);
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
 
     ProgramFileDescriptor *get_program_file_descriptor(size_t program_file_idx);
-    bool CanLoad(size_t program_file_idx) const;
 
     void load_async(ProgramFileDescriptor *descriptor);
-    void load_exe_async(ProgramFileDescriptor *descriptor);
-    void load_pdb_and_exe_async(ProgramFileDescriptor *descriptor);
 
     void save_config_async(ProgramFileDescriptor *descriptor);
 

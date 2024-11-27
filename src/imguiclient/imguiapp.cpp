@@ -413,6 +413,26 @@ void ImGuiApp::update_app()
     AsmComparisonManagerWindows();
 }
 
+WorkQueueCommandPtr ImGuiApp::create_load_command(
+    ProgramFileDescriptor *fileDescriptor,
+    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+{
+    if (fileDescriptor->can_load_pdb())
+    {
+        return create_load_pdb_and_exe_command(fileDescriptor, revisionDescriptor);
+    }
+    else if (fileDescriptor->can_load_exe())
+    {
+        return create_load_exe_command(fileDescriptor, revisionDescriptor);
+    }
+    else
+    {
+        // Cannot load undefined file.
+        assert(false);
+        return nullptr;
+    }
+}
+
 WorkQueueCommandPtr ImGuiApp::create_load_exe_command(
     ProgramFileDescriptor *fileDescriptor,
     ProgramFileRevisionDescriptorPtr &revisionDescriptor)
@@ -469,6 +489,28 @@ WorkQueueCommandPtr ImGuiApp::create_load_pdb_command(
     fileDescriptor->m_pdbSymbolsFilter.reset();
     fileDescriptor->m_pdbFunctionsFilter.reset();
     fileDescriptor->m_activeCommandId = command->command_id;
+
+    return command;
+}
+
+WorkQueueCommandPtr ImGuiApp::create_load_pdb_and_exe_command(
+    ProgramFileDescriptor *fileDescriptor,
+    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+{
+    auto command = create_load_pdb_command(fileDescriptor, revisionDescriptor);
+
+    command->chain([fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) mutable -> WorkQueueCommandPtr {
+        if (revisionDescriptor->m_pdbReader == nullptr)
+            return nullptr;
+
+        const unassemblize::PdbExeInfo &exe_info = revisionDescriptor->m_pdbReader->get_exe_info();
+        revisionDescriptor->m_exeFilenameFromPdb = unassemblize::Runner::create_exe_filename(exe_info);
+
+        if (!revisionDescriptor->can_load_exe())
+            return nullptr;
+
+        return create_load_exe_command(fileDescriptor, revisionDescriptor);
+    });
 
     return command;
 }
@@ -538,68 +580,17 @@ ImGuiApp::ProgramFileDescriptor *ImGuiApp::get_program_file_descriptor(size_t pr
     return nullptr;
 }
 
-bool ImGuiApp::CanLoad(size_t program_file_idx) const
-{
-    if (program_file_idx < m_programFiles.size())
-    {
-        const ProgramFileDescriptor *descriptor = m_programFiles[program_file_idx].get();
-        return descriptor->can_load();
-    }
-    return false;
-}
-
 void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor != nullptr);
 
-    if (descriptor->can_load_pdb())
-    {
-        load_pdb_and_exe_async(descriptor);
-    }
-    else if (descriptor->can_load_exe())
-    {
-        load_exe_async(descriptor);
-    }
-    else
-    {
-        // Cannot load undefined file.
-        assert(false);
-    }
-}
-
-void ImGuiApp::load_exe_async(ProgramFileDescriptor *descriptor)
-{
-    assert(descriptor != nullptr);
-
     descriptor->m_fileRevisionDescriptor = std::make_shared<ProgramFileRevisionDescriptor>();
     descriptor->m_fileRevisionDescriptor->m_exeFilenameCopy = descriptor->m_exeFilename;
-
-    m_workQueue.enqueue(create_load_exe_command(descriptor, descriptor->m_fileRevisionDescriptor));
-}
-
-void ImGuiApp::load_pdb_and_exe_async(ProgramFileDescriptor *descriptor)
-{
-    assert(descriptor != nullptr);
-
-    descriptor->m_fileRevisionDescriptor = std::make_shared<ProgramFileRevisionDescriptor>();
-    descriptor->m_fileRevisionDescriptor->m_exeFilenameCopy = descriptor->m_exeFilename;
+    descriptor->m_fileRevisionDescriptor->m_exeConfigFilenameCopy = descriptor->m_exeConfigFilename;
     descriptor->m_fileRevisionDescriptor->m_pdbFilenameCopy = descriptor->m_pdbFilename;
+    descriptor->m_fileRevisionDescriptor->m_pdbConfigFilenameCopy = descriptor->m_pdbConfigFilename;
 
-    auto command = create_load_pdb_command(descriptor, descriptor->m_fileRevisionDescriptor);
-
-    command->chain(
-        [descriptor, revisionDescriptor = descriptor->m_fileRevisionDescriptor](WorkQueueResultPtr &result) mutable {
-            if (revisionDescriptor->m_pdbReader == nullptr)
-                return WorkQueueCommandPtr();
-
-            const unassemblize::PdbExeInfo &exe_info = revisionDescriptor->m_pdbReader->get_exe_info();
-            revisionDescriptor->m_exeFilenameFromPdb = unassemblize::Runner::create_exe_filename(exe_info);
-
-            if (!revisionDescriptor->can_load_exe())
-                return WorkQueueCommandPtr();
-
-            return create_load_exe_command(descriptor, revisionDescriptor);
-        });
+    auto command = create_load_command(descriptor, descriptor->m_fileRevisionDescriptor);
 
     m_workQueue.enqueue(std::move(command));
 }
