@@ -72,8 +72,8 @@ class ImGuiApp
         ProgramFileDescriptor();
         ~ProgramFileDescriptor();
 
-        void invalidate_command_id();
         bool has_active_command() const;
+        WorkQueueCommandId get_active_command_id() const;
 
         bool can_load_exe() const;
         bool can_load_pdb() const;
@@ -101,9 +101,6 @@ class ImGuiApp
 
         const ProgramFileId m_id = InvalidId;
 
-        // Has pending asynchronous command(s) running when not invalid.
-        WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
-
         // Must be not editable when the WorkQueue thread works on this descriptor.
         std::string m_exeFilename;
         std::string m_exeConfigFilename = auto_str;
@@ -126,6 +123,9 @@ class ImGuiApp
         ProgramFileRevisionDescriptor();
         ~ProgramFileRevisionDescriptor();
 
+        void invalidate_command_id();
+        bool has_active_command() const;
+
         bool can_load_exe() const;
         bool can_load_pdb() const;
         bool can_save_exe_config() const;
@@ -144,6 +144,9 @@ class ImGuiApp
         std::string create_descriptor_name_with_file_info() const;
 
         const ProgramFileRevisionId m_id = InvalidId;
+
+        // Has pending asynchronous command(s) running when not invalid.
+        WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
 
         // String copies of the file descriptor at the time of async command chain creation.
         // These allows to evaluate async save load operations without a dependency to the file descriptor.
@@ -235,25 +238,13 @@ public:
 private:
     void update_app();
 
-    static WorkQueueCommandPtr create_load_command(
-        ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
-    static WorkQueueCommandPtr create_load_exe_command(
-        ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
-    static WorkQueueCommandPtr create_load_pdb_command(
-        ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
-    static WorkQueueCommandPtr create_load_pdb_and_exe_command(
-        ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
+    static WorkQueueCommandPtr create_load_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor);
+    static WorkQueueCommandPtr create_load_exe_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor);
+    static WorkQueueCommandPtr create_load_pdb_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor);
+    static WorkQueueCommandPtr create_load_pdb_and_exe_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor);
 
-    static WorkQueueCommandPtr create_save_exe_config_command(
-        ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
-    static WorkQueueCommandPtr create_save_pdb_config_command(
-        ProgramFileDescriptor *fileDescriptor,
-        ProgramFileRevisionDescriptorPtr &revisionDescriptor);
+    static WorkQueueCommandPtr create_save_exe_config_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor);
+    static WorkQueueCommandPtr create_save_pdb_config_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor);
 
     static WorkQueueCommandPtr create_build_named_functions_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor);
     static WorkQueueCommandPtr create_build_matched_functions_command(ProgramComparisonDescriptor *comparisonDescriptor);

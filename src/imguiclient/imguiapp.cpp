@@ -35,14 +35,14 @@ ImGuiApp::ProgramFileDescriptor::~ProgramFileDescriptor()
 {
 }
 
-void ImGuiApp::ProgramFileDescriptor::invalidate_command_id()
-{
-    m_activeCommandId = InvalidWorkQueueCommandId;
-}
-
 bool ImGuiApp::ProgramFileDescriptor::has_active_command() const
 {
-    return m_activeCommandId != InvalidWorkQueueCommandId;
+    return m_revisionDescriptor != nullptr && m_revisionDescriptor->has_active_command();
+}
+
+WorkQueueCommandId ImGuiApp::ProgramFileDescriptor::get_active_command_id() const
+{
+    return m_revisionDescriptor != nullptr && m_revisionDescriptor->m_activeCommandId;
 }
 
 bool ImGuiApp::ProgramFileDescriptor::can_load_exe() const
@@ -162,6 +162,10 @@ ImGuiApp::ProgramFileRevisionId ImGuiApp::ProgramFileDescriptor::get_revision_id
 
 void ImGuiApp::ProgramFileDescriptor::create_new_revision_descriptor()
 {
+    m_exeSymbolsFilter.reset();
+    m_pdbSymbolsFilter.reset();
+    m_pdbFunctionsFilter.reset();
+
     m_revisionDescriptor = std::make_shared<ProgramFileRevisionDescriptor>();
     m_revisionDescriptor->m_exeFilenameCopy = m_exeFilename;
     m_revisionDescriptor->m_exeConfigFilenameCopy = m_exeConfigFilename;
@@ -175,6 +179,16 @@ ImGuiApp::ProgramFileRevisionDescriptor::ProgramFileRevisionDescriptor() : m_id(
 
 ImGuiApp::ProgramFileRevisionDescriptor::~ProgramFileRevisionDescriptor()
 {
+}
+
+void ImGuiApp::ProgramFileRevisionDescriptor::invalidate_command_id()
+{
+    m_activeCommandId = InvalidWorkQueueCommandId;
+}
+
+bool ImGuiApp::ProgramFileRevisionDescriptor::has_active_command() const
+{
+    return m_activeCommandId != InvalidWorkQueueCommandId;
 }
 
 bool ImGuiApp::ProgramFileRevisionDescriptor::can_load_exe() const
@@ -508,17 +522,15 @@ void ImGuiApp::update_app()
     ComparisonManagerWindows();
 }
 
-WorkQueueCommandPtr ImGuiApp::create_load_command(
-    ProgramFileDescriptor *fileDescriptor,
-    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+WorkQueueCommandPtr ImGuiApp::create_load_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
-    if (fileDescriptor->can_load_pdb())
+    if (revisionDescriptor->can_load_pdb())
     {
-        return create_load_pdb_and_exe_command(fileDescriptor, revisionDescriptor);
+        return create_load_pdb_and_exe_command(revisionDescriptor);
     }
-    else if (fileDescriptor->can_load_exe())
+    else if (revisionDescriptor->can_load_exe())
     {
-        return create_load_exe_command(fileDescriptor, revisionDescriptor);
+        return create_load_exe_command(revisionDescriptor);
     }
     else
     {
@@ -528,9 +540,7 @@ WorkQueueCommandPtr ImGuiApp::create_load_command(
     }
 }
 
-WorkQueueCommandPtr ImGuiApp::create_load_exe_command(
-    ProgramFileDescriptor *fileDescriptor,
-    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+WorkQueueCommandPtr ImGuiApp::create_load_exe_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
     assert(revisionDescriptor->can_load_exe());
 
@@ -544,36 +554,33 @@ WorkQueueCommandPtr ImGuiApp::create_load_exe_command(
 
     command->options.config_file = revisionDescriptor->evaluate_exe_config_filename();
     command->options.pdb_reader = revisionDescriptor->m_pdbReader.get();
-    command->callback = [fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) {
+    command->callback = [revisionDescriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncLoadExeResult *>(result.get());
         revisionDescriptor->m_executable = std::move(res->executable);
         revisionDescriptor->m_exeLoadTimepoint = std::chrono::system_clock::now();
-        fileDescriptor->invalidate_command_id();
+        revisionDescriptor->invalidate_command_id();
     };
 
     revisionDescriptor->m_executable.reset();
     revisionDescriptor->m_exeLoadTimepoint = InvalidTimePoint;
     revisionDescriptor->m_exeSaveConfigFilename.clear();
     revisionDescriptor->m_exeSaveConfigTimepoint = InvalidTimePoint;
-    fileDescriptor->m_exeSymbolsFilter.reset();
-    fileDescriptor->m_activeCommandId = command->command_id;
+    revisionDescriptor->m_activeCommandId = command->command_id;
 
     return command;
 }
 
-WorkQueueCommandPtr ImGuiApp::create_load_pdb_command(
-    ProgramFileDescriptor *fileDescriptor,
-    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+WorkQueueCommandPtr ImGuiApp::create_load_pdb_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
     assert(revisionDescriptor->can_load_pdb());
 
     auto command = std::make_unique<AsyncLoadPdbCommand>(LoadPdbOptions(revisionDescriptor->m_pdbFilenameCopy));
 
-    command->callback = [fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) {
+    command->callback = [revisionDescriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncLoadPdbResult *>(result.get());
         revisionDescriptor->m_pdbReader = std::move(res->pdbReader);
         revisionDescriptor->m_pdbLoadTimepoint = std::chrono::system_clock::now();
-        fileDescriptor->invalidate_command_id();
+        revisionDescriptor->invalidate_command_id();
     };
 
     revisionDescriptor->m_pdbReader.reset();
@@ -581,20 +588,16 @@ WorkQueueCommandPtr ImGuiApp::create_load_pdb_command(
     revisionDescriptor->m_pdbSaveConfigFilename.clear();
     revisionDescriptor->m_pdbSaveConfigTimepoint = InvalidTimePoint;
     revisionDescriptor->m_exeFilenameFromPdb.clear();
-    fileDescriptor->m_pdbSymbolsFilter.reset();
-    fileDescriptor->m_pdbFunctionsFilter.reset();
-    fileDescriptor->m_activeCommandId = command->command_id;
+    revisionDescriptor->m_activeCommandId = command->command_id;
 
     return command;
 }
 
-WorkQueueCommandPtr ImGuiApp::create_load_pdb_and_exe_command(
-    ProgramFileDescriptor *fileDescriptor,
-    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+WorkQueueCommandPtr ImGuiApp::create_load_pdb_and_exe_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
-    auto command = create_load_pdb_command(fileDescriptor, revisionDescriptor);
+    auto command = create_load_pdb_command(revisionDescriptor);
 
-    command->chain([fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) mutable -> WorkQueueCommandPtr {
+    command->chain([revisionDescriptor](WorkQueueResultPtr &result) mutable -> WorkQueueCommandPtr {
         if (revisionDescriptor->m_pdbReader == nullptr)
             return nullptr;
 
@@ -604,15 +607,13 @@ WorkQueueCommandPtr ImGuiApp::create_load_pdb_and_exe_command(
         if (!revisionDescriptor->can_load_exe())
             return nullptr;
 
-        return create_load_exe_command(fileDescriptor, revisionDescriptor);
+        return create_load_exe_command(revisionDescriptor);
     });
 
     return command;
 }
 
-WorkQueueCommandPtr ImGuiApp::create_save_exe_config_command(
-    ProgramFileDescriptor *fileDescriptor,
-    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+WorkQueueCommandPtr ImGuiApp::create_save_exe_config_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
     assert(revisionDescriptor->can_save_exe_config());
 
@@ -620,7 +621,7 @@ WorkQueueCommandPtr ImGuiApp::create_save_exe_config_command(
     auto command = std::make_unique<AsyncSaveExeConfigCommand>(
         SaveExeConfigOptions(*revisionDescriptor->m_executable, config_filename));
 
-    command->callback = [fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) {
+    command->callback = [revisionDescriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSaveExeConfigResult *>(result.get());
         if (res->success)
         {
@@ -628,19 +629,17 @@ WorkQueueCommandPtr ImGuiApp::create_save_exe_config_command(
             revisionDescriptor->m_exeSaveConfigFilename = util::abs_path(com->options.config_file);
             revisionDescriptor->m_exeSaveConfigTimepoint = std::chrono::system_clock::now();
         }
-        fileDescriptor->invalidate_command_id();
+        revisionDescriptor->invalidate_command_id();
     };
 
     revisionDescriptor->m_exeSaveConfigFilename.clear();
     revisionDescriptor->m_exeSaveConfigTimepoint = InvalidTimePoint;
-    fileDescriptor->m_activeCommandId = command->command_id;
+    revisionDescriptor->m_activeCommandId = command->command_id;
 
     return command;
 }
 
-WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(
-    ProgramFileDescriptor *fileDescriptor,
-    ProgramFileRevisionDescriptorPtr &revisionDescriptor)
+WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(ProgramFileRevisionDescriptorPtr &revisionDescriptor)
 {
     assert(revisionDescriptor->can_save_pdb_config());
 
@@ -648,7 +647,7 @@ WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(
     auto command =
         std::make_unique<AsyncSavePdbConfigCommand>(SavePdbConfigOptions(*revisionDescriptor->m_pdbReader, config_filename));
 
-    command->callback = [fileDescriptor, revisionDescriptor](WorkQueueResultPtr &result) {
+    command->callback = [revisionDescriptor](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncSavePdbConfigResult *>(result.get());
         if (res->success)
         {
@@ -656,12 +655,12 @@ WorkQueueCommandPtr ImGuiApp::create_save_pdb_config_command(
             revisionDescriptor->m_pdbSaveConfigFilename = util::abs_path(com->options.config_file);
             revisionDescriptor->m_pdbSaveConfigTimepoint = std::chrono::system_clock::now();
         }
-        fileDescriptor->invalidate_command_id();
+        revisionDescriptor->invalidate_command_id();
     };
 
     revisionDescriptor->m_pdbSaveConfigFilename.clear();
     revisionDescriptor->m_pdbSaveConfigTimepoint = InvalidTimePoint;
-    fileDescriptor->m_activeCommandId = command->command_id;
+    revisionDescriptor->m_activeCommandId = command->command_id;
 
     return command;
 }
@@ -819,7 +818,7 @@ void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 
     descriptor->create_new_revision_descriptor();
 
-    auto command = create_load_command(descriptor, descriptor->m_revisionDescriptor);
+    auto command = create_load_command(descriptor->m_revisionDescriptor);
 
     m_workQueue.enqueue(std::move(command));
 }
@@ -837,7 +836,7 @@ void ImGuiApp::save_config_async(ProgramFileDescriptor *descriptor)
         descriptor->m_revisionDescriptor->m_exeConfigFilenameCopy = descriptor->m_exeConfigFilename;
         next_command = next_command->chain(
             [descriptor, revisionDescriptor = descriptor->m_revisionDescriptor](WorkQueueResultPtr &result) mutable
-            -> WorkQueueCommandPtr { return create_save_exe_config_command(descriptor, revisionDescriptor); });
+            -> WorkQueueCommandPtr { return create_save_exe_config_command(revisionDescriptor); });
     }
 
     if (descriptor->can_save_pdb_config())
@@ -845,7 +844,7 @@ void ImGuiApp::save_config_async(ProgramFileDescriptor *descriptor)
         descriptor->m_revisionDescriptor->m_pdbConfigFilenameCopy = descriptor->m_pdbConfigFilename;
         next_command = next_command->chain(
             [descriptor, revisionDescriptor = descriptor->m_revisionDescriptor](WorkQueueResultPtr &result) mutable
-            -> WorkQueueCommandPtr { return create_save_pdb_config_command(descriptor, revisionDescriptor); });
+            -> WorkQueueCommandPtr { return create_save_pdb_config_command(revisionDescriptor); });
     }
 
     assert(head_command.next_delayed_command != nullptr);
@@ -919,7 +918,7 @@ void ImGuiApp::load_and_compare_async(
                 comparisonDescriptor->m_files[i].m_revisionDescriptor = fileDescriptor->m_revisionDescriptor;
             }
 
-            auto command = create_load_command(fileDescriptor, fileDescriptor->m_revisionDescriptor);
+            auto command = create_load_command(fileDescriptor->m_revisionDescriptor);
 
             WorkQueueDelayedCommand *next_command = get_last_delayed_command(command.get());
 
@@ -1324,7 +1323,7 @@ void ImGuiApp::FileManagerDescriptor(ProgramFileDescriptor &descriptor, bool &er
         group_rect.Min = ImGui::GetItemRectMin();
         group_rect.Max = ImGui::GetItemRectMax();
 
-        const std::string overlay = fmt::format("Processing command {:d} ..", descriptor.m_activeCommandId);
+        const std::string overlay = fmt::format("Processing command {:d} ..", descriptor.get_active_command_id());
 
         OverlayProgressBar(group_rect, -1.0f * (float)ImGui::GetTime(), overlay.c_str());
     }
