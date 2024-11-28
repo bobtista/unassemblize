@@ -120,11 +120,19 @@ class ImGuiApp
     // Note: Pass down a shared pointer of the ProgramFileRevisionDescriptor when chaining async commands.
     struct ProgramFileRevisionDescriptor
     {
+        enum class WorkReason
+        {
+            Load,
+            SaveConfig,
+            BuildNamedFunctions,
+        };
+
         ProgramFileRevisionDescriptor();
         ~ProgramFileRevisionDescriptor();
 
         void invalidate_command_id();
         bool has_active_command() const;
+        WorkQueueCommandId get_active_command_id() const;
 
         bool can_load_exe() const;
         bool can_load_pdb() const;
@@ -147,6 +155,7 @@ class ImGuiApp
 
         // Has pending asynchronous command(s) running when not invalid.
         WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
+        WorkReason m_workReason = {};
 
         // String copies of the file descriptor at the time of async command chain creation.
         // These allows to evaluate async save load operations without a dependency to the file descriptor.
@@ -179,18 +188,36 @@ class ImGuiApp
     {
         struct File
         {
+            enum class WorkReason
+            {
+                BuildMatchedFunctions,
+                BuildCompilandBundles,
+                BuildSourceFileBundles,
+                BuildSingleBundle,
+            };
+
+            void invalidate_command_id();
+            bool has_active_command() const;
+            WorkQueueCommandId get_active_command_id() const;
+
             bool exe_loaded() const;
             bool pdb_loaded() const;
             bool named_functions_built() const;
-            bool bundled_functions_built() const;
+            bool bundles_built() const;
 
-            // Selected file index in list box. Does not necessarily link to current loaded file.
-            IndexT m_selectedFileIdx = 0;
             ProgramFileRevisionDescriptorPtr m_revisionDescriptor;
             NamedFunctionMatchInfos m_namedFunctionsMatchInfos;
             NamedFunctionBundles m_compilandBundles;
             NamedFunctionBundles m_sourceFileBundles;
             NamedFunctionBundle m_singleBundle;
+
+            // Selected file index in list box. Does not necessarily link to current loaded file.
+            IndexT m_selectedFileIdx = 0;
+
+            // Has pending asynchronous command(s) running when not invalid.
+            WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
+            WorkReason m_workReason = {};
+
             bool m_compilandBundlesBuilt = false;
             bool m_sourceFileBundlesBuilt = false;
             bool m_singleBundleBuilt = false;
@@ -199,20 +226,21 @@ class ImGuiApp
         ProgramComparisonDescriptor();
         ~ProgramComparisonDescriptor();
 
+        bool has_active_command() const;
+
         bool executables_loaded() const;
         bool named_functions_built() const;
         bool matched_functions_built() const;
-        bool bundled_functions_built() const;
+        bool bundles_built() const;
 
         const ProgramComparisonId m_id = InvalidId;
 
         bool m_has_open_window = true;
+        bool m_matchedFunctionsBuilt = false;
 
         std::array<File, 2> m_files;
 
         MatchedFunctions m_matchedFunctions;
-
-        bool m_matchedFunctionsBuilt = false;
 
     private:
         static ProgramFileId s_id;
@@ -251,8 +279,7 @@ private:
     static WorkQueueCommandPtr create_build_bundles_from_compilands_command(ProgramComparisonDescriptor::File *file);
     static WorkQueueCommandPtr create_build_bundles_from_source_files_command(ProgramComparisonDescriptor::File *file);
     static WorkQueueCommandPtr create_build_single_bundle_command(
-        ProgramComparisonDescriptor::File *file,
-        const MatchedFunctions &matched_functions,
+        ProgramComparisonDescriptor *comparisonDescriptor,
         size_t bundle_file_idx);
 
     ProgramFileDescriptor *get_program_file_descriptor(size_t program_file_idx);

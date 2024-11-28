@@ -77,33 +77,46 @@ void TooltipTextUnformattedMarker(const char *text, const char *text_end)
 
 void OverlayProgressBar(const ImRect &rect, float fraction, const char *overlay)
 {
-    ImDrawList *drawList = ImGui::GetWindowDrawList();
+    // Set position and size for the child window
+    ImGui::SetCursorScreenPos(rect.Min);
+    ImVec2 childSize = rect.GetSize();
 
-    // Define a translucent overlay color
-    const ImVec4 dimBgVec4 = ImGui::GetStyleColorVec4(ImGuiCol_ModalWindowDimBg);
-    const ImU32 dimBgU32 = ImGui::ColorConvertFloat4ToU32(dimBgVec4);
+    // Create a child window
+    constexpr ImGuiWindowFlags childFlags = ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse
+        | ImGuiWindowFlags_NoInputs | ImGuiWindowFlags_NoBackground;
 
-    // Draw a filled rectangle over the group area
-    drawList->AddRectFilled(rect.Min, rect.Max, dimBgU32);
+    ImScoped::Child child("##progress_child", childSize, false, childFlags);
 
-    // Calculate the center position for the ImGui ProgressBar
-    ImVec2 center = ImVec2((rect.Min.x + rect.Max.x) * 0.5f, (rect.Min.y + rect.Max.y) * 0.5f);
-    ImVec2 progressBarSize = ImVec2(rect.Max.x - rect.Min.x, 20.0f);
-
-    // Set cursor position to the center of the overlay rectangle
-    ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
-    ImGui::SetCursorScreenPos(ImVec2(center.x - progressBarSize.x * 0.5f, center.y - progressBarSize.y * 0.5f));
-
+    if (child.IsContentVisible)
     {
-        // Set a custom background color with transparency
-        ImScoped::StyleColor frameBg(ImGuiCol_FrameBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+        ImDrawList *drawList = ImGui::GetWindowDrawList();
 
-        // Render the ImGui progress bar
-        ImGui::ProgressBar(fraction, progressBarSize, overlay);
+        // Define a translucent overlay color
+        const ImVec4 dimBgVec4 = ImGui::GetStyleColorVec4(ImGuiCol_ModalWindowDimBg);
+        const ImU32 dimBgU32 = ImGui::ColorConvertFloat4ToU32(dimBgVec4);
+
+        // Draw a filled rectangle over the group area
+        drawList->AddRectFilled(rect.Min, rect.Max, dimBgU32);
+
+        // Calculate the center position for the ImGui ProgressBar
+        ImVec2 center = ImVec2((rect.Min.x + rect.Max.x) * 0.5f, (rect.Min.y + rect.Max.y) * 0.5f);
+        ImVec2 progressBarSize = ImVec2(rect.Max.x - rect.Min.x, 20.0f);
+
+        // Set cursor position to the center of the overlay rectangle
+        ImVec2 cursorScreenPos = ImGui::GetCursorScreenPos();
+        ImGui::SetCursorScreenPos(ImVec2(center.x - progressBarSize.x * 0.5f, center.y - progressBarSize.y * 0.5f));
+
+        {
+            // Set a custom background color with transparency
+            ImScoped::StyleColor frameBg(ImGuiCol_FrameBg, ImGui::GetStyleColorVec4(ImGuiCol_TitleBg));
+
+            // Render the ImGui progress bar
+            ImGui::ProgressBar(fraction, progressBarSize, overlay);
+        }
+
+        // Set cursor position back
+        ImGui::SetCursorScreenPos(cursorScreenPos);
     }
-
-    // Set cursor position back
-    ImGui::SetCursorScreenPos(cursorScreenPos);
 }
 
 void DrawInTextCircle(ImU32 color)
