@@ -37,7 +37,7 @@ enum class ImGuiStatus
 class ImGuiApp
 {
     // clang-format off
-    static constexpr ImGuiTableFlags s_fileManagerInfoTableFlags =
+    static constexpr ImGuiTableFlags FileManagerInfoTableFlags =
         ImGuiTableFlags_Resizable |
         ImGuiTableFlags_Hideable |
         ImGuiTableFlags_ContextMenuInBody |
@@ -49,6 +49,8 @@ class ImGuiApp
         ImGuiTableFlags_ScrollX |
         ImGuiTableFlags_ScrollY;
     // clang-format on
+
+    static constexpr ImU32 GreenColor = IM_COL32(0, 255, 0, 255);
 
     static constexpr std::chrono::system_clock::time_point InvalidTimePoint = std::chrono::system_clock::time_point::min();
     static constexpr uint32_t InvalidId = 0;
@@ -319,6 +321,8 @@ private:
     void FileManagerDescriptorPdbConfig(ProgramFileDescriptor &descriptor);
     void FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, bool &erased);
     void FileManagerDescriptorSaveLoadStatus(const ProgramFileRevisionDescriptor &descriptor);
+    void FileManagerDescriptorLoadStatus(const ProgramFileRevisionDescriptor &descriptor);
+    void FileManagerDescriptorSaveStatus(const ProgramFileRevisionDescriptor &descriptor);
     void FileManagerGlobalButtons();
     void FileManagerInfo(ProgramFileDescriptor &fileDescriptor, const ProgramFileRevisionDescriptor &revisionDescriptor);
     void FileManagerInfoExeSections(const ProgramFileRevisionDescriptor &descriptor);

@@ -142,7 +142,7 @@ std::string ImGuiApp::ProgramFileDescriptor::create_short_exe_name() const
 
 std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name() const
 {
-    return fmt::format("File {:d}", m_id);
+    return fmt::format("File:{:d}", m_id);
 }
 
 std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_file_info() const
@@ -151,7 +151,7 @@ std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_file_in
     ProgramFileRevisionId revisionId = get_revision_id();
     if (revisionId != InvalidId)
     {
-        revision = fmt::format(" - Revision {:d}", revisionId);
+        revision = fmt::format(" - Revision:{:d}", revisionId);
     }
 
     const std::string name = create_short_exe_name();
@@ -161,7 +161,7 @@ std::string ImGuiApp::ProgramFileDescriptor::create_descriptor_name_with_file_in
     }
     else
     {
-        return fmt::format("File {:d}{:s} - {:s}", m_id, revision, name);
+        return fmt::format("File:{:d}{:s} - {:s}", m_id, revision, name);
     }
 }
 
@@ -285,7 +285,7 @@ std::string ImGuiApp::ProgramFileRevisionDescriptor::create_short_exe_name() con
 
 std::string ImGuiApp::ProgramFileRevisionDescriptor::create_descriptor_name() const
 {
-    return fmt::format("Revision {:d}", m_id);
+    return fmt::format("Revision:{:d}", m_id);
 }
 
 std::string ImGuiApp::ProgramFileRevisionDescriptor::create_descriptor_name_with_file_info() const
@@ -297,7 +297,7 @@ std::string ImGuiApp::ProgramFileRevisionDescriptor::create_descriptor_name_with
     }
     else
     {
-        return fmt::format("Revision {:d} - {:s}", m_id, name);
+        return fmt::format("Revision:{:d} - {:s}", m_id, name);
     }
 }
 
@@ -1556,13 +1556,17 @@ void ImGuiApp::FileManagerDescriptorActions(ProgramFileDescriptor &descriptor, b
 
 void ImGuiApp::FileManagerDescriptorSaveLoadStatus(const ProgramFileRevisionDescriptor &descriptor)
 {
-    constexpr ImU32 green = IM_COL32(0, 255, 0, 255);
+    FileManagerDescriptorLoadStatus(descriptor);
+    FileManagerDescriptorSaveStatus(descriptor);
+}
 
+void ImGuiApp::FileManagerDescriptorLoadStatus(const ProgramFileRevisionDescriptor &descriptor)
+{
     if (descriptor.m_executable != nullptr)
     {
-        DrawInTextCircle(green);
+        DrawInTextCircle(GreenColor);
         ImGui::Text(
-            " Loaded Exe: [rev:%u] [%s] %s",
+            " Loaded Exe: [Revision:%u] [%s] %s",
             descriptor.m_id,
             create_time_string(descriptor.m_exeLoadTimepoint).c_str(),
             descriptor.m_executable->get_filename().c_str());
@@ -1570,19 +1574,23 @@ void ImGuiApp::FileManagerDescriptorSaveLoadStatus(const ProgramFileRevisionDesc
 
     if (descriptor.m_pdbReader != nullptr)
     {
-        DrawInTextCircle(green);
+        DrawInTextCircle(GreenColor);
         ImGui::Text(
-            " Loaded Pdb: [rev:%u] [%s] %s",
+            " Loaded Pdb: [Revision:%u] [%s] %s",
             descriptor.m_id,
             create_time_string(descriptor.m_pdbLoadTimepoint).c_str(),
             descriptor.m_pdbReader->get_filename().c_str());
     }
+    // #TODO: Also draw fail status.
+}
 
+void ImGuiApp::FileManagerDescriptorSaveStatus(const ProgramFileRevisionDescriptor &descriptor)
+{
     if (descriptor.m_exeSaveConfigTimepoint != InvalidTimePoint)
     {
-        DrawInTextCircle(green);
+        DrawInTextCircle(GreenColor);
         ImGui::Text(
-            " Saved Exe Config: [rev:%u] [%s] %s",
+            " Saved Exe Config: [Revision:%u] [%s] %s",
             descriptor.m_id,
             create_time_string(descriptor.m_exeSaveConfigTimepoint).c_str(),
             descriptor.m_exeSaveConfigFilename.c_str());
@@ -1590,9 +1598,9 @@ void ImGuiApp::FileManagerDescriptorSaveLoadStatus(const ProgramFileRevisionDesc
 
     if (descriptor.m_pdbSaveConfigTimepoint != InvalidTimePoint)
     {
-        DrawInTextCircle(green);
+        DrawInTextCircle(GreenColor);
         ImGui::Text(
-            " Saved Pdb Config: [rev:%u] [%s] %s",
+            " Saved Pdb Config: [Revision:%u] [%s] %s",
             descriptor.m_id,
             create_time_string(descriptor.m_pdbSaveConfigTimepoint).c_str(),
             descriptor.m_pdbSaveConfigFilename.c_str());
@@ -1677,7 +1685,7 @@ void ImGuiApp::FileManagerInfoExeSections(const ProgramFileRevisionDescriptor &d
     ImScoped::Child child("exe_sections_container", outer_size, ImGuiChildFlags_ResizeY);
     if (child.IsContentVisible)
     {
-        if (ImGui::BeginTable("exe_sections", 3, s_fileManagerInfoTableFlags))
+        if (ImGui::BeginTable("exe_sections", 3, FileManagerInfoTableFlags))
         {
             ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
             ImGui::TableSetupColumn("Address");
@@ -1726,7 +1734,7 @@ void ImGuiApp::FileManagerInfoExeSymbols(
     ImScoped::Child child("exe_symbols_container", outer_size, ImGuiChildFlags_ResizeY);
     if (child.IsContentVisible)
     {
-        if (ImGui::BeginTable("exe_symbols", 3, s_fileManagerInfoTableFlags))
+        if (ImGui::BeginTable("exe_symbols", 3, FileManagerInfoTableFlags))
         {
             ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
             ImGui::TableSetupColumn("Address");
@@ -1774,7 +1782,7 @@ void ImGuiApp::FileManagerInfoPdbCompilands(const ProgramFileRevisionDescriptor 
     ImScoped::Child child("pdb_compilands_container", outer_size, ImGuiChildFlags_ResizeY);
     if (child.IsContentVisible)
     {
-        if (ImGui::BeginTable("pdb_compilands", 1, s_fileManagerInfoTableFlags))
+        if (ImGui::BeginTable("pdb_compilands", 1, FileManagerInfoTableFlags))
         {
             ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
             ImGui::TableSetupColumn("Name");
@@ -1814,7 +1822,7 @@ void ImGuiApp::FileManagerInfoPdbSourceFiles(const ProgramFileRevisionDescriptor
     ImScoped::Child child("pdb_source_files_container", outer_size, ImGuiChildFlags_ResizeY);
     if (child.IsContentVisible)
     {
-        if (ImGui::BeginTable("pdb_source_files", 3, s_fileManagerInfoTableFlags))
+        if (ImGui::BeginTable("pdb_source_files", 3, FileManagerInfoTableFlags))
         {
             ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
             ImGui::TableSetupColumn("Checksum Type");
@@ -1901,7 +1909,7 @@ void ImGuiApp::FileManagerInfoPdbSymbols(
     ImScoped::Child child("pdb_symbols_container", outer_size, ImGuiChildFlags_ResizeY);
     if (child.IsContentVisible)
     {
-        if (ImGui::BeginTable("pdb_symbols", 6, s_fileManagerInfoTableFlags))
+        if (ImGui::BeginTable("pdb_symbols", 6, FileManagerInfoTableFlags))
         {
             ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
             ImGui::TableSetupColumn("Address");
@@ -1980,7 +1988,7 @@ void ImGuiApp::FileManagerInfoPdbFunctions(
     ImScoped::Child child("pdb_functions_container", outer_size, ImGuiChildFlags_ResizeY);
     if (child.IsContentVisible)
     {
-        if (ImGui::BeginTable("pdb_functions", 5, s_fileManagerInfoTableFlags))
+        if (ImGui::BeginTable("pdb_functions", 5, FileManagerInfoTableFlags))
         {
             ImGui::TableSetupScrollFreeze(0, 1); // Makes top row always visible.
             ImGui::TableSetupColumn("Address");
@@ -2050,10 +2058,11 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
             ImScoped::Table table("list_box_table", 2, ImGuiTableFlags_SizingStretchSame);
             if (table.IsContentVisible)
             {
-                ImGui::TableNextColumn();
-                ComparisonManagerProgramFileSelection(descriptor, 0);
-                ImGui::TableNextColumn();
-                ComparisonManagerProgramFileSelection(descriptor, 1);
+                for (size_t i = 0; i < 2; ++i)
+                {
+                    ImGui::TableNextColumn();
+                    ComparisonManagerProgramFileSelection(descriptor, i);
+                }
             }
         }
 
@@ -2094,6 +2103,24 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
             descriptor.m_files[1].get_active_command_id());
 
         OverlayProgressBar(group_rect, -1.0f * (float)ImGui::GetTime(), overlay.c_str());
+    }
+
+    {
+        ImScoped::Child child("file_content_container");
+        ImScoped::Table table("file_content_table", 2, ImGuiTableFlags_SizingStretchSame);
+        if (table.IsContentVisible)
+        {
+            for (size_t i = 0; i < 2; ++i)
+            {
+                ImGui::TableNextColumn();
+                const ProgramFileRevisionDescriptorPtr &revisionDescriptor = descriptor.m_files[i].m_revisionDescriptor;
+
+                if (revisionDescriptor != nullptr)
+                {
+                    FileManagerDescriptorLoadStatus(*revisionDescriptor);
+                }
+            }
+        }
     }
 }
 
