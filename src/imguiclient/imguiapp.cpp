@@ -309,6 +309,13 @@ ImGuiApp::ProgramComparisonDescriptor::~ProgramComparisonDescriptor()
 {
 }
 
+void ImGuiApp::ProgramComparisonDescriptor::File::prepare_rebuild()
+{
+    m_compilandBundlesBuilt = false;
+    m_sourceFileBundlesBuilt = false;
+    m_singleBundleBuilt = false;
+}
+
 void ImGuiApp::ProgramComparisonDescriptor::File::invalidate_command_id()
 {
     m_activeCommandId = InvalidWorkQueueCommandId;
@@ -729,6 +736,7 @@ WorkQueueCommandPtr ImGuiApp::create_build_named_functions_command(ProgramFileRe
 {
     assert(revisionDescriptor != nullptr);
     assert(revisionDescriptor->exe_loaded());
+    assert(!revisionDescriptor->m_namedFunctionsBuilt);
 
     auto command = std::make_unique<AsyncBuildFunctionsCommand>(BuildFunctionsOptions(*revisionDescriptor->m_executable));
 
@@ -750,6 +758,7 @@ WorkQueueCommandPtr ImGuiApp::create_build_named_functions_command(ProgramFileRe
 WorkQueueCommandPtr ImGuiApp::create_build_matched_functions_command(ProgramComparisonDescriptor *comparisonDescriptor)
 {
     assert(comparisonDescriptor != nullptr);
+    assert(!comparisonDescriptor->m_matchedFunctionsBuilt);
     ProgramFileRevisionDescriptor *revisionDescriptor0 = comparisonDescriptor->m_files[0].m_revisionDescriptor.get();
     ProgramFileRevisionDescriptor *revisionDescriptor1 = comparisonDescriptor->m_files[1].m_revisionDescriptor.get();
     assert(revisionDescriptor0 != nullptr);
@@ -791,6 +800,7 @@ WorkQueueCommandPtr ImGuiApp::create_build_matched_functions_command(ProgramComp
 WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_compilands_command(ProgramComparisonDescriptor::File *file)
 {
     assert(file != nullptr);
+    assert(!file->m_compilandBundlesBuilt);
     assert(file->m_revisionDescriptor != nullptr);
     assert(file->m_revisionDescriptor->named_functions_built());
     assert(file->m_revisionDescriptor->pdb_loaded());
@@ -818,6 +828,7 @@ WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_compilands_command(Progr
 WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_source_files_command(ProgramComparisonDescriptor::File *file)
 {
     assert(file != nullptr);
+    assert(!file->m_sourceFileBundlesBuilt);
     assert(file->m_revisionDescriptor != nullptr);
     assert(file->m_revisionDescriptor->named_functions_built());
     assert(file->m_revisionDescriptor->pdb_loaded());
@@ -851,6 +862,7 @@ WorkQueueCommandPtr ImGuiApp::create_build_single_bundle_command(
     assert(bundle_file_idx < comparisonDescriptor->m_files.size());
 
     ProgramComparisonDescriptor::File *file = &comparisonDescriptor->m_files[bundle_file_idx];
+    assert(!file->m_singleBundleBuilt);
 
     auto command = std::make_unique<AsyncBuildSingleBundleCommand>(BuildSingleBundleOptions(
         file->m_namedFunctionsMatchInfos,
@@ -928,12 +940,7 @@ void ImGuiApp::load_and_compare_async(
     assert(fileDescriptorPair[0]->can_load() || fileDescriptorPair[0]->exe_loaded());
     assert(fileDescriptorPair[1]->can_load() || fileDescriptorPair[1]->exe_loaded());
 
-    bool isAnyncLoading = false;
-
-    const bool isComparingSameFile = fileDescriptorPair[0] == fileDescriptorPair[1];
-    const int loadFileCount = isComparingSameFile ? 1 : 2;
-
-    for (int i = 0; i < loadFileCount; ++i)
+    for (int i = 0; i < 2; ++i)
     {
         ProgramComparisonDescriptor::File &file = comparisonDescriptor->m_files[i];
 
@@ -944,6 +951,18 @@ void ImGuiApp::load_and_compare_async(
             break;
         }
     }
+
+    if (!comparisonDescriptor->matched_functions_built())
+    {
+        for (int i = 0; i < 2; ++i)
+        {
+            comparisonDescriptor->m_files[i].prepare_rebuild();
+        }
+    }
+
+    bool isAnyncLoading = false;
+    const bool isComparingSameFile = fileDescriptorPair[0] == fileDescriptorPair[1];
+    const int loadFileCount = isComparingSameFile ? 1 : 2;
 
     for (int i = 0; i < loadFileCount; ++i)
     {
@@ -961,14 +980,6 @@ void ImGuiApp::load_and_compare_async(
             else
             {
                 comparisonDescriptor->m_files[i].m_revisionDescriptor = fileDescriptor->m_revisionDescriptor;
-            }
-
-            if (!comparisonDescriptor->matched_functions_built())
-            {
-                // Force rebuild bundles because bundles are dependent on matched functions.
-                comparisonDescriptor->m_files[i].m_compilandBundlesBuilt = false;
-                comparisonDescriptor->m_files[i].m_sourceFileBundlesBuilt = false;
-                comparisonDescriptor->m_files[i].m_singleBundleBuilt = false;
             }
         }
         else
@@ -1098,6 +1109,11 @@ void ImGuiApp::build_bundled_functions_async(ProgramComparisonDescriptor *compar
                 auto command2 = create_build_bundles_from_source_files_command(&file);
                 m_workQueue.enqueue(std::move(command1));
                 m_workQueue.enqueue(std::move(command2));
+            }
+            else
+            {
+                util::free_container(file.m_compilandBundles);
+                util::free_container(file.m_sourceFileBundles);
             }
 
             auto command3 = create_build_single_bundle_command(comparisonDescriptor, i);

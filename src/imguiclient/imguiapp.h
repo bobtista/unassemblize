@@ -198,6 +198,8 @@ class ImGuiApp
                 BuildSingleBundle,
             };
 
+            void prepare_rebuild();
+
             void invalidate_command_id();
             bool has_active_command() const;
             WorkQueueCommandId get_active_command_id() const;
