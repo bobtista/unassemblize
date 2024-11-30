@@ -198,6 +198,8 @@ class ImGuiApp
                 BuildSingleBundle,
             };
 
+            File();
+
             void prepare_rebuild();
 
             void invalidate_command_id();
@@ -208,6 +210,9 @@ class ImGuiApp
             bool pdb_loaded() const;
             bool named_functions_built() const;
             bool bundles_built() const;
+
+            MatchBundleType get_selected_bundle_type() const;
+            span<const NamedFunctionBundle> get_selected_bundles() const;
 
             ProgramFileRevisionDescriptorPtr m_revisionDescriptor;
             NamedFunctionMatchInfos m_namedFunctionsMatchInfos;
@@ -225,6 +230,9 @@ class ImGuiApp
             bool m_compilandBundlesBuilt = false;
             bool m_sourceFileBundlesBuilt = false;
             bool m_singleBundleBuilt = false;
+
+            IndexT m_selectedBundleTypeIdx = 0;
+            std::array<ImGuiSelectionBasicStorage, size_t(MatchBundleType::Count)> m_selectedBundlesArray;
         };
 
         ProgramComparisonDescriptor();
@@ -344,7 +352,7 @@ private:
     void OutputManagerBody();
 
     void ComparisonManagerBody(ProgramComparisonDescriptor &descriptor);
-    void ComparisonManagerProgramFileSelection(ProgramComparisonDescriptor &descriptor, size_t list_idx);
+    void ComparisonManagerProgramFileSelection(ProgramComparisonDescriptor::File &file);
 
 private:
     ImVec2 m_windowPos = ImVec2(0, 0);

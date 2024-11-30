@@ -287,7 +287,7 @@ MatchBundleType to_match_bundle_type(const char *str)
         printf("Unrecognized match bundle type '%s'. Defaulting to 'None'", str);
         return MatchBundleType::None;
     }
-    static_assert(size_t(MatchBundleType::None) == 2, "Enum was changed. Update conditions.");
+    static_assert(size_t(MatchBundleType::Count) == 3, "Enum was changed. Update conditions.");
 }
 
 } // namespace unassemblize

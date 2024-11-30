@@ -175,6 +175,8 @@ enum class MatchBundleType
     Compiland, // Functions will be bundled by the compilands they belong to.
     SourceFile, // Functions will be bundled by the source files they belong to (.h .cpp).
     None, // Functions will be bundled into one.
+
+    Count
 };
 
 MatchBundleType to_match_bundle_type(const char *str);

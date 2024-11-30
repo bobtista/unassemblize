@@ -135,7 +135,7 @@ void parse_options(int argc, char **argv)
         });
     // clang-format on
     static_assert(size_t(unassemblize::AsmFormat::DEFAULT) == 3, "Enum was changed. Update command line options.");
-    static_assert(size_t(unassemblize::MatchBundleType::None) == 2, "Enum was changed. Update command line options.");
+    static_assert(size_t(unassemblize::MatchBundleType::Count) == 3, "Enum was changed. Update command line options.");
 
     options.parse_positional({"input", "input2"});
 
