@@ -158,9 +158,10 @@ struct NamedFunctionBundle
     void update_compared_count(const MatchedFunctions &matched_functions);
 
     std::string name; // Compiland or source file name.
-    std::vector<IndexT> matchedFunctions; // Links to MatchedFunction.
-    std::vector<IndexT> matchedNamedFunctions; // Links to NamedFunctions.
-    std::vector<IndexT> unmatchedNamedFunctions; // Links to NamedFunctions.
+    std::vector<IndexT> matchedFunctionIndices; // Links to MatchedFunctions.
+    std::vector<IndexT> matchedNamedFunctionIndices; // Links to NamedFunctions. In sync with matchedFunctionsIndices.
+    std::vector<IndexT> unmatchedNamedFunctionIndices; // Links to NamedFunctions.
+    std::vector<IndexT> allNamedFunctionIndices; // Links to NamedFunctions. Contains matched and unmatched ones.
 
     uint32_t disassembledCount = 0; // Count of functions that have been disassembled.
     uint32_t linkedSourceFileCount = 0; // Count of functions that have been linked to source files.

@@ -156,7 +156,7 @@ float AsmComparisonResult::get_max_similarity(AsmMatchStrictness strictness) con
 
 size_t NamedFunctionBundle::get_total_function_count() const
 {
-    return matchedNamedFunctions.size() + unmatchedNamedFunctions.size();
+    return allNamedFunctionIndices.size();
 }
 
 bool NamedFunction::is_disassembled() const
@@ -207,12 +207,7 @@ bool NamedFunctionBundle::has_completed_comparison() const
 void NamedFunctionBundle::update_disassembled_count(const NamedFunctions &named_functions)
 {
     disassembledCount = 0;
-    for (IndexT i : matchedNamedFunctions)
-    {
-        if (named_functions[i].is_disassembled())
-            ++disassembledCount;
-    }
-    for (IndexT i : unmatchedNamedFunctions)
+    for (IndexT i : allNamedFunctionIndices)
     {
         if (named_functions[i].is_disassembled())
             ++disassembledCount;
@@ -222,14 +217,7 @@ void NamedFunctionBundle::update_disassembled_count(const NamedFunctions &named_
 void NamedFunctionBundle::update_linked_source_file_count(const NamedFunctions &named_functions)
 {
     linkedSourceFileCount = 0;
-    for (IndexT i : matchedNamedFunctions)
-    {
-        if (named_functions[i].is_linked_to_source_file())
-            ++linkedSourceFileCount;
-        else if (!named_functions[i].can_link_to_source_file)
-            ++missingSourceFileCount;
-    }
-    for (IndexT i : unmatchedNamedFunctions)
+    for (IndexT i : allNamedFunctionIndices)
     {
         if (named_functions[i].is_linked_to_source_file())
             ++linkedSourceFileCount;
@@ -241,12 +229,7 @@ void NamedFunctionBundle::update_linked_source_file_count(const NamedFunctions &
 void NamedFunctionBundle::update_loaded_source_file_count(const NamedFunctions &named_functions)
 {
     loadedSourceFileCount = 0;
-    for (IndexT i : matchedNamedFunctions)
-    {
-        if (named_functions[i].Has_loaded_source_file())
-            ++loadedSourceFileCount;
-    }
-    for (IndexT i : unmatchedNamedFunctions)
+    for (IndexT i : allNamedFunctionIndices)
     {
         if (named_functions[i].Has_loaded_source_file())
             ++loadedSourceFileCount;
@@ -256,15 +239,10 @@ void NamedFunctionBundle::update_loaded_source_file_count(const NamedFunctions &
 void NamedFunctionBundle::update_compared_count(const MatchedFunctions &matched_functions)
 {
     comparedCount = 0;
-    for (IndexT i : matchedNamedFunctions)
+    for (IndexT i : matchedFunctionIndices)
     {
         if (matched_functions[i].is_compared())
-            ++linkedSourceFileCount;
-    }
-    for (IndexT i : unmatchedNamedFunctions)
-    {
-        if (matched_functions[i].is_compared())
-            ++linkedSourceFileCount;
+            ++comparedCount;
     }
 }
 
