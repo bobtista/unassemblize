@@ -138,6 +138,11 @@ void Runner::disassemble_bundled_functions(const DisassembleBundledFunctionsOpti
     disassemble_bundled_functions(o.named_functions, o.bundle, o.executable, o.format);
 }
 
+void Runner::disassemble_selected_functions(const DisassembleSelectedFunctionsOptions &o)
+{
+    disassemble_selected_functions(o.named_functions, o.named_function_indices, o.executable, o.format);
+}
+
 void Runner::disassemble_functions(const DisassembleFunctionsOptions &o)
 {
     disassemble_functions(o.named_functions, o.executable, o.format);
@@ -151,6 +156,11 @@ void Runner::build_source_lines_for_matched_functions(const BuildSourceLinesForM
 void Runner::build_source_lines_for_bundled_functions(const BuildSourceLinesForBundledFunctionsOptions &o)
 {
     build_source_lines_for_bundled_functions(o.named_functions, o.bundle, o.pdb_reader);
+}
+
+void Runner::build_source_lines_for_selected_functions(const BuildSourceLinesForSelectedFunctionsOptions &o)
+{
+    build_source_lines_for_selected_functions(o.named_functions, o.named_function_indices, o.pdb_reader);
 }
 
 void Runner::build_source_lines_for_functions(const BuildSourceLinesForFunctionsOptions &o)
@@ -168,6 +178,11 @@ bool Runner::load_source_files_for_bundled_functions(const LoadSourceFilesForBun
     return load_source_files_for_bundled_functions(o.storage, o.named_functions, o.bundle);
 }
 
+bool Runner::load_source_files_for_selected_functions(const LoadSourceFilesForSelectedFunctionsOptions &o)
+{
+    return load_source_files_for_selected_functions(o.storage, o.named_functions, o.named_function_indices);
+}
+
 bool Runner::load_source_files_for_functions(const LoadSourceFilesForFunctionsOptions &o)
 {
     return load_source_files_for_functions(o.storage, o.named_functions);
@@ -181,6 +196,15 @@ void Runner::build_comparison_records_for_matched_functions(const BuildCompariso
 void Runner::build_comparison_records_for_bundled_functions(const BuildComparisonRecordsForBundledFunctionsOptions &o)
 {
     build_comparison_records_for_bundled_functions(o.matched_functions, o.named_functions_pair, o.bundle, o.lookahead_limit);
+}
+
+void Runner::build_comparison_records_for_selected_functions(const BuildComparisonRecordsForSelectedFunctionsOptions &o)
+{
+    build_comparison_records_for_selected_functions(
+        o.matched_functions,
+        o.named_functions_pair,
+        o.matched_function_indices,
+        o.lookahead_limit);
 }
 
 bool Runner::process_asm_output(const AsmOutputOptions &o)
@@ -595,12 +619,12 @@ void Runner::disassemble_bundled_functions(
     const Executable &executable,
     AsmFormat format)
 {
-    disassemble_bundled_functions(named_functions, span<const IndexT>{bundle.matchedNamedFunctions}, executable, format);
-    disassemble_bundled_functions(named_functions, span<const IndexT>{bundle.unmatchedNamedFunctions}, executable, format);
+    disassemble_selected_functions(named_functions, span<const IndexT>{bundle.matchedNamedFunctions}, executable, format);
+    disassemble_selected_functions(named_functions, span<const IndexT>{bundle.unmatchedNamedFunctions}, executable, format);
     bundle.update_disassembled_count(named_functions);
 }
 
-void Runner::disassemble_bundled_functions(
+void Runner::disassemble_selected_functions(
     NamedFunctions &named_functions,
     span<const IndexT> named_function_indices,
     const Executable &executable,
@@ -675,15 +699,15 @@ void Runner::build_source_lines_for_bundled_functions(
     NamedFunctionBundle &bundle,
     const PdbReader &pdb_reader)
 {
-    build_source_lines_for_bundled_functions(named_functions, span<const IndexT>{bundle.matchedNamedFunctions}, pdb_reader);
-    build_source_lines_for_bundled_functions(
+    build_source_lines_for_selected_functions(named_functions, span<const IndexT>{bundle.matchedNamedFunctions}, pdb_reader);
+    build_source_lines_for_selected_functions(
         named_functions,
         span<const IndexT>{bundle.unmatchedNamedFunctions},
         pdb_reader);
     bundle.update_linked_source_file_count(named_functions);
 }
 
-void Runner::build_source_lines_for_bundled_functions(
+void Runner::build_source_lines_for_selected_functions(
     NamedFunctions &named_functions,
     span<const IndexT> named_function_indices,
     const PdbReader &pdb_reader)
@@ -741,8 +765,8 @@ bool Runner::load_source_files_for_bundled_functions(
 {
     bool success = true;
     success &=
-        load_source_files_for_bundled_functions(storage, named_functions, span<const IndexT>{bundle.matchedNamedFunctions});
-    success &= load_source_files_for_bundled_functions(
+        load_source_files_for_selected_functions(storage, named_functions, span<const IndexT>{bundle.matchedNamedFunctions});
+    success &= load_source_files_for_selected_functions(
         storage,
         named_functions,
         span<const IndexT>{bundle.unmatchedNamedFunctions});
@@ -750,7 +774,7 @@ bool Runner::load_source_files_for_bundled_functions(
     return success;
 }
 
-bool Runner::load_source_files_for_bundled_functions(
+bool Runner::load_source_files_for_selected_functions(
     FileContentStorage &storage,
     NamedFunctions &named_functions,
     span<const IndexT> named_function_indices)
@@ -802,7 +826,7 @@ void Runner::build_comparison_records_for_bundled_functions(
     NamedFunctionBundle &bundle,
     uint32_t lookahead_limit)
 {
-    build_comparison_records_for_bundled_functions(
+    build_comparison_records_for_selected_functions(
         matched_functions,
         named_functions_pair,
         span<const IndexT>{bundle.matchedFunctions},
@@ -810,7 +834,7 @@ void Runner::build_comparison_records_for_bundled_functions(
     bundle.update_compared_count(matched_functions);
 }
 
-void Runner::build_comparison_records_for_bundled_functions(
+void Runner::build_comparison_records_for_selected_functions(
     MatchedFunctions &matched_functions,
     ConstNamedFunctionsPair named_functions_pair,
     span<const IndexT> matched_function_indices,

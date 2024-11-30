@@ -205,13 +205,29 @@ struct DisassembleBundledFunctionsOptions
     DisassembleBundledFunctionsOptions(
         NamedFunctions &named_functions,
         NamedFunctionBundle &bundle,
-        ConstExecutablePair executable_pair) :
+        const Executable &executable) :
         named_functions(named_functions), bundle(bundle), executable(executable)
     {
     }
 
     NamedFunctions &named_functions;
     NamedFunctionBundle &bundle;
+    const Executable &executable;
+    AsmFormat format = AsmFormat::IGAS;
+};
+
+struct DisassembleSelectedFunctionsOptions
+{
+    DisassembleSelectedFunctionsOptions(
+        NamedFunctions &named_functions,
+        span<const IndexT> named_function_indices,
+        const Executable &executable) :
+        named_functions(named_functions), named_function_indices(named_function_indices), executable(executable)
+    {
+    }
+
+    NamedFunctions &named_functions;
+    const span<const IndexT> named_function_indices;
     const Executable &executable;
     AsmFormat format = AsmFormat::IGAS;
 };
@@ -258,6 +274,21 @@ struct BuildSourceLinesForBundledFunctionsOptions
     const PdbReader &pdb_reader;
 };
 
+struct BuildSourceLinesForSelectedFunctionsOptions
+{
+    BuildSourceLinesForSelectedFunctionsOptions(
+        NamedFunctions &named_functions,
+        span<const IndexT> named_function_indices,
+        const PdbReader &pdb_reader) :
+        named_functions(named_functions), named_function_indices(named_function_indices), pdb_reader(pdb_reader)
+    {
+    }
+
+    NamedFunctions &named_functions;
+    const span<const IndexT> named_function_indices;
+    const PdbReader &pdb_reader;
+};
+
 struct BuildSourceLinesForFunctionsOptions
 {
     BuildSourceLinesForFunctionsOptions(span<NamedFunction> named_functions, const PdbReader &pdb_reader) :
@@ -299,6 +330,21 @@ struct LoadSourceFilesForBundledFunctionsOptions
     NamedFunctionBundle &bundle;
 };
 
+struct LoadSourceFilesForSelectedFunctionsOptions
+{
+    LoadSourceFilesForSelectedFunctionsOptions(
+        FileContentStorage &storage,
+        NamedFunctions &named_functions,
+        span<const IndexT> named_function_indices) :
+        storage(storage), named_functions(named_functions), named_function_indices(named_function_indices)
+    {
+    }
+
+    FileContentStorage &storage;
+    NamedFunctions &named_functions;
+    const span<const IndexT> named_function_indices;
+};
+
 struct LoadSourceFilesForFunctionsOptions
 {
     LoadSourceFilesForFunctionsOptions(FileContentStorage &storage, span<NamedFunction> named_functions) :
@@ -337,6 +383,24 @@ struct BuildComparisonRecordsForBundledFunctionsOptions
     MatchedFunctions &matched_functions;
     const ConstNamedFunctionsPair named_functions_pair;
     NamedFunctionBundle &bundle;
+    uint32_t lookahead_limit = 20;
+};
+
+struct BuildComparisonRecordsForSelectedFunctionsOptions
+{
+    BuildComparisonRecordsForSelectedFunctionsOptions(
+        MatchedFunctions &matched_functions,
+        ConstNamedFunctionsPair named_functions_pair,
+        span<const IndexT> matched_function_indices) :
+        matched_functions(matched_functions),
+        named_functions_pair(named_functions_pair),
+        matched_function_indices(matched_function_indices)
+    {
+    }
+
+    MatchedFunctions &matched_functions;
+    const ConstNamedFunctionsPair named_functions_pair;
+    const span<const IndexT> matched_function_indices;
     uint32_t lookahead_limit = 20;
 };
 
