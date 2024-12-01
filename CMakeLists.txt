@@ -162,8 +162,6 @@ target_sources(unassemblize PRIVATE
     src/workqueue.h
     src/imguiclient/imguiapp.cpp
     src/imguiclient/imguiapp.h
-    src/imguiclient/imguiwin32.cpp
-    src/imguiclient/imguiwin32.h
     src/imguiclient/utility/imgui_misc.cpp
     src/imguiclient/utility/imgui_misc.h
     src/imguiclient/utility/imgui_scoped.h
@@ -178,6 +176,8 @@ target_link_libraries(unassemblize PRIVATE
     fmt::fmt
     cxxopts::cxxopts
     readerwriterqueue
+    ${IMGUI_LIBRARY}  # Use our platform-agnostic ImGui library
+    ImGuiFileDialog
 )
 
 target_include_directories(unassemblize PRIVATE
@@ -189,18 +189,23 @@ target_include_directories(unassemblize PRIVATE
 if(WINDOWS)
     target_sources(unassemblize PRIVATE
         wincompat/strings.h
+        src/imguiclient/imguiwin32.cpp
+        src/imguiclient/imguiwin32.h
     )
 
     target_link_libraries(unassemblize PRIVATE
         d3d9.lib # How does it find it???
-        imgui_win32
-        ImGuiFileDialog
         ${DIASDK_LIBRARIES}
     )
 
     target_include_directories(unassemblize PRIVATE
         wincompat
         ${DIASDK_INCLUDE_DIRS}
+    )
+else()
+    target_sources(unassemblize PRIVATE
+        src/imguiclient/imguilinux.cpp
+        src/imguiclient/imguilinux.h
     )
 endif()
 
