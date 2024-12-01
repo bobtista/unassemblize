@@ -14,6 +14,7 @@
 
 #include <array>
 #include <assert.h>
+#include <cstring>
 #include <stdint.h>
 #include <string>
 #include <tcb/span.hpp>
