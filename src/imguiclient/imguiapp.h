@@ -200,7 +200,9 @@ class ImGuiApp
 
             enum class FunctionIndicesType
             {
-                MatchedFunctions, // Links to MatchedFunctions.
+                Invalid = -1,
+
+                MatchedFunctions, // Links to MatchedFunctions. // TODO: Remove?
                 MatchedNamedFunctions, // Links to NamedFunctions.
                 UnmatchedNamedFunctions, // Links to NamedFunctions.
                 AllNamedFunctions, // Links to NamedFunctions.
@@ -226,13 +228,16 @@ class ImGuiApp
             bool bundles_ready() const; // Bundles can be used when this returns true.
 
             MatchBundleType get_selected_bundle_type() const;
-            span<const NamedFunctionBundle> get_active_bundles() const; // Determined by selected bundle type.
+            span<const NamedFunctionBundle> get_active_bundles(MatchBundleType type) const;
+            ImGuiSelectionBasicStorage &get_active_bundles_selection(MatchBundleType type);
 
             void on_bundles_interaction();
             void update_selected_bundles();
             void update_active_functions(); // Requires updated selected bundles.
 
+            FunctionIndicesType get_selected_functions_type() const;
             span<const IndexT> get_active_function_indices(FunctionIndicesType type) const;
+            ImGuiSelectionBasicStorage &get_active_functions_selection(FunctionIndicesType type);
 
             // Selected file index in list box. Is not reset on rebuild.
             // Does not necessarily link to current loaded file.
@@ -240,6 +245,10 @@ class ImGuiApp
 
             // Selected bundle type in combo box. Is not reset on rebuild.
             IndexT m_imguiSelectedBundleTypeIdx = 0;
+
+            // Functions list options. Is not reset on rebuild.
+            bool m_imguiShowMatchedFunctions = true;
+            bool m_imguiShowUnmatchedFunctions = true;
 
             // Selected bundles in multi select box. Is not reset on rebuild.
             ImGuiBundlesSelectionArray m_imguiBundlesSelectionArray;
@@ -408,6 +417,8 @@ private:
 
     std::vector<ProgramFileDescriptorPtr> m_programFiles;
     std::vector<ProgramComparisonDescriptorPtr> m_programComparisons;
+
+    static ImGuiSelectionBasicStorage s_emptySelection;
 };
 
 } // namespace unassemblize::gui

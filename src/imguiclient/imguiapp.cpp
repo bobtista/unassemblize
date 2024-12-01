@@ -23,6 +23,7 @@
 
 namespace unassemblize::gui
 {
+ImGuiSelectionBasicStorage ImGuiApp::s_emptySelection;
 ImGuiApp::ProgramFileId ImGuiApp::ProgramFileDescriptor::s_id = 1;
 ImGuiApp::ProgramFileRevisionId ImGuiApp::ProgramFileRevisionDescriptor::s_id = 1;
 ImGuiApp::ProgramComparisonId ImGuiApp::ProgramComparisonDescriptor::s_id = 1;
@@ -407,10 +408,9 @@ MatchBundleType ImGuiApp::ProgramComparisonDescriptor::File::get_selected_bundle
     return MatchBundleType::None;
 }
 
-span<const NamedFunctionBundle> ImGuiApp::ProgramComparisonDescriptor::File::get_active_bundles() const
+span<const NamedFunctionBundle> ImGuiApp::ProgramComparisonDescriptor::File::get_active_bundles(MatchBundleType type) const
 {
     span<const NamedFunctionBundle> bundles;
-    const MatchBundleType type = get_selected_bundle_type();
     switch (type)
     {
         case MatchBundleType::Compiland:
@@ -428,6 +428,11 @@ span<const NamedFunctionBundle> ImGuiApp::ProgramComparisonDescriptor::File::get
     return bundles;
 }
 
+ImGuiSelectionBasicStorage &ImGuiApp::ProgramComparisonDescriptor::File::get_active_bundles_selection(MatchBundleType type)
+{
+    return m_imguiBundlesSelectionArray[size_t(type)];
+}
+
 void ImGuiApp::ProgramComparisonDescriptor::File::on_bundles_interaction()
 {
     update_selected_bundles();
@@ -437,8 +442,8 @@ void ImGuiApp::ProgramComparisonDescriptor::File::on_bundles_interaction()
 void ImGuiApp::ProgramComparisonDescriptor::File::update_selected_bundles()
 {
     const MatchBundleType type = get_selected_bundle_type();
-    span<const NamedFunctionBundle> activeBundles = get_active_bundles();
-    ImGuiSelectionBasicStorage &selection = m_imguiBundlesSelectionArray[size_t(type)];
+    span<const NamedFunctionBundle> activeBundles = get_active_bundles(type);
+    ImGuiSelectionBasicStorage &selection = get_active_bundles_selection(type);
 
     std::vector<const NamedFunctionBundle *> selectedBundles;
     selectedBundles.reserve(selection.Size);
@@ -514,9 +519,26 @@ void ImGuiApp::ProgramComparisonDescriptor::File::update_active_functions()
     m_activeFunctionIndices[size_t(FunctionIndicesType::AllNamedFunctions)] = std::move(activeAllNamedFunctions);
 }
 
+ImGuiApp::ProgramComparisonDescriptor::File::FunctionIndicesType ImGuiApp::ProgramComparisonDescriptor::File::
+    get_selected_functions_type() const
+{
+    if (m_imguiShowMatchedFunctions && m_imguiShowUnmatchedFunctions)
+        return FunctionIndicesType::AllNamedFunctions;
+    else if (m_imguiShowMatchedFunctions)
+        return FunctionIndicesType::MatchedNamedFunctions;
+    else if (m_imguiShowUnmatchedFunctions)
+        return FunctionIndicesType::UnmatchedNamedFunctions;
+    else
+        return FunctionIndicesType::Invalid;
+}
+
 span<const IndexT> ImGuiApp::ProgramComparisonDescriptor::File::get_active_function_indices(FunctionIndicesType type) const
 {
-    if (m_selectedBundles.size() == 1)
+    if (type == FunctionIndicesType::Invalid)
+    {
+        return span<const IndexT>{};
+    }
+    else if (m_selectedBundles.size() == 1)
     {
         switch (type)
         {
@@ -541,6 +563,19 @@ span<const IndexT> ImGuiApp::ProgramComparisonDescriptor::File::get_active_funct
     else
     {
         return span<const IndexT>{};
+    }
+}
+
+ImGuiSelectionBasicStorage &ImGuiApp::ProgramComparisonDescriptor::File::get_active_functions_selection(
+    FunctionIndicesType type)
+{
+    if (type == FunctionIndicesType::Invalid)
+    {
+        return ImGuiApp::s_emptySelection;
+    }
+    else
+    {
+        return m_imguiFunctionsSelectionArray[size_t(type)];
     }
 }
 
@@ -2401,9 +2436,9 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                     // Draw bundles multi select box
                     {
                         const MatchBundleType type = file.get_selected_bundle_type();
-                        const span<const NamedFunctionBundle> bundles = file.get_active_bundles();
+                        const span<const NamedFunctionBundle> bundles = file.get_active_bundles(type);
+                        ImGuiSelectionBasicStorage &selection = file.get_active_bundles_selection(type);
                         const IndexT count = IndexT(bundles.size());
-                        ImGuiSelectionBasicStorage &selection = file.m_imguiBundlesSelectionArray[size_t(type)];
 
                         ImGui::Text("Select Bundle(s) %d/%d", selection.Size, count);
 
@@ -2437,20 +2472,26 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                         }
                     }
 
-                    // TODO: Add functions type filter for functions list box.
+                    // Draw functions filter options
+                    {
+                        ImGui::Checkbox("Show Matched Functions", &file.m_imguiShowMatchedFunctions);
+                        ImGui::SameLine();
+                        ImGui::Checkbox("Show Unmatched Functions", &file.m_imguiShowUnmatchedFunctions);
+                    }
+
                     // TODO: Add name filter for functions list box.
                     // TODO: Make box resizable.
 
                     // Draw functions multi select box
                     {
+                        using FunctionIndicesType = ProgramComparisonDescriptor::File::FunctionIndicesType;
                         assert(file.m_revisionDescriptor != nullptr);
-
-                        const auto type =
-                            ProgramComparisonDescriptor::File::FunctionIndicesType::AllNamedFunctions; // TODO: configurable
+                        const FunctionIndicesType type = file.get_selected_functions_type();
+                        assert(type != FunctionIndicesType::MatchedFunctions);
                         const span<const IndexT> functionIndices = file.get_active_function_indices(type);
+                        ImGuiSelectionBasicStorage &selection = file.get_active_functions_selection(type);
                         const NamedFunctions &namedFunctions = file.m_revisionDescriptor->m_namedFunctions;
                         const IndexT count = IndexT(functionIndices.size());
-                        ImGuiSelectionBasicStorage &selection = file.m_imguiFunctionsSelectionArray[size_t(type)];
 
                         ImGui::Text("Select Function(s) %d/%d", selection.Size, count);
 
