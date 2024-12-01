@@ -81,4 +81,19 @@ void free_container(T &container)
     T().swap(container);
 }
 
+template<typename Container, typename Value>
+bool has_value(Container &container, const Value &value)
+{
+    return std::find(container.begin(), container.end(), value) != container.cend();
+}
+
+template<typename Container, typename Value>
+bool push_back_unique(Container &container, const Value &value)
+{
+    if (has_value(container, value))
+        return false;
+    container.push_back(value);
+    return true;
+}
+
 } // namespace util

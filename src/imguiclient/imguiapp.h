@@ -198,7 +198,19 @@ class ImGuiApp
                 BuildSingleBundle,
             };
 
+            enum class FunctionIndicesType
+            {
+                MatchedFunctions, // Links to MatchedFunctions.
+                MatchedNamedFunctions, // Links to NamedFunctions.
+                UnmatchedNamedFunctions, // Links to NamedFunctions.
+                AllNamedFunctions, // Links to NamedFunctions.
+
+                Count
+            };
+
             using ImGuiBundlesSelectionArray = std::array<ImGuiSelectionBasicStorage, size_t(MatchBundleType::Count)>;
+            using ImGuiFunctionsSelectionArray = std::array<ImGuiSelectionBasicStorage, size_t(FunctionIndicesType::Count)>;
+            using FunctionIndicesArray = std::array<std::vector<IndexT>, size_t(FunctionIndicesType::Count)>;
 
             File();
 
@@ -216,6 +228,11 @@ class ImGuiApp
             MatchBundleType get_selected_bundle_type() const;
             span<const NamedFunctionBundle> get_active_bundles() const; // Determined by selected bundle type.
 
+            void on_bundles_interaction();
+            void update_selected_bundles();
+            void update_active_functions(); // Requires updated selected bundles.
+
+            span<const IndexT> get_active_function_indices(FunctionIndicesType type) const;
 
             // Selected file index in list box. Is not reset on rebuild.
             // Does not necessarily link to current loaded file.
@@ -226,6 +243,9 @@ class ImGuiApp
 
             // Selected bundles in multi select box. Is not reset on rebuild.
             ImGuiBundlesSelectionArray m_imguiBundlesSelectionArray;
+
+            // Selected functions in multi select box. Is not reset on rebuild.
+            ImGuiFunctionsSelectionArray m_imguiFunctionsSelectionArray;
 
             // Has pending asynchronous command(s) running when not invalid.
             WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
@@ -241,6 +261,8 @@ class ImGuiApp
             TriState m_sourceFileBundlesBuilt = TriState::False;
             bool m_singleBundleBuilt = false;
 
+            std::vector<const NamedFunctionBundle *> m_selectedBundles;
+            FunctionIndicesArray m_activeFunctionIndices;
         };
 
         ProgramComparisonDescriptor();
