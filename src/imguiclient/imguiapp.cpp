@@ -1050,9 +1050,7 @@ void ImGuiApp::load_and_compare_async(
 
             auto command = create_load_command(fileDescriptor->m_revisionDescriptor);
 
-            WorkQueueDelayedCommand *next_command = get_last_delayed_command(command.get());
-
-            next_command->chain([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
+            command->chain_to_last([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
                 if (comparisonDescriptor->executables_loaded())
                 {
                     compare_async(comparisonDescriptor);
@@ -1110,9 +1108,7 @@ void ImGuiApp::build_named_functions_async(ProgramComparisonDescriptor *comparis
         {
             auto command = create_build_named_functions_command(revisionDescriptorPair[i]);
 
-            WorkQueueDelayedCommand *next_command = get_last_delayed_command(command.get());
-
-            next_command->chain([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
+            command->chain_to_last([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
                 if (comparisonDescriptor->named_functions_built())
                 {
                     // Go to next async task.
@@ -1130,9 +1126,7 @@ void ImGuiApp::build_matched_functions_async(ProgramComparisonDescriptor *compar
 {
     auto command = create_build_matched_functions_command(comparisonDescriptor);
 
-    WorkQueueDelayedCommand *next_command = get_last_delayed_command(command.get());
-
-    next_command->chain([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
+    command->chain_to_last([this, comparisonDescriptor](WorkQueueResultPtr &result) -> WorkQueueCommandPtr {
         assert(comparisonDescriptor->matched_functions_built());
 
         // Go to next async task.

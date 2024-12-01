@@ -38,6 +38,8 @@ using WorkQueueCommandCreateFunction = std::function<WorkQueueCommandPtr(WorkQue
 using WorkQueueCommandWorkFunction = std::function<WorkQueueResultPtr(void)>;
 using WorkQueueCommandCallbackFunction = std::function<void(WorkQueueResultPtr &result)>;
 
+WorkQueueDelayedCommand *get_last_delayed_command(WorkQueueDelayedCommand *delayedCommand);
+
 // The delayed command is a substitute for a real command, used to chain commands on demand.
 struct WorkQueueDelayedCommand
 {
@@ -59,13 +61,17 @@ struct WorkQueueDelayedCommand
         return next_delayed_command.get();
     }
 
+    WorkQueueDelayedCommand *chain_to_last(WorkQueueCommandCreateFunction &&create_function)
+    {
+        WorkQueueDelayedCommand *next_command = get_last_delayed_command(this);
+        return next_command->chain(std::move(create_function));
+    }
+
     WorkQueueDelayedCommandPtr next_delayed_command;
 
 private:
     WorkQueueCommandCreateFunction create;
 };
-
-WorkQueueDelayedCommand *get_last_delayed_command(WorkQueueDelayedCommand *delayedCommand);
 
 struct WorkQueueCommand : public WorkQueueDelayedCommand
 {
