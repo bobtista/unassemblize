@@ -356,10 +356,10 @@ NamedFunctions Runner::build_functions(const Executable &executable)
             continue;
         }
 
-        const IndexT index = named_functions.size();
         named_functions.emplace_back();
 
         NamedFunction &named = named_functions.back();
+        named.id = named_functions.size() - 1;
         named.name = symbol.name;
         named.function.set_address_range(symbol.address, symbol.address + symbol.size);
     }
@@ -508,6 +508,7 @@ NamedFunctionBundle Runner::build_single_bundle(
     const size_t matched_count = matched_functions.size();
 
     NamedFunctionBundle bundle;
+    bundle.id = 0;
     bundle.name = "all";
     bundle.matchedFunctionIndices.resize(matched_count);
     bundle.matchedNamedFunctionIndices.resize(matched_count);
@@ -543,21 +544,24 @@ NamedFunctionBundles Runner::build_bundles(
     for (IndexT source_idx = 0; source_idx < sources_count; ++source_idx)
     {
         bundles[source_idx] =
-            build_bundle(sources[source_idx], functions, named_functions_match_infos, named_function_to_index_map);
+            build_bundle(sources, source_idx, functions, named_functions_match_infos, named_function_to_index_map);
     }
 
     return bundles;
 }
 
-template<class SourceInfoT>
+template<class SourceInfoVectorT>
 NamedFunctionBundle Runner::build_bundle(
-    const SourceInfoT &source,
+    const SourceInfoVectorT &sources,
+    IndexT source_idx,
     const PdbFunctionInfoVector &functions,
     const NamedFunctionMatchInfos &named_functions_match_infos,
     const Address64ToIndexMapT &named_function_to_index_map)
 {
+    const SourceInfoVectorT::value_type &source = sources[source_idx];
     const IndexT function_count = source.functionIds.size();
     NamedFunctionBundle bundle;
+    bundle.id = source_idx;
     bundle.name = source.name;
     bundle.matchedFunctionIndices.reserve(function_count);
     bundle.matchedNamedFunctionIndices.reserve(function_count);

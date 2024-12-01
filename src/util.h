@@ -82,9 +82,15 @@ void free_container(T &container)
 }
 
 template<typename Container, typename Value>
-bool has_value(Container &container, const Value &value)
+bool has_value(const Container &container, const Value &value)
 {
-    return std::find(container.begin(), container.end(), value) != container.cend();
+    return std::find(container.begin(), container.end(), value) != container.end();
+}
+
+template<typename Container, typename UnaryPred>
+bool has_value_if(const Container &container, UnaryPred pred)
+{
+    return std::find_if(container.begin(), container.end(), pred) != container.end();
 }
 
 template<typename Container, typename Value>

@@ -320,6 +320,9 @@ ImGuiApp::ProgramComparisonDescriptor::File::File()
 
 void ImGuiApp::ProgramComparisonDescriptor::File::prepare_rebuild()
 {
+    m_bundlesFilter.reset();
+    m_functionIndicesFilter.reset();
+
     m_revisionDescriptor.reset();
     util::free_container(m_namedFunctionsMatchInfos);
     util::free_container(m_compilandBundles);
@@ -433,8 +436,20 @@ ImGuiSelectionBasicStorage &ImGuiApp::ProgramComparisonDescriptor::File::get_act
     return m_imguiBundlesSelectionArray[size_t(type)];
 }
 
+const NamedFunctionBundle &ImGuiApp::ProgramComparisonDescriptor::File::get_filtered_bundle(int index) const
+{
+    return *m_bundlesFilter.filtered[index];
+}
+
+void ImGuiApp::ProgramComparisonDescriptor::File::on_bundles_changed()
+{
+    m_bundlesFilter.reset();
+}
+
 void ImGuiApp::ProgramComparisonDescriptor::File::on_bundles_interaction()
 {
+    m_functionIndicesFilter.reset();
+
     update_selected_bundles();
     update_active_functions();
 }
@@ -452,8 +467,15 @@ void ImGuiApp::ProgramComparisonDescriptor::File::update_selected_bundles()
     ImGuiID id;
     while (selection.GetNextSelectedItem(&it, &id))
     {
-        if (id < activeBundles.size())
-            selectedBundles.push_back(&activeBundles[id]);
+        if (id >= ImGuiID(activeBundles.size()))
+            continue;
+
+        auto CompareBundleId = [id](const NamedFunctionBundle *bundle) { return bundle->id == id; };
+
+        if (!util::has_value_if(m_bundlesFilter.filtered, CompareBundleId))
+            continue;
+
+        selectedBundles.push_back(&activeBundles[id]);
     }
 
     m_selectedBundles = std::move(selectedBundles);
@@ -577,6 +599,15 @@ ImGuiSelectionBasicStorage &ImGuiApp::ProgramComparisonDescriptor::File::get_act
     {
         return m_imguiFunctionsSelectionArray[size_t(type)];
     }
+}
+
+const NamedFunction &ImGuiApp::ProgramComparisonDescriptor::File::get_filtered_named_function(int index) const
+{
+    assert(m_revisionDescriptor != nullptr);
+
+    const auto &namedFunctions = m_revisionDescriptor->m_namedFunctions;
+    const auto &filtered = m_functionIndicesFilter.filtered;
+    return namedFunctions[filtered[index]];
 }
 
 void ImGuiApp::ProgramComparisonDescriptor::prepare_rebuild()
@@ -1034,10 +1065,6 @@ WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_compilands_command(Progr
         auto res = static_cast<AsyncBuildBundlesFromCompilandsResult *>(result.get());
         file->m_compilandBundles = std::move(res->bundles);
         file->m_compilandBundlesBuilt = TriState::True;
-        if (file->bundles_ready())
-        {
-            file->on_bundles_interaction();
-        }
         file->invalidate_command_id();
     };
 
@@ -1064,10 +1091,6 @@ WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_source_files_command(Pro
         auto res = static_cast<AsyncBuildBundlesFromSourceFilesResult *>(result.get());
         file->m_sourceFileBundles = std::move(res->bundles);
         file->m_sourceFileBundlesBuilt = TriState::True;
-        if (file->bundles_ready())
-        {
-            file->on_bundles_interaction();
-        }
         file->invalidate_command_id();
     };
 
@@ -1097,10 +1120,6 @@ WorkQueueCommandPtr ImGuiApp::create_build_single_bundle_command(
         auto res = static_cast<AsyncBuildSingleBundleResult *>(result.get());
         file->m_singleBundle = std::move(res->bundle);
         file->m_singleBundleBuilt = true;
-        if (file->bundles_ready())
-        {
-            file->on_bundles_interaction();
-        }
         file->invalidate_command_id();
     };
 
@@ -1971,7 +1990,7 @@ void ImGuiApp::FileManagerInfoExeSymbols(
             symbols,
             [](const ImGuiTextFilterEx &filter, const ExeSymbol &symbol) -> bool { return filter.PassFilter(symbol.name); });
 
-        ImGui::Text("Count: %zu, Filtered: %d", symbols.size(), filtered.size());
+        ImGui::Text("Count: %d, Filtered: %d", int(symbols.size()), filtered.size());
     }
 
     const ImVec2 outer_size = OuterSizeForTable(10 + 1, filtered.size() + 1);
@@ -2142,7 +2161,7 @@ void ImGuiApp::FileManagerInfoPdbSymbols(
                 return false;
             });
 
-        ImGui::Text("Count: %zu, Filtered: %d", symbols.size(), filtered.size());
+        ImGui::Text("Count: %d, Filtered: %d", int(symbols.size()), filtered.size());
     }
 
     const ExeSections *sections = nullptr;
@@ -2225,7 +2244,7 @@ void ImGuiApp::FileManagerInfoPdbFunctions(
                 return false;
             });
 
-        ImGui::Text("Count: %zu, Filtered: %d", functions.size(), filtered.size());
+        ImGui::Text("Count: %d, Filtered: %d", int(functions.size()), filtered.size());
     }
 
     const ImVec2 outer_size = OuterSizeForTable(10 + 1, filtered.size() + 1);
@@ -2412,7 +2431,7 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
 
                         assert(count > 0);
                         IndexT &index = file.m_imguiSelectedBundleTypeIdx;
-                        index = std::clamp(index, 0u, count);
+                        index = std::clamp(index, IndexT(0), count - 1);
                         const char *preview = options[index];
 
                         ImScoped::Combo combo("Select Bundle Type", preview);
@@ -2424,24 +2443,42 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                                 if (ImGui::Selectable(options[n], selected))
                                 {
                                     index = n;
-                                    file.on_bundles_interaction();
+                                    file.on_bundles_changed();
                                 }
                             }
                         }
                     }
 
-                    // TODO: Add name filter for bundles list box.
+                    // Draw bundles filter
+                    {
+                        const MatchBundleType type = file.get_selected_bundle_type();
+                        const ImGuiSelectionBasicStorage &selection = file.get_active_bundles_selection(type);
+                        const span<const NamedFunctionBundle> bundles = file.get_active_bundles(type);
+
+                        const bool selectionChanged = UpdateFilter(
+                            file.m_bundlesFilter,
+                            bundles,
+                            [](const ImGuiTextFilterEx &filter, const NamedFunctionBundle &bundle) -> bool {
+                                return filter.PassFilter(bundle.name);
+                            });
+
+                        if (selectionChanged)
+                        {
+                            file.on_bundles_interaction();
+                        }
+
+                        ImGui::Text(
+                            "Select Bundle(s) - Count: %d/%d, Selected: %d/%d",
+                            file.m_bundlesFilter.filtered.size(),
+                            int(bundles.size()),
+                            int(file.m_selectedBundles.size()),
+                            selection.Size);
+                    }
+
                     // TODO: Make box resizable.
 
                     // Draw bundles multi select box
                     {
-                        const MatchBundleType type = file.get_selected_bundle_type();
-                        const span<const NamedFunctionBundle> bundles = file.get_active_bundles(type);
-                        ImGuiSelectionBasicStorage &selection = file.get_active_bundles_selection(type);
-                        const IndexT count = IndexT(bundles.size());
-
-                        ImGui::Text("Select Bundle(s) %d/%d", selection.Size, count);
-
                         ImScoped::Child child(
                             "##bundle_container",
                             ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 8),
@@ -2449,17 +2486,28 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
 
                         if (child.IsContentVisible)
                         {
-                            bool selectionChanged = false;
+                            const MatchBundleType type = file.get_selected_bundle_type();
+                            ImGuiSelectionBasicStorage &selection = file.get_active_bundles_selection(type);
+                            const int count = file.m_bundlesFilter.filtered.size();
                             const int oldSelectionSize = selection.Size;
+                            bool selectionChanged = false;
                             ImGuiMultiSelectIO *ms_io =
                                 ImGui::BeginMultiSelect(ImGuiMultiSelectFlags_BoxSelect1d, selection.Size, count);
+                            selection.UserData = &file;
+                            selection.AdapterIndexToStorageId = [](ImGuiSelectionBasicStorage *self, int idx) -> ImGuiID {
+                                const auto file = static_cast<const ProgramComparisonDescriptor::File *>(self->UserData);
+                                return ImGuiID(file->get_filtered_bundle(idx).id);
+                            };
                             selection.ApplyRequests(ms_io);
 
                             for (int n = 0; n < count; n++)
                             {
-                                bool selected = selection.Contains(ImGuiID(n));
+                                // 1
                                 ImGui::SetNextItemSelectionUserData(n);
-                                selectionChanged |= ImGui::Selectable(bundles[n].name.c_str(), selected);
+                                // 2
+                                const NamedFunctionBundle &bundle = file.get_filtered_bundle(n);
+                                const bool selected = selection.Contains(ImGuiID(bundle.id));
+                                selectionChanged |= ImGui::Selectable(bundle.name.c_str(), selected);
                             }
 
                             ms_io = ImGui::EndMultiSelect();
@@ -2472,29 +2520,51 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                         }
                     }
 
-                    // Draw functions filter options
+                    // Draw functions filter
                     {
-                        ImGui::Checkbox("Show Matched Functions", &file.m_imguiShowMatchedFunctions);
+                        bool selectionChanged = false;
+
+                        selectionChanged |= ImGui::Checkbox("Show Matched Functions", &file.m_imguiShowMatchedFunctions);
                         ImGui::SameLine();
-                        ImGui::Checkbox("Show Unmatched Functions", &file.m_imguiShowUnmatchedFunctions);
-                    }
+                        selectionChanged |= ImGui::Checkbox("Show Unmatched Functions", &file.m_imguiShowUnmatchedFunctions);
 
-                    // TODO: Add name filter for functions list box.
-                    // TODO: Make box resizable.
+                        if (selectionChanged)
+                        {
+                            file.m_functionIndicesFilter.reset();
+                        }
 
-                    // Draw functions multi select box
-                    {
                         using FunctionIndicesType = ProgramComparisonDescriptor::File::FunctionIndicesType;
                         assert(file.m_revisionDescriptor != nullptr);
                         const FunctionIndicesType type = file.get_selected_functions_type();
                         assert(type != FunctionIndicesType::MatchedFunctions);
                         const span<const IndexT> functionIndices = file.get_active_function_indices(type);
-                        ImGuiSelectionBasicStorage &selection = file.get_active_functions_selection(type);
+                        const ImGuiSelectionBasicStorage &selection = file.get_active_functions_selection(type);
                         const NamedFunctions &namedFunctions = file.m_revisionDescriptor->m_namedFunctions;
-                        const IndexT count = IndexT(functionIndices.size());
 
-                        ImGui::Text("Select Function(s) %d/%d", selection.Size, count);
+                        selectionChanged |= UpdateFilter(
+                            file.m_functionIndicesFilter,
+                            functionIndices,
+                            [&](const ImGuiTextFilterEx &filter, IndexT index) -> bool {
+                                return filter.PassFilter(namedFunctions[index].name);
+                            });
 
+                        if (selectionChanged)
+                        {
+                            // TODO: do something
+                        }
+
+                        ImGui::Text(
+                            "Select Function(s) - Count: %d/%d, Selected: %d/%d",
+                            file.m_functionIndicesFilter.filtered.size(),
+                            int(functionIndices.size()),
+                            0, // TODO: value
+                            selection.Size);
+                    }
+
+                    // TODO: Make box resizable.
+
+                    // Draw functions multi select box
+                    {
                         ImScoped::Child child(
                             "##function_container",
                             ImVec2(0, ImGui::GetTextLineHeightWithSpacing() * 8),
@@ -2502,18 +2572,31 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
 
                         if (child.IsContentVisible)
                         {
-                            bool selectionChanged = false;
+                            using FunctionIndicesType = ProgramComparisonDescriptor::File::FunctionIndicesType;
+                            assert(file.m_revisionDescriptor != nullptr);
+                            const FunctionIndicesType type = file.get_selected_functions_type();
+                            assert(type != FunctionIndicesType::MatchedFunctions);
+                            ImGuiSelectionBasicStorage &selection = file.get_active_functions_selection(type);
+                            const NamedFunctions &namedFunctions = file.m_revisionDescriptor->m_namedFunctions;
+                            const int count = file.m_functionIndicesFilter.filtered.size();
                             const int oldSelectionSize = selection.Size;
+                            bool selectionChanged = false;
                             ImGuiMultiSelectIO *ms_io =
                                 ImGui::BeginMultiSelect(ImGuiMultiSelectFlags_BoxSelect1d, selection.Size, count);
+                            selection.UserData = &file;
+                            selection.AdapterIndexToStorageId = [](ImGuiSelectionBasicStorage *self, int idx) -> ImGuiID {
+                                const auto file = static_cast<const ProgramComparisonDescriptor::File *>(self->UserData);
+                                return ImGuiID(file->get_filtered_named_function(idx).id);
+                            };
                             selection.ApplyRequests(ms_io);
 
                             for (int n = 0; n < count; n++)
                             {
-                                const IndexT functionIndex = functionIndices[n];
-                                const NamedFunction &namedFunction = namedFunctions[functionIndex];
-                                bool selected = selection.Contains(ImGuiID(n));
+                                // 1
                                 ImGui::SetNextItemSelectionUserData(n);
+                                // 2
+                                const NamedFunction &namedFunction = file.get_filtered_named_function(n);
+                                const bool selected = selection.Contains(ImGuiID(namedFunction.id));
                                 selectionChanged |= ImGui::Selectable(namedFunction.name.c_str(), selected);
                             }
 

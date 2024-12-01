@@ -96,12 +96,17 @@ struct AsmComparisonResult
 
 struct NamedFunction
 {
+    using Id = uint32_t;
+    static constexpr Id InvalidId = ~Id(0);
+
     bool is_disassembled() const;
     bool is_linked_to_source_file() const;
     bool Has_loaded_source_file() const;
 
     std::string name;
     Function function;
+
+    Id id = InvalidId;
 
     // Is set false if function could not be linked to a source file.
     bool can_link_to_source_file = true;
@@ -146,6 +151,9 @@ struct MatchedFunctionsData
  */
 struct NamedFunctionBundle
 {
+    using Id = uint32_t;
+    static constexpr Id InvalidId = ~Id(0);
+
     size_t get_total_function_count() const;
     bool has_completed_disassembling() const;
     bool has_completed_source_file_linking() const;
@@ -163,6 +171,8 @@ struct NamedFunctionBundle
     std::vector<IndexT> matchedNamedFunctionIndices; // Links to NamedFunctions. In sync with matchedFunctionsIndices.
     std::vector<IndexT> unmatchedNamedFunctionIndices; // Links to NamedFunctions.
     std::vector<IndexT> allNamedFunctionIndices; // Links to NamedFunctions. Contains matched and unmatched ones.
+
+    Id id = InvalidId;
 
     uint32_t disassembledCount = 0; // Count of functions that have been disassembled.
     uint32_t linkedSourceFileCount = 0; // Count of functions that have been linked to source files.

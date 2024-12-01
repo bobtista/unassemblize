@@ -115,9 +115,10 @@ private:
         const NamedFunctions &named_functions,
         const NamedFunctionMatchInfos &named_functions_match_infos);
 
-    template<class SourceInfoT>
+    template<class SourceInfoVectorT>
     static NamedFunctionBundle build_bundle(
-        const SourceInfoT &source,
+        const SourceInfoVectorT &sources,
+        IndexT source_idx,
         const PdbFunctionInfoVector &functions,
         const NamedFunctionMatchInfos &named_functions_match_infos,
         const Address64ToIndexMapT &named_function_to_index_map);

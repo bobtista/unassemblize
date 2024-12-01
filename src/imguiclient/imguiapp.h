@@ -230,7 +230,9 @@ class ImGuiApp
             MatchBundleType get_selected_bundle_type() const;
             span<const NamedFunctionBundle> get_active_bundles(MatchBundleType type) const;
             ImGuiSelectionBasicStorage &get_active_bundles_selection(MatchBundleType type);
+            const NamedFunctionBundle &get_filtered_bundle(int index) const;
 
+            void on_bundles_changed();
             void on_bundles_interaction();
             void update_selected_bundles();
             void update_active_functions(); // Requires updated selected bundles.
@@ -238,6 +240,7 @@ class ImGuiApp
             FunctionIndicesType get_selected_functions_type() const;
             span<const IndexT> get_active_function_indices(FunctionIndicesType type) const;
             ImGuiSelectionBasicStorage &get_active_functions_selection(FunctionIndicesType type);
+            const NamedFunction &get_filtered_named_function(int index) const;
 
             // Selected file index in list box. Is not reset on rebuild.
             // Does not necessarily link to current loaded file.
@@ -255,6 +258,9 @@ class ImGuiApp
 
             // Selected functions in multi select box. Is not reset on rebuild.
             ImGuiFunctionsSelectionArray m_imguiFunctionsSelectionArray;
+
+            TextFilterDescriptor<const NamedFunctionBundle *> m_bundlesFilter = "bundles_filter";
+            TextFilterDescriptor<IndexT> m_functionIndicesFilter = "functions_filter";
 
             // Has pending asynchronous command(s) running when not invalid.
             WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?

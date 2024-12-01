@@ -49,8 +49,12 @@ struct TextFilterDescriptor
  *   Arguments: const ImGuiTextFilterEx &filter, const Container::value_type &value
  *   Return: bool
  */
-template<typename Container, typename Type = typename Container::value_type *, typename Predicate>
-void UpdateFilter(ImVector<Type> &filtered, const ImGuiTextFilterEx &filter, const Container &source, Predicate condition)
+template<typename FilterType, typename Container, typename Predicate>
+void UpdateFilter(
+    ImVector<FilterType> &filtered,
+    const ImGuiTextFilterEx &filter,
+    const Container &source,
+    Predicate condition)
 {
     if (filter.IsActive())
     {
@@ -58,26 +62,41 @@ void UpdateFilter(ImVector<Type> &filtered, const ImGuiTextFilterEx &filter, con
         filtered.clear();
         filtered.reserve(size);
         for (size_t i = 0; i < size; ++i)
+        {
             if (condition(filter, source[i]))
-                filtered.push_back(&source[i]);
+            {
+                if constexpr (std::is_pointer_v<FilterType>)
+                    filtered.push_back(&source[i]);
+                else
+                    filtered.push_back(source[i]);
+            }
+        }
     }
     else
     {
         const size_t size = source.size();
         filtered.resize(size);
         for (size_t i = 0; i < size; ++i)
-            filtered[i] = &source[i];
+        {
+            if constexpr (std::is_pointer_v<FilterType>)
+                filtered[i] = &source[i];
+            else
+                filtered[i] = source[i];
+        }
     }
 }
 
-template<typename Container, typename Descriptor, typename Predicate>
-void UpdateFilter(Descriptor &descriptor, const Container &source, Predicate condition)
+template<typename Descriptor, typename Container, typename Predicate>
+bool UpdateFilter(Descriptor &descriptor, const Container &source, Predicate condition)
 {
-    if (descriptor.filter.Draw(descriptor.key) || !descriptor.filteredOnce)
+    using FilterType = typename Descriptor::FilterType;
+    const bool changed = descriptor.filter.Draw(descriptor.key) || !descriptor.filteredOnce;
+    if (changed)
     {
-        UpdateFilter(descriptor.filtered, descriptor.filter, source, condition);
+        UpdateFilter<FilterType>(descriptor.filtered, descriptor.filter, source, condition);
         descriptor.filteredOnce = true;
     }
+    return changed;
 }
 
 } // namespace unassemblize::gui
