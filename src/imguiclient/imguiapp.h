@@ -198,6 +198,8 @@ class ImGuiApp
                 BuildSingleBundle,
             };
 
+            using ImGuiBundlesSelectionArray = std::array<ImGuiSelectionBasicStorage, size_t(MatchBundleType::Count)>;
+
             File();
 
             void prepare_rebuild();
@@ -209,10 +211,25 @@ class ImGuiApp
             bool exe_loaded() const;
             bool pdb_loaded() const;
             bool named_functions_built() const;
-            bool bundles_built() const;
+            bool bundles_ready() const; // Bundles can be used when this returns true.
 
             MatchBundleType get_selected_bundle_type() const;
-            span<const NamedFunctionBundle> get_selected_bundles() const;
+            span<const NamedFunctionBundle> get_active_bundles() const; // Determined by selected bundle type.
+
+
+            // Selected file index in list box. Is not reset on rebuild.
+            // Does not necessarily link to current loaded file.
+            IndexT m_imguiSelectedFileIdx = 0;
+
+            // Selected bundle type in combo box. Is not reset on rebuild.
+            IndexT m_imguiSelectedBundleTypeIdx = 0;
+
+            // Selected bundles in multi select box. Is not reset on rebuild.
+            ImGuiBundlesSelectionArray m_imguiBundlesSelectionArray;
+
+            // Has pending asynchronous command(s) running when not invalid.
+            WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
+            WorkReason m_workReason = {};
 
             ProgramFileRevisionDescriptorPtr m_revisionDescriptor;
             NamedFunctionMatchInfos m_namedFunctionsMatchInfos;
@@ -220,30 +237,23 @@ class ImGuiApp
             NamedFunctionBundles m_sourceFileBundles;
             NamedFunctionBundle m_singleBundle;
 
-            // Selected file index in list box. Does not necessarily link to current loaded file.
-            IndexT m_selectedFileIdx = 0;
-
-            // Has pending asynchronous command(s) running when not invalid.
-            WorkQueueCommandId m_activeCommandId = InvalidWorkQueueCommandId; // #TODO Make vector of chained id's?
-            WorkReason m_workReason = {};
-
-            bool m_compilandBundlesBuilt = false;
-            bool m_sourceFileBundlesBuilt = false;
+            TriState m_compilandBundlesBuilt = TriState::False;
+            TriState m_sourceFileBundlesBuilt = TriState::False;
             bool m_singleBundleBuilt = false;
 
-            IndexT m_selectedBundleTypeIdx = 0;
-            std::array<ImGuiSelectionBasicStorage, size_t(MatchBundleType::Count)> m_selectedBundlesArray;
         };
 
         ProgramComparisonDescriptor();
         ~ProgramComparisonDescriptor();
+
+        void prepare_rebuild();
 
         bool has_active_command() const;
 
         bool executables_loaded() const;
         bool named_functions_built() const;
         bool matched_functions_built() const;
-        bool bundles_built() const;
+        bool bundles_ready() const;
 
         const ProgramComparisonId m_id = InvalidId;
 

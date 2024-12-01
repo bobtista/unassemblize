@@ -22,6 +22,13 @@
 
 namespace unassemblize
 {
+enum class TriState : uint8_t
+{
+    False,
+    True,
+    NotApplicable,
+};
+
 template<typename T>
 using span = tcb::span<T>;
 

@@ -311,7 +311,7 @@ ImGuiApp::ProgramComparisonDescriptor::~ProgramComparisonDescriptor()
 
 ImGuiApp::ProgramComparisonDescriptor::File::File()
 {
-    for (ImGuiSelectionBasicStorage &selection : m_selectedBundlesArray)
+    for (ImGuiSelectionBasicStorage &selection : m_imguiBundlesSelectionArray)
     {
         selection.SetItemSelected(ImGuiID(0), true);
     }
@@ -319,8 +319,14 @@ ImGuiApp::ProgramComparisonDescriptor::File::File()
 
 void ImGuiApp::ProgramComparisonDescriptor::File::prepare_rebuild()
 {
-    m_compilandBundlesBuilt = false;
-    m_sourceFileBundlesBuilt = false;
+    m_revisionDescriptor.reset();
+    util::free_container(m_namedFunctionsMatchInfos);
+    util::free_container(m_compilandBundles);
+    util::free_container(m_sourceFileBundles);
+    m_singleBundle = NamedFunctionBundle();
+
+    m_compilandBundlesBuilt = TriState::False;
+    m_sourceFileBundlesBuilt = TriState::False;
     m_singleBundleBuilt = false;
 }
 
@@ -367,11 +373,9 @@ bool ImGuiApp::ProgramComparisonDescriptor::File::named_functions_built() const
     return m_revisionDescriptor != nullptr && m_revisionDescriptor->named_functions_built();
 }
 
-bool ImGuiApp::ProgramComparisonDescriptor::File::bundles_built() const
+bool ImGuiApp::ProgramComparisonDescriptor::File::bundles_ready() const
 {
-    // Note: Compiland and Source Files bundles are only built when a Pdb was present.
-    // Therefore, only the single bundle is always built for an executable.
-    return m_singleBundleBuilt;
+    return m_compilandBundlesBuilt != TriState::False && m_sourceFileBundlesBuilt != TriState::False && m_singleBundleBuilt;
 }
 
 MatchBundleType ImGuiApp::ProgramComparisonDescriptor::File::get_selected_bundle_type() const
@@ -381,39 +385,51 @@ MatchBundleType ImGuiApp::ProgramComparisonDescriptor::File::get_selected_bundle
 
     int index = 0;
 
-    if (m_compilandBundlesBuilt)
+    if (m_compilandBundlesBuilt == TriState::True)
     {
-        if (index++ == m_selectedBundleTypeIdx)
+        if (index++ == m_imguiSelectedBundleTypeIdx)
             return MatchBundleType::Compiland;
     }
 
-    if (m_sourceFileBundlesBuilt)
+    if (m_sourceFileBundlesBuilt == TriState::True)
     {
-        if (index++ == m_selectedBundleTypeIdx)
+        if (index++ == m_imguiSelectedBundleTypeIdx)
             return MatchBundleType::SourceFile;
     }
 
     return MatchBundleType::None;
 }
 
-span<const NamedFunctionBundle> ImGuiApp::ProgramComparisonDescriptor::File::get_selected_bundles() const
+span<const NamedFunctionBundle> ImGuiApp::ProgramComparisonDescriptor::File::get_active_bundles() const
 {
     span<const NamedFunctionBundle> bundles;
     const MatchBundleType type = get_selected_bundle_type();
     switch (type)
     {
         case MatchBundleType::Compiland:
-            bundles = {m_compilandBundles.data(), m_compilandBundles.size()};
+            bundles = {m_compilandBundles};
             break;
         case MatchBundleType::SourceFile:
-            bundles = {m_sourceFileBundles.data(), m_sourceFileBundles.size()};
+            bundles = {m_sourceFileBundles};
             break;
         case MatchBundleType::None:
             bundles = {&m_singleBundle, 1};
             break;
     }
+    static_assert(size_t(MatchBundleType::Count) == 3, "Enum was changed. Update switch case.");
 
     return bundles;
+}
+
+void ImGuiApp::ProgramComparisonDescriptor::prepare_rebuild()
+{
+    m_matchedFunctionsBuilt = false;
+    util::free_container(m_matchedFunctions);
+
+    for (File &file : m_files)
+    {
+        file.prepare_rebuild();
+    }
 }
 
 bool ImGuiApp::ProgramComparisonDescriptor::has_active_command() const
@@ -455,13 +471,13 @@ bool ImGuiApp::ProgramComparisonDescriptor::matched_functions_built() const
     return m_matchedFunctionsBuilt;
 }
 
-bool ImGuiApp::ProgramComparisonDescriptor::bundles_built() const
+bool ImGuiApp::ProgramComparisonDescriptor::bundles_ready() const
 {
     int count = 0;
 
     for (const File &file : m_files)
     {
-        if (file.bundles_built())
+        if (file.bundles_ready())
             ++count;
     }
     return count == m_files.size();
@@ -834,12 +850,8 @@ WorkQueueCommandPtr ImGuiApp::create_build_matched_functions_command(ProgramComp
         }
     };
 
-    comparisonDescriptor->m_matchedFunctions.clear();
-    comparisonDescriptor->m_matchedFunctionsBuilt = false;
-
     for (ProgramComparisonDescriptor::File &file : comparisonDescriptor->m_files)
     {
-        file.m_namedFunctionsMatchInfos.clear();
         file.m_activeCommandId = command->command_id;
         file.m_workReason = ProgramComparisonDescriptor::File::WorkReason::BuildMatchedFunctions;
     }
@@ -850,7 +862,7 @@ WorkQueueCommandPtr ImGuiApp::create_build_matched_functions_command(ProgramComp
 WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_compilands_command(ProgramComparisonDescriptor::File *file)
 {
     assert(file != nullptr);
-    assert(!file->m_compilandBundlesBuilt);
+    assert(file->m_compilandBundlesBuilt == TriState::False);
     assert(file->m_revisionDescriptor != nullptr);
     assert(file->m_revisionDescriptor->named_functions_built());
     assert(file->m_revisionDescriptor->pdb_loaded());
@@ -863,12 +875,10 @@ WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_compilands_command(Progr
     command->callback = [file](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncBuildBundlesFromCompilandsResult *>(result.get());
         file->m_compilandBundles = std::move(res->bundles);
-        file->m_compilandBundlesBuilt = true;
+        file->m_compilandBundlesBuilt = TriState::True;
         file->invalidate_command_id();
     };
 
-    file->m_compilandBundles.clear();
-    file->m_compilandBundlesBuilt = false;
     file->m_activeCommandId = command->command_id;
     file->m_workReason = ProgramComparisonDescriptor::File::WorkReason::BuildCompilandBundles;
 
@@ -878,7 +888,7 @@ WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_compilands_command(Progr
 WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_source_files_command(ProgramComparisonDescriptor::File *file)
 {
     assert(file != nullptr);
-    assert(!file->m_sourceFileBundlesBuilt);
+    assert(file->m_sourceFileBundlesBuilt == TriState::False);
     assert(file->m_revisionDescriptor != nullptr);
     assert(file->m_revisionDescriptor->named_functions_built());
     assert(file->m_revisionDescriptor->pdb_loaded());
@@ -891,12 +901,10 @@ WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_source_files_command(Pro
     command->callback = [file](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncBuildBundlesFromSourceFilesResult *>(result.get());
         file->m_sourceFileBundles = std::move(res->bundles);
-        file->m_sourceFileBundlesBuilt = true;
+        file->m_sourceFileBundlesBuilt = TriState::True;
         file->invalidate_command_id();
     };
 
-    file->m_sourceFileBundles.clear();
-    file->m_sourceFileBundlesBuilt = false;
     file->m_activeCommandId = command->command_id;
     file->m_workReason = ProgramComparisonDescriptor::File::WorkReason::BuildSourceFileBundles;
 
@@ -926,8 +934,6 @@ WorkQueueCommandPtr ImGuiApp::create_build_single_bundle_command(
         file->invalidate_command_id();
     };
 
-    file->m_sourceFileBundles.clear();
-    file->m_singleBundleBuilt = false;
     file->m_activeCommandId = command->command_id;
     file->m_workReason = ProgramComparisonDescriptor::File::WorkReason::BuildSingleBundle;
 
@@ -946,6 +952,7 @@ ImGuiApp::ProgramFileDescriptor *ImGuiApp::get_program_file_descriptor(size_t pr
 void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor != nullptr);
+    assert(!descriptor->has_active_command());
 
     descriptor->create_new_revision_descriptor();
 
@@ -957,6 +964,7 @@ void ImGuiApp::load_async(ProgramFileDescriptor *descriptor)
 void ImGuiApp::save_config_async(ProgramFileDescriptor *descriptor)
 {
     assert(descriptor != nullptr);
+    assert(!descriptor->has_active_command());
     assert(descriptor->m_revisionDescriptor != nullptr);
 
     WorkQueueDelayedCommand head_command;
@@ -989,6 +997,7 @@ void ImGuiApp::load_and_compare_async(
 {
     assert(fileDescriptorPair[0]->can_load() || fileDescriptorPair[0]->exe_loaded());
     assert(fileDescriptorPair[1]->can_load() || fileDescriptorPair[1]->exe_loaded());
+    assert(!comparisonDescriptor->has_active_command());
 
     for (int i = 0; i < 2; ++i)
     {
@@ -997,16 +1006,8 @@ void ImGuiApp::load_and_compare_async(
         if (file.m_revisionDescriptor == nullptr || file.m_revisionDescriptor != fileDescriptorPair[i]->m_revisionDescriptor)
         {
             // Force rebuild matched functions when at least one of the files needs to be loaded first or has changed.
-            comparisonDescriptor->m_matchedFunctionsBuilt = false;
+            comparisonDescriptor->prepare_rebuild();
             break;
-        }
-    }
-
-    if (!comparisonDescriptor->matched_functions_built())
-    {
-        for (int i = 0; i < 2; ++i)
-        {
-            comparisonDescriptor->m_files[i].prepare_rebuild();
         }
     }
 
@@ -1072,6 +1073,7 @@ void ImGuiApp::load_and_compare_async(
 void ImGuiApp::compare_async(ProgramComparisonDescriptor *comparisonDescriptor)
 {
     assert(comparisonDescriptor != nullptr);
+    assert(!comparisonDescriptor->has_active_command());
 
     if (!comparisonDescriptor->named_functions_built())
     {
@@ -1081,7 +1083,7 @@ void ImGuiApp::compare_async(ProgramComparisonDescriptor *comparisonDescriptor)
     {
         build_matched_functions_async(comparisonDescriptor);
     }
-    else if (!comparisonDescriptor->bundles_built())
+    else if (!comparisonDescriptor->bundles_ready())
     {
         build_bundled_functions_async(comparisonDescriptor);
     }
@@ -1145,23 +1147,36 @@ void ImGuiApp::build_bundled_functions_async(ProgramComparisonDescriptor *compar
         ProgramComparisonDescriptor::File &file = comparisonDescriptor->m_files[i];
         assert(file.m_revisionDescriptor != nullptr);
 
-        if (!file.bundles_built())
+        if (file.m_compilandBundlesBuilt == TriState::False)
         {
             if (file.pdb_loaded())
             {
-                auto command1 = create_build_bundles_from_compilands_command(&file);
-                auto command2 = create_build_bundles_from_source_files_command(&file);
-                m_workQueue.enqueue(std::move(command1));
-                m_workQueue.enqueue(std::move(command2));
+                auto command = create_build_bundles_from_compilands_command(&file);
+                m_workQueue.enqueue(std::move(command));
             }
             else
             {
-                util::free_container(file.m_compilandBundles);
-                util::free_container(file.m_sourceFileBundles);
+                file.m_compilandBundlesBuilt = TriState::NotApplicable;
             }
+        }
 
-            auto command3 = create_build_single_bundle_command(comparisonDescriptor, i);
-            m_workQueue.enqueue(std::move(command3));
+        if (file.m_sourceFileBundlesBuilt == TriState::False)
+        {
+            if (file.pdb_loaded())
+            {
+                auto command = create_build_bundles_from_source_files_command(&file);
+                m_workQueue.enqueue(std::move(command));
+            }
+            else
+            {
+                file.m_sourceFileBundlesBuilt = TriState::NotApplicable;
+            }
+        }
+
+        if (!file.m_singleBundleBuilt)
+        {
+            auto command = create_build_single_bundle_command(comparisonDescriptor, i);
+            m_workQueue.enqueue(std::move(command));
         }
     }
 }
@@ -2139,8 +2154,8 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
 
         // Draw compare button
         {
-            const IndexT selectedFileIdx0 = descriptor.m_files[0].m_selectedFileIdx;
-            const IndexT selectedFileIdx1 = descriptor.m_files[1].m_selectedFileIdx;
+            const IndexT selectedFileIdx0 = descriptor.m_files[0].m_imguiSelectedFileIdx;
+            const IndexT selectedFileIdx1 = descriptor.m_files[1].m_imguiSelectedFileIdx;
             ProgramFileDescriptor *fileDescriptor0 = get_program_file_descriptor(selectedFileIdx0);
             ProgramFileDescriptor *fileDescriptor1 = get_program_file_descriptor(selectedFileIdx1);
 
@@ -2209,21 +2224,21 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
 
                 ProgramComparisonDescriptor::File &file = descriptor.m_files[i];
 
-                if (file.bundles_built())
+                if (file.bundles_ready())
                 {
                     // Draw bundles type combo box
                     {
                         std::array<const char *, size_t(MatchBundleType::Count)> options;
                         IndexT count = 0;
-                        if (file.m_compilandBundlesBuilt)
+                        if (file.m_compilandBundlesBuilt == TriState::True)
                             options[count++] = "Compiland Bundles";
-                        if (file.m_sourceFileBundlesBuilt)
+                        if (file.m_sourceFileBundlesBuilt == TriState::True)
                             options[count++] = "Source File Bundles";
                         if (file.m_singleBundleBuilt)
                             options[count++] = "Single Bundle";
 
                         assert(count > 0);
-                        IndexT &index = file.m_selectedBundleTypeIdx;
+                        IndexT &index = file.m_imguiSelectedBundleTypeIdx;
                         index = std::clamp(index, 0u, count);
                         const char *preview = options[index];
 
@@ -2244,11 +2259,11 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                     // Draw bundles multi select box
                     {
                         const MatchBundleType type = file.get_selected_bundle_type();
-                        const span<const NamedFunctionBundle> bundles = file.get_selected_bundles();
+                        const span<const NamedFunctionBundle> bundles = file.get_active_bundles();
                         const IndexT count = IndexT(bundles.size());
-                        ImGuiSelectionBasicStorage &selection = file.m_selectedBundlesArray[size_t(type)];
+                        ImGuiSelectionBasicStorage &selection = file.m_imguiBundlesSelectionArray[size_t(type)];
 
-                        ImGui::Text("Select Bundle %d/%d", selection.Size, count);
+                        ImGui::Text("Select Bundle(s) %d/%d", selection.Size, count);
 
                         ImScoped::Child child(
                             "##bundle_container",
@@ -2296,10 +2311,10 @@ void ImGuiApp::ComparisonManagerProgramFileSelection(ProgramComparisonDescriptor
             {
                 ProgramFileDescriptor *program_file = m_programFiles[n].get();
                 const std::string name = program_file->create_descriptor_name_with_file_info();
-                const bool selected = (file.m_selectedFileIdx == n);
+                const bool selected = (file.m_imguiSelectedFileIdx == n);
 
                 if (ImGui::Selectable(name.c_str(), selected))
-                    file.m_selectedFileIdx = n;
+                    file.m_imguiSelectedFileIdx = n;
             }
         }
     }

@@ -158,6 +158,7 @@ struct NamedFunctionBundle
     void update_compared_count(const MatchedFunctions &matched_functions);
 
     std::string name; // Compiland or source file name.
+
     std::vector<IndexT> matchedFunctionIndices; // Links to MatchedFunctions.
     std::vector<IndexT> matchedNamedFunctionIndices; // Links to NamedFunctions. In sync with matchedFunctionsIndices.
     std::vector<IndexT> unmatchedNamedFunctionIndices; // Links to NamedFunctions.
