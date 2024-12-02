@@ -9,16 +9,20 @@ namespace unassemblize::gui
 class ImGuiLinux
 {
 public:
-    ImGuiLinux() = default;
-    ~ImGuiLinux() = default;
+    ImGuiLinux();
+    ~ImGuiLinux();
 
+    ImGuiStatus run(const CommandLineOptions &clo);
+
+private:
     bool init();
     void shutdown();
     bool update();
     void render();
 
-private:
-    // Linux-specific implementation details will go here
+    std::unique_ptr<ImGuiApp> m_app;
+    GLFWwindow* m_window;
+    bool m_initialized;
 };
 
 } // namespace unassemblize::gui

@@ -11,11 +11,11 @@
  *            A full copy of the GNU General Public License can be found in
  *            LICENSE
  */
-#pragma once
 
 #include "util.h"
 #include <codecvt>
 #include <filesystem>
+#include <cstdint>
 
 namespace util
 {
@@ -74,11 +74,11 @@ std::string to_hex_string(const std::vector<uint8_t> &data)
     std::string str;
     str.resize(count);
 
-    for (size_t i = 0; i < count; ++i)
+    for (size_t i = 0; i < data.size(); ++i)
     {
         uint8_t byte = data[i];
-        str[i] = hex_chars[(byte >> 4) & 0x0F];
-        str[i + 1] = hex_chars[byte & 0x0F];
+        str[i * 2] = hex_chars[(byte >> 4) & 0x0F];
+        str[i * 2 + 1] = hex_chars[byte & 0x0F];
     }
 
     return str;

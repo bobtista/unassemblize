@@ -24,6 +24,8 @@
 #ifdef WIN32
 #include "imguiclient/imguiwin32.h"
 #include <Windows.h>
+#else
+#include "imguiclient/imguilinux.h"
 #endif
 
 void CreateConsole()
@@ -338,7 +340,9 @@ int main(int argc, char **argv)
         unassemblize::gui::ImGuiStatus status = gui.run(g_options);
         return int(status);
 #else
-        gui_error = true;
+        unassemblize::gui::ImGuiLinux gui;
+        unassemblize::gui::ImGuiStatus status = gui.run(g_options);
+        return int(status);
 #endif
     }
     else

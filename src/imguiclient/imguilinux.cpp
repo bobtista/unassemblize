@@ -7,13 +7,45 @@
 namespace unassemblize::gui
 {
 
-namespace
+ImGuiLinux::ImGuiLinux() : m_window(nullptr), m_initialized(false)
 {
-    GLFWwindow* g_window = nullptr;
+}
+
+ImGuiLinux::~ImGuiLinux()
+{
+    shutdown();
+}
+
+ImGuiStatus ImGuiLinux::run(const CommandLineOptions &clo)
+{
+    m_app = std::make_unique<ImGuiApp>();
+    
+    if (!init())
+        return ImGuiStatus::Error;
+
+    // Initialize ImGui app
+    ImGuiStatus status = m_app->init(clo);
+    if (status != ImGuiStatus::Ok)
+        return status;
+
+    // Main loop
+    while (!glfwWindowShouldClose(m_window))
+    {
+        if (!update())
+            break;
+        render();
+    }
+
+    // Cleanup
+    shutdown();
+    return ImGuiStatus::Ok;
 }
 
 bool ImGuiLinux::init()
 {
+    if (m_initialized)
+        return true;
+
     // Initialize GLFW
     if (!glfwInit())
         return false;
@@ -24,10 +56,11 @@ bool ImGuiLinux::init()
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
 
     // Create window with graphics context
-    g_window = glfwCreateWindow(1280, 720, "Unassemblize", NULL, NULL);
-    if (g_window == NULL)
+    m_window = glfwCreateWindow(1280, 720, "Unassemblize", NULL, NULL);
+    if (m_window == nullptr)
         return false;
-    glfwMakeContextCurrent(g_window);
+    
+    glfwMakeContextCurrent(m_window);
     glfwSwapInterval(1); // Enable vsync
 
     // Setup Dear ImGui context
@@ -35,31 +68,48 @@ bool ImGuiLinux::init()
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
+    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
     // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForOpenGL(g_window, true);
+    ImGui_ImplGlfw_InitForOpenGL(m_window, true);
     ImGui_ImplOpenGL3_Init(glsl_version);
 
+    m_initialized = true;
     return true;
 }
 
 void ImGuiLinux::shutdown()
 {
+    if (!m_initialized)
+        return;
+
+    if (m_app)
+    {
+        m_app->prepare_shutdown_wait();
+        while (!m_app->can_shutdown())
+        {
+            update();
+        }
+        m_app->shutdown();
+    }
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
 
-    if (g_window)
+    if (m_window)
     {
-        glfwDestroyWindow(g_window);
-        g_window = nullptr;
+        glfwDestroyWindow(m_window);
+        m_window = nullptr;
     }
+    
     glfwTerminate();
+    m_initialized = false;
 }
 
 bool ImGuiLinux::update()
 {
-    if (glfwWindowShouldClose(g_window))
+    if (!m_initialized)
         return false;
 
     glfwPollEvents();
@@ -69,19 +119,30 @@ bool ImGuiLinux::update()
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    // Update app
+    ImGuiStatus status = m_app->update();
+    if (status != ImGuiStatus::Ok)
+        return false;
+
     return true;
 }
 
 void ImGuiLinux::render()
 {
+    if (!m_initialized)
+        return;
+
     ImGui::Render();
     int display_w, display_h;
-    glfwGetFramebufferSize(g_window, &display_w, &display_h);
+    glfwGetFramebufferSize(m_window, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
+    
+    const ImVec4& clear_color = m_app->get_clear_color();
+    glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT);
+    
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-    glfwSwapBuffers(g_window);
+    glfwSwapBuffers(m_window);
 }
 
 } // namespace unassemblize::gui

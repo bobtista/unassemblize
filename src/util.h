@@ -16,6 +16,7 @@
 #include <string_view>
 #include <vector>
 #include <algorithm>
+#include <cstdint>
 
 namespace util
 {
