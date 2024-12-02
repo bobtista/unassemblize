@@ -23,7 +23,6 @@
 
 namespace unassemblize::gui
 {
-ImGuiSelectionBasicStorage ImGuiApp::s_emptySelection;
 ImGuiApp::ProgramFileId ImGuiApp::ProgramFileDescriptor::s_id = 1;
 ImGuiApp::ProgramFileRevisionId ImGuiApp::ProgramFileRevisionDescriptor::s_id = 1;
 ImGuiApp::ProgramComparisonId ImGuiApp::ProgramComparisonDescriptor::s_id = 1;
@@ -585,19 +584,6 @@ span<const IndexT> ImGuiApp::ProgramComparisonDescriptor::File::get_active_funct
     else
     {
         return span<const IndexT>{};
-    }
-}
-
-ImGuiSelectionBasicStorage &ImGuiApp::ProgramComparisonDescriptor::File::get_active_functions_selection(
-    FunctionIndicesType type)
-{
-    if (type == FunctionIndicesType::Invalid)
-    {
-        return ImGuiApp::s_emptySelection;
-    }
-    else
-    {
-        return m_imguiFunctionsSelectionArray[size_t(type)];
     }
 }
 
@@ -2538,7 +2524,6 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                         const FunctionIndicesType type = file.get_selected_functions_type();
                         assert(type != FunctionIndicesType::MatchedFunctions);
                         const span<const IndexT> functionIndices = file.get_active_function_indices(type);
-                        const ImGuiSelectionBasicStorage &selection = file.get_active_functions_selection(type);
                         const NamedFunctions &namedFunctions = file.m_revisionDescriptor->m_namedFunctions;
 
                         selectionChanged |= UpdateFilter(
@@ -2558,7 +2543,7 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                             file.m_functionIndicesFilter.filtered.size(),
                             int(functionIndices.size()),
                             0, // TODO: value
-                            selection.Size);
+                            file.m_imguiFunctionsSelection.Size);
                     }
 
                     // TODO: Make box resizable.
@@ -2576,7 +2561,7 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                             assert(file.m_revisionDescriptor != nullptr);
                             const FunctionIndicesType type = file.get_selected_functions_type();
                             assert(type != FunctionIndicesType::MatchedFunctions);
-                            ImGuiSelectionBasicStorage &selection = file.get_active_functions_selection(type);
+                            ImGuiSelectionBasicStorage &selection = file.m_imguiFunctionsSelection;
                             const NamedFunctions &namedFunctions = file.m_revisionDescriptor->m_namedFunctions;
                             const int count = file.m_functionIndicesFilter.filtered.size();
                             const int oldSelectionSize = selection.Size;

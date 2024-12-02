@@ -211,7 +211,6 @@ class ImGuiApp
             };
 
             using ImGuiBundlesSelectionArray = std::array<ImGuiSelectionBasicStorage, size_t(MatchBundleType::Count)>;
-            using ImGuiFunctionsSelectionArray = std::array<ImGuiSelectionBasicStorage, size_t(FunctionIndicesType::Count)>;
             using FunctionIndicesArray = std::array<std::vector<IndexT>, size_t(FunctionIndicesType::Count)>;
 
             File();
@@ -239,7 +238,6 @@ class ImGuiApp
 
             FunctionIndicesType get_selected_functions_type() const;
             span<const IndexT> get_active_function_indices(FunctionIndicesType type) const;
-            ImGuiSelectionBasicStorage &get_active_functions_selection(FunctionIndicesType type);
             const NamedFunction &get_filtered_named_function(int index) const;
 
             // Selected file index in list box. Is not reset on rebuild.
@@ -257,7 +255,7 @@ class ImGuiApp
             ImGuiBundlesSelectionArray m_imguiBundlesSelectionArray;
 
             // Selected functions in multi select box. Is not reset on rebuild.
-            ImGuiFunctionsSelectionArray m_imguiFunctionsSelectionArray;
+            ImGuiSelectionBasicStorage m_imguiFunctionsSelection;
 
             TextFilterDescriptor<const NamedFunctionBundle *> m_bundlesFilter = "bundles_filter";
             TextFilterDescriptor<IndexT> m_functionIndicesFilter = "functions_filter";
@@ -423,8 +421,6 @@ private:
 
     std::vector<ProgramFileDescriptorPtr> m_programFiles;
     std::vector<ProgramComparisonDescriptorPtr> m_programComparisons;
-
-    static ImGuiSelectionBasicStorage s_emptySelection;
 };
 
 } // namespace unassemblize::gui
