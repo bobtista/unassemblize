@@ -198,20 +198,7 @@ class ImGuiApp
                 BuildSingleBundle,
             };
 
-            enum class FunctionIndicesType
-            {
-                Invalid = -1,
-
-                MatchedFunctions, // Links to MatchedFunctions. // TODO: Remove?
-                MatchedNamedFunctions, // Links to NamedFunctions.
-                UnmatchedNamedFunctions, // Links to NamedFunctions.
-                AllNamedFunctions, // Links to NamedFunctions.
-
-                Count
-            };
-
             using ImGuiBundlesSelectionArray = std::array<ImGuiSelectionBasicStorage, size_t(MatchBundleType::Count)>;
-            using FunctionIndicesArray = std::array<std::vector<IndexT>, size_t(FunctionIndicesType::Count)>;
 
             File();
 
@@ -236,8 +223,7 @@ class ImGuiApp
             void update_selected_bundles();
             void update_active_functions(); // Requires updated selected bundles.
 
-            FunctionIndicesType get_selected_functions_type() const;
-            span<const IndexT> get_active_function_indices(FunctionIndicesType type) const;
+            span<const IndexT> get_active_function_indices() const;
             const NamedFunction &get_filtered_named_function(int index) const;
 
             // Selected file index in list box. Is not reset on rebuild.
@@ -275,7 +261,7 @@ class ImGuiApp
             bool m_singleBundleBuilt = false;
 
             std::vector<const NamedFunctionBundle *> m_selectedBundles;
-            FunctionIndicesArray m_activeFunctionIndices;
+            std::vector<IndexT> m_activeFunctionIndices;
         };
 
         ProgramComparisonDescriptor();

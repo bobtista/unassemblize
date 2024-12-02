@@ -88,32 +88,37 @@ private:
         const MatchedFunctions &matched_functions,
         const PdbReader *bundling_pdb_reader,
         MatchBundleType bundle_type,
-        size_t bundle_file_idx);
+        size_t bundle_file_idx,
+        uint8_t flags);
 
     // Note: requires a prior call to build_matched_functions!
     static NamedFunctionBundles build_bundles_from_compilands(
         const NamedFunctions &named_functions,
         const NamedFunctionMatchInfos &named_functions_match_infos,
-        const PdbReader &pdb_reader);
+        const PdbReader &pdb_reader,
+        uint8_t flags);
 
     // Note: requires a prior call to build_matched_functions!
     static NamedFunctionBundles build_bundles_from_source_files(
         const NamedFunctions &named_functions,
         const NamedFunctionMatchInfos &named_functions_match_infos,
-        const PdbReader &pdb_reader);
+        const PdbReader &pdb_reader,
+        uint8_t flags);
 
     // Creates a single bundle with all functions.
     static NamedFunctionBundle build_single_bundle(
         const NamedFunctionMatchInfos &named_functions_match_infos,
         const MatchedFunctions &matched_functions,
-        size_t bundle_file_idx);
+        size_t bundle_file_idx,
+        uint8_t flags);
 
     template<class SourceInfoVectorT>
     static NamedFunctionBundles build_bundles(
         const SourceInfoVectorT &sources,
         const PdbFunctionInfoVector &functions,
         const NamedFunctions &named_functions,
-        const NamedFunctionMatchInfos &named_functions_match_infos);
+        const NamedFunctionMatchInfos &named_functions_match_infos,
+        uint8_t flags);
 
     template<class SourceInfoVectorT>
     static NamedFunctionBundle build_bundle(
@@ -121,7 +126,8 @@ private:
         IndexT source_idx,
         const PdbFunctionInfoVector &functions,
         const NamedFunctionMatchInfos &named_functions_match_infos,
-        const Address64ToIndexMapT &named_function_to_index_map);
+        const Address64ToIndexMapT &named_function_to_index_map,
+        uint8_t flags);
 
     static void disassemble_function(NamedFunction &named, const FunctionSetup &setup);
 

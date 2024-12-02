@@ -12,6 +12,7 @@
  */
 #pragma once
 #include "imgui_text_filter.h"
+#include <functional>
 #include <imgui.h>
 #include <string_view>
 
@@ -19,6 +20,8 @@ struct ImGuiTextFilterEx : public ImGuiTextFilter
 {
     bool Draw(const char *key, const char *label = "Filter (inc,-exc)", float width = 0.0f);
     bool PassFilter(std::string_view view) const;
+
+    bool hasExternalFilterCondition = false; // Set true if the filter callback has more than just the text to filter with.
 };
 
 namespace unassemblize::gui
@@ -36,34 +39,32 @@ struct TextFilterDescriptor
         filteredOnce = false;
     }
 
+    void set_external_filter_condition(bool value) { filter.hasExternalFilterCondition = value; }
+
     const char *const key;
     ImGuiTextFilterEx filter;
     ImVector<FilterType> filtered;
     bool filteredOnce = false;
 };
 
-/*
- * Container: The stable source container.
- * Type: The source container element pointer type.
- * Predicate: The callback for the filter.
- *   Arguments: const ImGuiTextFilterEx &filter, const Container::value_type &value
- *   Return: bool
- */
-template<typename FilterType, typename Container, typename Predicate>
+template<typename SourceContainerValueType>
+using FilterCallback = std::function<bool(const ImGuiTextFilterEx &filter, const SourceContainerValueType &value)>;
+
+template<typename FilterType, typename Container>
 void UpdateFilter(
     ImVector<FilterType> &filtered,
     const ImGuiTextFilterEx &filter,
     const Container &source,
-    Predicate condition)
+    FilterCallback<typename Container::value_type> filterCallback)
 {
-    if (filter.IsActive())
+    if (filter.IsActive() || filter.hasExternalFilterCondition)
     {
         const size_t size = source.size();
         filtered.clear();
         filtered.reserve(size);
         for (size_t i = 0; i < size; ++i)
         {
-            if (condition(filter, source[i]))
+            if (filterCallback(filter, source[i]))
             {
                 if constexpr (std::is_pointer_v<FilterType>)
                     filtered.push_back(&source[i]);
@@ -86,14 +87,17 @@ void UpdateFilter(
     }
 }
 
-template<typename Descriptor, typename Container, typename Predicate>
-bool UpdateFilter(Descriptor &descriptor, const Container &source, Predicate condition)
+template<typename Descriptor, typename Container>
+bool UpdateFilter(
+    Descriptor &descriptor,
+    const Container &source,
+    FilterCallback<typename Container::value_type> filterCallback)
 {
     using FilterType = typename Descriptor::FilterType;
     const bool changed = descriptor.filter.Draw(descriptor.key) || !descriptor.filteredOnce;
     if (changed)
     {
-        UpdateFilter<FilterType>(descriptor.filtered, descriptor.filter, source, condition);
+        UpdateFilter<FilterType>(descriptor.filtered, descriptor.filter, source, filterCallback);
         descriptor.filteredOnce = true;
     }
     return changed;

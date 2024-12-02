@@ -333,11 +333,7 @@ void ImGuiApp::ProgramComparisonDescriptor::File::prepare_rebuild()
     m_singleBundleBuilt = false;
 
     util::free_container(m_selectedBundles);
-
-    for (auto &container : m_activeFunctionIndices)
-    {
-        util::free_container(container);
-    }
+    util::free_container(m_activeFunctionIndices);
 }
 
 void ImGuiApp::ProgramComparisonDescriptor::File::invalidate_command_id()
@@ -482,51 +478,22 @@ void ImGuiApp::ProgramComparisonDescriptor::File::update_selected_bundles()
 
 void ImGuiApp::ProgramComparisonDescriptor::File::update_active_functions()
 {
-    FunctionIndicesArray activeFunctionIndices;
-
-    std::vector<IndexT> activeMatchedFunctions;
-    std::vector<IndexT> activeMatchedNamedFunctions;
-    std::vector<IndexT> activeUnmatchedNamedFunctions;
     std::vector<IndexT> activeAllNamedFunctions;
 
     if (m_selectedBundles.size() > 1)
     {
         {
-            size_t activeMatchedFunctionsCount = 0;
-            size_t activeMatchedNamedFunctionsCount = 0;
-            size_t activeUnmatchedNamedFunctionsCount = 0;
             size_t activeAllNamedFunctionsCount = 0;
 
             for (const NamedFunctionBundle *bundle : m_selectedBundles)
             {
-                activeMatchedFunctionsCount += bundle->matchedFunctionIndices.size();
-                activeMatchedNamedFunctionsCount += bundle->matchedNamedFunctionIndices.size();
-                activeUnmatchedNamedFunctionsCount += bundle->unmatchedNamedFunctionIndices.size();
                 activeAllNamedFunctionsCount += bundle->allNamedFunctionIndices.size();
             }
-            activeMatchedFunctions.reserve(activeMatchedFunctionsCount);
-            activeMatchedNamedFunctions.reserve(activeMatchedNamedFunctionsCount);
-            activeUnmatchedNamedFunctions.reserve(activeUnmatchedNamedFunctionsCount);
             activeAllNamedFunctions.reserve(activeAllNamedFunctionsCount);
         }
 
         for (const NamedFunctionBundle *bundle : m_selectedBundles)
         {
-            for (IndexT index : bundle->matchedFunctionIndices)
-            {
-                assert(!util::has_value(activeMatchedFunctions, index));
-                activeMatchedFunctions.push_back(index);
-            }
-            for (IndexT index : bundle->matchedNamedFunctionIndices)
-            {
-                assert(!util::has_value(activeMatchedNamedFunctions, index));
-                activeMatchedNamedFunctions.push_back(index);
-            }
-            for (IndexT index : bundle->unmatchedNamedFunctionIndices)
-            {
-                assert(!util::has_value(activeUnmatchedNamedFunctions, index));
-                activeUnmatchedNamedFunctions.push_back(index);
-            }
             for (IndexT index : bundle->allNamedFunctionIndices)
             {
                 assert(!util::has_value(activeAllNamedFunctions, index));
@@ -534,52 +501,18 @@ void ImGuiApp::ProgramComparisonDescriptor::File::update_active_functions()
             }
         }
     }
-    m_activeFunctionIndices[size_t(FunctionIndicesType::MatchedFunctions)] = std::move(activeMatchedFunctions);
-    m_activeFunctionIndices[size_t(FunctionIndicesType::MatchedNamedFunctions)] = std::move(activeMatchedNamedFunctions);
-    m_activeFunctionIndices[size_t(FunctionIndicesType::UnmatchedNamedFunctions)] = std::move(activeUnmatchedNamedFunctions);
-    m_activeFunctionIndices[size_t(FunctionIndicesType::AllNamedFunctions)] = std::move(activeAllNamedFunctions);
+    m_activeFunctionIndices = std::move(activeAllNamedFunctions);
 }
 
-ImGuiApp::ProgramComparisonDescriptor::File::FunctionIndicesType ImGuiApp::ProgramComparisonDescriptor::File::
-    get_selected_functions_type() const
+span<const IndexT> ImGuiApp::ProgramComparisonDescriptor::File::get_active_function_indices() const
 {
-    if (m_imguiShowMatchedFunctions && m_imguiShowUnmatchedFunctions)
-        return FunctionIndicesType::AllNamedFunctions;
-    else if (m_imguiShowMatchedFunctions)
-        return FunctionIndicesType::MatchedNamedFunctions;
-    else if (m_imguiShowUnmatchedFunctions)
-        return FunctionIndicesType::UnmatchedNamedFunctions;
-    else
-        return FunctionIndicesType::Invalid;
-}
-
-span<const IndexT> ImGuiApp::ProgramComparisonDescriptor::File::get_active_function_indices(FunctionIndicesType type) const
-{
-    if (type == FunctionIndicesType::Invalid)
+    if (m_selectedBundles.size() == 1)
     {
-        return span<const IndexT>{};
-    }
-    else if (m_selectedBundles.size() == 1)
-    {
-        switch (type)
-        {
-            case FunctionIndicesType::MatchedFunctions:
-                return span<const IndexT>{m_selectedBundles[0]->matchedFunctionIndices};
-            case FunctionIndicesType::MatchedNamedFunctions:
-                return span<const IndexT>{m_selectedBundles[0]->matchedNamedFunctionIndices};
-            case FunctionIndicesType::UnmatchedNamedFunctions:
-                return span<const IndexT>{m_selectedBundles[0]->unmatchedNamedFunctionIndices};
-            case FunctionIndicesType::AllNamedFunctions:
-                return span<const IndexT>{m_selectedBundles[0]->allNamedFunctionIndices};
-            default:
-                assert(false);
-                return span<const IndexT>{};
-        }
-        static_assert(size_t(FunctionIndicesType::Count) == 4, "Enum was changed. Update switch case.");
+        return span<const IndexT>{m_selectedBundles[0]->allNamedFunctionIndices};
     }
     else if (m_selectedBundles.size() > 1)
     {
-        return span<const IndexT>{m_activeFunctionIndices[size_t(type)]};
+        return span<const IndexT>{m_activeFunctionIndices};
     }
     else
     {
@@ -1047,6 +980,8 @@ WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_compilands_command(Progr
         file->m_namedFunctionsMatchInfos,
         *file->m_revisionDescriptor->m_pdbReader));
 
+    command->options.flags = BuildAllNamedFunctionIndices;
+
     command->callback = [file](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncBuildBundlesFromCompilandsResult *>(result.get());
         file->m_compilandBundles = std::move(res->bundles);
@@ -1072,6 +1007,8 @@ WorkQueueCommandPtr ImGuiApp::create_build_bundles_from_source_files_command(Pro
         file->m_revisionDescriptor->m_namedFunctions,
         file->m_namedFunctionsMatchInfos,
         *file->m_revisionDescriptor->m_pdbReader));
+
+    command->options.flags = BuildAllNamedFunctionIndices;
 
     command->callback = [file](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncBuildBundlesFromSourceFilesResult *>(result.get());
@@ -1101,6 +1038,8 @@ WorkQueueCommandPtr ImGuiApp::create_build_single_bundle_command(
         file->m_namedFunctionsMatchInfos,
         comparisonDescriptor->m_matchedFunctions,
         bundle_file_idx));
+
+    command->options.flags = BuildAllNamedFunctionIndices;
 
     command->callback = [file](WorkQueueResultPtr &result) {
         auto res = static_cast<AsyncBuildSingleBundleResult *>(result.get());
@@ -2517,19 +2456,23 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                         if (selectionChanged)
                         {
                             file.m_functionIndicesFilter.reset();
+                            file.m_functionIndicesFilter.set_external_filter_condition(
+                                !file.m_imguiShowMatchedFunctions || !file.m_imguiShowUnmatchedFunctions);
                         }
 
-                        using FunctionIndicesType = ProgramComparisonDescriptor::File::FunctionIndicesType;
                         assert(file.m_revisionDescriptor != nullptr);
-                        const FunctionIndicesType type = file.get_selected_functions_type();
-                        assert(type != FunctionIndicesType::MatchedFunctions);
-                        const span<const IndexT> functionIndices = file.get_active_function_indices(type);
+                        const span<const IndexT> functionIndices = file.get_active_function_indices();
                         const NamedFunctions &namedFunctions = file.m_revisionDescriptor->m_namedFunctions;
 
                         selectionChanged |= UpdateFilter(
                             file.m_functionIndicesFilter,
                             functionIndices,
                             [&](const ImGuiTextFilterEx &filter, IndexT index) -> bool {
+                                bool isMatched = file.m_namedFunctionsMatchInfos[index].is_matched();
+                                if (isMatched && !file.m_imguiShowMatchedFunctions)
+                                    return false;
+                                if (!isMatched && !file.m_imguiShowUnmatchedFunctions)
+                                    return false;
                                 return filter.PassFilter(namedFunctions[index].name);
                             });
 
@@ -2557,10 +2500,7 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
 
                         if (child.IsContentVisible)
                         {
-                            using FunctionIndicesType = ProgramComparisonDescriptor::File::FunctionIndicesType;
                             assert(file.m_revisionDescriptor != nullptr);
-                            const FunctionIndicesType type = file.get_selected_functions_type();
-                            assert(type != FunctionIndicesType::MatchedFunctions);
                             ImGuiSelectionBasicStorage &selection = file.m_imguiFunctionsSelection;
                             const NamedFunctions &namedFunctions = file.m_revisionDescriptor->m_namedFunctions;
                             const int count = file.m_functionIndicesFilter.filtered.size();
