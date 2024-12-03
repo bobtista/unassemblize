@@ -70,12 +70,14 @@ FetchContent_Declare(glfw
 )
 
 # Configure GLFW options
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+if(NOT WIN32)
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(glfw)
+    FetchContent_MakeAvailable(glfw)
+endif()
 
 # Declare dependencies
 FetchContent_Declare(
@@ -204,17 +206,6 @@ else()
     )
 endif()
 
-target_link_libraries(unassemblize PRIVATE
-    imgui_unix
-    ImGuiFileDialog
-    Zydis
-    LIEF::LIEF
-    nlohmann_json
-    fmt::fmt
-    cxxopts::cxxopts
-    readerwriterqueue
-)
-
 if(WINDOWS)
     target_link_libraries(unassemblize PRIVATE
         d3d9.lib
@@ -222,6 +213,7 @@ if(WINDOWS)
     )
 else()
     target_link_libraries(unassemblize PRIVATE
+        imgui_unix
         glfw
         ${OPENGL_LIBRARIES}
     )
@@ -235,6 +227,16 @@ else()
         )
     endif()
 endif()
+
+target_link_libraries(unassemblize PRIVATE
+    ImGuiFileDialog
+    Zydis
+    LIEF::LIEF
+    nlohmann_json
+    fmt::fmt
+    cxxopts::cxxopts
+    readerwriterqueue
+)
 
 target_include_directories(unassemblize PRIVATE
     .
