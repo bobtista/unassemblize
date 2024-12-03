@@ -25,7 +25,7 @@
 #include "imguiclient/imguiwin32.h"
 #include <Windows.h>
 #else
-#include "imguiclient/imguilinux.h"
+#include "imguiclient/imguiglfw.h"
 #endif
 
 void CreateConsole()
@@ -331,8 +331,6 @@ int main(int argc, char **argv)
 {
     parse_options(argc, argv);
 
-    bool gui_error = false;
-
     if (g_options.gui)
     {
 #ifdef WIN32
@@ -340,7 +338,7 @@ int main(int argc, char **argv)
         unassemblize::gui::ImGuiStatus status = gui.run(g_options);
         return int(status);
 #else
-        unassemblize::gui::ImGuiLinux gui;
+        unassemblize::gui::ImGuiGLFW gui;
         unassemblize::gui::ImGuiStatus status = gui.run(g_options);
         return int(status);
 #endif
@@ -362,12 +360,6 @@ int main(int argc, char **argv)
     {
         std::cout << g_helpString << std::endl;
         return 0;
-    }
-
-    if (gui_error)
-    {
-        std::cerr << "Gui not implemented. Exiting..." << std::endl;
-        return 1;
     }
 
     if (g_options.input_file[0].v.empty())

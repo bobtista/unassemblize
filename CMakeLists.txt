@@ -40,6 +40,15 @@ find_package(ClangFormat)
 include(ClangFormat)
 include(FetchContent)
 
+if(NOT WINDOWS)
+    # Find OpenGL
+    find_package(OpenGL REQUIRED)
+    
+    if(APPLE)
+        add_definitions(-DGL_SILENCE_DEPRECATION)
+    endif()
+endif()
+
 # Configure Zydis options before declaring
 set(ZYDIS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(ZYDIS_FEATURE_ENCODER OFF CACHE BOOL "" FORCE)
@@ -53,6 +62,20 @@ set(LIEF_TESTS OFF CACHE BOOL "" FORCE)
 set(LIEF_ART OFF CACHE BOOL "" FORCE)
 set(LIEF_DEX OFF CACHE BOOL "" FORCE)
 set(LIEF_VDEX OFF CACHE BOOL "" FORCE)
+
+# Fetch GLFW 3.3
+FetchContent_Declare(glfw
+    GIT_REPOSITORY https://github.com/glfw/glfw.git
+    GIT_TAG 3.3.9
+)
+
+# Configure GLFW options
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+
+FetchContent_MakeAvailable(glfw)
 
 # Declare dependencies
 FetchContent_Declare(
@@ -169,45 +192,55 @@ target_sources(unassemblize PRIVATE
     src/imguiclient/utility/imgui_text_filter.h
 )
 
+if(WINDOWS)
+    target_sources(unassemblize PRIVATE
+        src/imguiclient/imguiwin32.cpp
+        src/imguiclient/imguiwin32.h
+    )
+else()
+    target_sources(unassemblize PRIVATE
+        src/imguiclient/imguiglfw.cpp
+        src/imguiclient/imguiglfw.h
+    )
+endif()
+
 target_link_libraries(unassemblize PRIVATE
+    imgui_unix
+    ImGuiFileDialog
     Zydis
     LIEF::LIEF
     nlohmann_json
     fmt::fmt
     cxxopts::cxxopts
     readerwriterqueue
-    ${IMGUI_LIBRARY}  # Use our platform-agnostic ImGui library
-    ImGuiFileDialog
 )
+
+if(WINDOWS)
+    target_link_libraries(unassemblize PRIVATE
+        d3d9.lib
+        ${DIASDK_LIBRARIES}
+    )
+else()
+    target_link_libraries(unassemblize PRIVATE
+        glfw
+        ${OPENGL_LIBRARIES}
+    )
+    
+    if(APPLE)
+        target_link_libraries(unassemblize PRIVATE
+            "-framework OpenGL"
+            "-framework Cocoa"
+            "-framework IOKit"
+            "-framework CoreVideo"
+        )
+    endif()
+endif()
 
 target_include_directories(unassemblize PRIVATE
     .
     src
     3rdparty/span/include
 )
-
-if(WINDOWS)
-    target_sources(unassemblize PRIVATE
-        wincompat/strings.h
-        src/imguiclient/imguiwin32.cpp
-        src/imguiclient/imguiwin32.h
-    )
-
-    target_link_libraries(unassemblize PRIVATE
-        d3d9.lib # How does it find it???
-        ${DIASDK_LIBRARIES}
-    )
-
-    target_include_directories(unassemblize PRIVATE
-        wincompat
-        ${DIASDK_INCLUDE_DIRS}
-    )
-else()
-    target_sources(unassemblize PRIVATE
-        src/imguiclient/imguilinux.cpp
-        src/imguiclient/imguilinux.h
-    )
-endif()
 
 target_compile_definitions(unassemblize PRIVATE
     $<$<CONFIG:MinSizeRel,Release,RelWithDebInfo>:RELEASE=1> # Can we do this nicer?

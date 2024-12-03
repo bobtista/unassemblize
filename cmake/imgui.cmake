@@ -45,37 +45,37 @@ if(WINDOWS)
         ${IMGUI_DIR}
         ${IMGUI_DIR}/backends
     )
+
+    # Windows uses DirectX, no need for OpenGL
+    target_link_libraries(imgui_win32 PRIVATE d3d9)
     set(IMGUI_LIBRARY imgui_win32)
 else()
-    # Unix/Linux build with OpenGL backend
-    include(FindPkgConfig)
-    pkg_check_modules(GLFW REQUIRED glfw3)
-
-    add_library(imgui STATIC ${IMGUI_SOURCES}
+    # Linux and macOS use OpenGL3
+    add_library(imgui_unix STATIC ${IMGUI_SOURCES}
         ${IMGUI_DIR}/backends/imgui_impl_glfw.cpp
         ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
     )
 
-    target_sources(imgui PRIVATE
+    target_sources(imgui_unix PRIVATE
         ${IMGUI_HEADERS}
         ${IMGUI_DIR}/backends/imgui_impl_glfw.h
         ${IMGUI_DIR}/backends/imgui_impl_opengl3.h
     )
 
-    target_include_directories(imgui PUBLIC
+    target_include_directories(imgui_unix PUBLIC
         ${IMGUI_DIR}
         ${IMGUI_DIR}/backends
-        ${GLFW_INCLUDE_DIRS}
+        ${glfw_SOURCE_DIR}/include  # Add GLFW 3.3 headers before ImGui's copy
     )
 
-    target_link_libraries(imgui PUBLIC
-        GL
-        ${GLFW_LIBRARIES}
-    )
+    # Link against GLFW and OpenGL
+    target_link_libraries(imgui_unix PRIVATE glfw)
+    
+    if(APPLE)
+        target_link_libraries(imgui_unix PRIVATE "-framework OpenGL")
+    else()
+        target_link_libraries(imgui_unix PRIVATE GL)
+    endif()
 
-    target_link_directories(imgui PUBLIC
-        ${GLFW_LIBRARY_DIRS}
-    )
-
-    set(IMGUI_LIBRARY imgui)
+    set(IMGUI_LIBRARY imgui_unix)
 endif()
