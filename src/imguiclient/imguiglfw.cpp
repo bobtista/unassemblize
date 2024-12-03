@@ -10,21 +10,22 @@
  *            A full copy of the GNU General Public License can be found in
  *            LICENSE
  */
-#include "imguiglfw.h"
-#include "backends/imgui_impl_glfw.h"
-#include "backends/imgui_impl_opengl3.h"
-#include "version.h"
-#include <GLFW/glfw3.h>
-#include <imgui.h>
 
 #ifdef __APPLE__
-#define GL_SILENCE_DEPRECATION
-#include <OpenGL/gl3.h>
+#define GLFW_INCLUDE_NONE // Prevent GLFW from including gl.h
+#include <OpenGL/gl3.h> // Include only gl3.h on macOS
 #else
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
 #endif
+
+#include "backends/imgui_impl_glfw.h"
+#include "backends/imgui_impl_opengl3.h"
+#include "imguiglfw.h"
+#include "version.h"
+#include <GLFW/glfw3.h>
+#include <imgui.h>
 
 namespace unassemblize::gui
 {
