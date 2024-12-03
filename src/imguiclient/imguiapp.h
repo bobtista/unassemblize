@@ -14,10 +14,7 @@
 
 // clang-format off
 #include <imgui.h>
-#ifdef _WIN32
-#include <imgui_internal.h>
 // clang-format on
-#endif
 #include "utility/imgui_misc.h"
 #include "utility/imgui_text_filter.h"
 
