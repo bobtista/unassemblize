@@ -49,6 +49,13 @@ bool ImGuiGLFW::init()
     if (m_initialized)
         return true;
 
+#ifndef __APPLE__
+    // Force software rendering on Linux to avoid MESA/ZINK warnings
+    setenv("LIBGL_ALWAYS_SOFTWARE", "1", 1);
+    // Disable hardware acceleration
+    setenv("MESA_GL_VERSION_OVERRIDE", "3.0", 1);
+#endif
+
     // Initialize GLFW
     glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit())
@@ -71,15 +78,29 @@ bool ImGuiGLFW::init()
     glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
 #else
     const char *glsl_version = "#version 130";
+
+    // Try modern OpenGL first
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+    glfwWindowHint(GLFW_CONTEXT_CREATION_API, GLFW_NATIVE_CONTEXT_API);
 #endif
 
     m_window = glfwCreateWindow(1280, 800, create_version_string().c_str(), nullptr, nullptr);
     if (m_window == nullptr)
     {
-        glfwTerminate();
-        return false;
+        // If modern OpenGL failed, try a more basic configuration
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1);
+        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_ANY_PROFILE);
+        glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_FALSE);
+
+        m_window = glfwCreateWindow(1280, 800, create_version_string().c_str(), nullptr, nullptr);
+        if (m_window == nullptr)
+        {
+            glfwTerminate();
+            return false;
+        }
     }
 
     glfwMakeContextCurrent(m_window);
