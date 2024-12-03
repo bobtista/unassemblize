@@ -331,17 +331,22 @@ int main(int argc, char **argv)
 {
     parse_options(argc, argv);
 
+    bool gui_error = false;
+
     if (g_options.gui)
     {
-#ifdef WIN32
-        unassemblize::gui::ImGuiWin32 gui;
-        unassemblize::gui::ImGuiStatus status = gui.run(g_options);
-        return int(status);
-#else
+#if defined(_WIN32)
+        // Windows GUI implementation
         unassemblize::gui::ImGuiGLFW gui;
+#elif defined(__APPLE__) || defined(__linux__)
+        // macOS and Linux GUI implementation using GLFW
+        unassemblize::gui::ImGuiGLFW gui;
+#else
+        // Unsupported platform
+        gui_error = true;
+#endif
         unassemblize::gui::ImGuiStatus status = gui.run(g_options);
         return int(status);
-#endif
     }
     else
     {
@@ -360,6 +365,12 @@ int main(int argc, char **argv)
     {
         std::cout << g_helpString << std::endl;
         return 0;
+    }
+
+    if (gui_error)
+    {
+        std::cerr << "Gui not implemented. Exiting..." << std::endl;
+        return 1;
     }
 
     if (g_options.input_file[0].v.empty())
