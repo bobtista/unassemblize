@@ -209,6 +209,7 @@ endif()
 if(WINDOWS)
     target_link_libraries(unassemblize PRIVATE
         d3d9.lib
+        imgui_win32
         ${DIASDK_LIBRARIES}
     )
 else()
