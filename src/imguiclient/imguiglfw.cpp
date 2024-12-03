@@ -167,10 +167,7 @@ void ImGuiGLFW::shutdown()
         return;
 
     // Cleanup ImGui app
-    if (m_app)
-    {
-        m_app.reset();
-    }
+    m_app.reset();
 
     // Cleanup ImGui
     ImGui_ImplOpenGL3_Shutdown();
