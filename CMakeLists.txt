@@ -70,7 +70,7 @@ FetchContent_Declare(glfw
 )
 
 # Configure GLFW options
-if(NOT WIN32)
+if(NOT WINDOWS)
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -208,7 +208,7 @@ endif()
 
 if(WINDOWS)
     target_link_libraries(unassemblize PRIVATE
-        d3d9.lib
+        d3d9.lib # TODO: figure out if any "FindDirectX" logic is needed here.
         imgui_win32
         ${DIASDK_LIBRARIES}
     )

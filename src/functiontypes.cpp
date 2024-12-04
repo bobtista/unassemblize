@@ -13,7 +13,6 @@
 #include "functiontypes.h"
 #include "util.h"
 #include <assert.h>
-#include <cstring>
 
 namespace unassemblize
 {
