@@ -15,32 +15,25 @@ if(POLICY CMP0091)
     cmake_policy(SET CMP0091 NEW)
 endif()
 
+# Platform detection
 if(WIN32 OR "${CMAKE_SYSTEM}" MATCHES "Windows")
     set(WINDOWS TRUE)
 endif()
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
-
 project(unassemblize LANGUAGES C CXX)
 
-if(MSVC)
-    # Build with multiple processes: speeds up build on multi core processors
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
-endif()
-
-if(WINDOWS)
-    # Spawn no console by default.
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
-endif()
-
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 set(CMAKE_CXX_STANDARD 17)
 
-# Set up a format target to do automated clang format checking.
-find_package(ClangFormat)
-include(ClangFormat)
-include(FetchContent)
-
-if(NOT WINDOWS)
+# Platform-specific configurations
+if(WINDOWS)
+    if(MSVC)
+        # Build with multiple processes: speeds up build on multi core processors
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /MP")
+    endif()
+    # Spawn no console by default.
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup")
+elseif(APPLE OR UNIX)
     # Find OpenGL
     find_package(OpenGL REQUIRED)
     
@@ -49,7 +42,12 @@ if(NOT WINDOWS)
     endif()
 endif()
 
-# Configure Zydis options before declaring
+# Set up a format target to do automated clang format checking.
+find_package(ClangFormat)
+include(ClangFormat)
+include(FetchContent)
+
+# Configure dependency options
 set(ZYDIS_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(ZYDIS_FEATURE_ENCODER OFF CACHE BOOL "" FORCE)
 
@@ -63,14 +61,13 @@ set(LIEF_ART OFF CACHE BOOL "" FORCE)
 set(LIEF_DEX OFF CACHE BOOL "" FORCE)
 set(LIEF_VDEX OFF CACHE BOOL "" FORCE)
 
-# Fetch GLFW 3.3
-FetchContent_Declare(glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG 3.3.9
-)
+# GLFW configuration and fetching
+if(APPLE OR UNIX)
+    FetchContent_Declare(glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+        GIT_TAG 3.3.9
+    )
 
-# Configure GLFW options
-if(NOT WINDOWS)
     set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
     set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
@@ -144,6 +141,7 @@ endif()
 
 add_executable(unassemblize)
 
+# Common sources for all platforms
 target_sources(unassemblize PRIVATE
     ${CMAKE_CURRENT_BINARY_DIR}/gitinfo.cpp
     gitinfo.h
@@ -194,25 +192,24 @@ target_sources(unassemblize PRIVATE
     src/imguiclient/utility/imgui_text_filter.h
 )
 
+# Platform-specific configurations
 if(WINDOWS)
     target_sources(unassemblize PRIVATE
         src/imguiclient/imguiwin32.cpp
         src/imguiclient/imguiwin32.h
     )
-else()
-    target_sources(unassemblize PRIVATE
-        src/imguiclient/imguiglfw.cpp
-        src/imguiclient/imguiglfw.h
-    )
-endif()
-
-if(WINDOWS)
+    
     target_link_libraries(unassemblize PRIVATE
         d3d9.lib # TODO: figure out if any "FindDirectX" logic is needed here.
         imgui_win32
         ${DIASDK_LIBRARIES}
     )
-else()
+elseif(APPLE OR UNIX)
+    target_sources(unassemblize PRIVATE
+        src/imguiclient/imguiglfw.cpp
+        src/imguiclient/imguiglfw.h
+    )
+    
     target_link_libraries(unassemblize PRIVATE
         imgui_unix
         glfw
@@ -229,6 +226,7 @@ else()
     endif()
 endif()
 
+# Common libraries for all platforms
 target_link_libraries(unassemblize PRIVATE
     ImGuiFileDialog
     Zydis
