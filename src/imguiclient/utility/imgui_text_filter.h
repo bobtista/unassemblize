@@ -55,7 +55,7 @@ void UpdateFilter(
     ImVector<FilterType> &filtered,
     const ImGuiTextFilterEx &filter,
     const Container &source,
-    FilterCallback<typename Container::value_type> filterCallback)
+    FilterCallback<typename Container::value_type> &&filterCallback)
 {
     if (filter.IsActive() || filter.hasExternalFilterCondition)
     {
@@ -91,13 +91,13 @@ template<typename Descriptor, typename Container>
 bool UpdateFilter(
     Descriptor &descriptor,
     const Container &source,
-    FilterCallback<typename Container::value_type> filterCallback)
+    FilterCallback<typename Container::value_type> &&filterCallback)
 {
     using FilterType = typename Descriptor::FilterType;
     const bool changed = descriptor.filter.Draw(descriptor.key) || !descriptor.filteredOnce;
     if (changed)
     {
-        UpdateFilter<FilterType>(descriptor.filtered, descriptor.filter, source, filterCallback);
+        UpdateFilter<FilterType>(descriptor.filtered, descriptor.filter, source, std::move(filterCallback));
         descriptor.filteredOnce = true;
     }
     return changed;

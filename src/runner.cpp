@@ -372,8 +372,8 @@ NamedFunctions Runner::build_functions(const Executable &executable)
 
 MatchedFunctionsData Runner::build_matched_functions(ConstNamedFunctionsPair named_functions_pair)
 {
-    const size_t less_idx = named_functions_pair[0]->size() < named_functions_pair[1]->size() ? 0 : 1;
-    const size_t more_idx = (less_idx + 1) % named_functions_pair.size();
+    const IndexT less_idx = named_functions_pair[0]->size() < named_functions_pair[1]->size() ? 0 : 1;
+    const IndexT more_idx = (less_idx + 1) % 2;
     const NamedFunctions &less_named_functions = *named_functions_pair[less_idx];
     const NamedFunctions &more_named_functions = *named_functions_pair[more_idx];
     const MultiStringToIndexMapT less_named_functions_to_index_map = build_function_name_to_index_map(less_named_functions);

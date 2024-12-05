@@ -51,9 +51,25 @@ class ImGuiApp
     // clang-format on
 
     static constexpr ImU32 GreenColor = IM_COL32(0, 255, 0, 255);
-
     static constexpr std::chrono::system_clock::time_point InvalidTimePoint = std::chrono::system_clock::time_point::min();
     static constexpr uint32_t InvalidId = 0;
+
+    // Helper struct to keep track of items that are scheduled to be processed just once.
+    struct ProcessedState
+    {
+        void init(size_t maxItemsCount);
+        span<const IndexT> get_items_for_processing(span<const IndexT> indices);
+
+    private:
+        bool set_item_processed(IndexT index);
+        size_t get_processed_item_count() const;
+        span<const IndexT> get_processed_items(size_t begin, size_t end) const;
+
+        // Items that have been processed.
+        std::vector<IndexT> m_processedItems;
+        // Array of bits for all items to keep track of which ones have been processed.
+        std::unique_ptr<uint8_t[]> m_processedItemStates;
+    };
 
     using ProgramFileId = uint32_t;
     using ProgramFileRevisionId = uint32_t;
@@ -127,6 +143,9 @@ class ImGuiApp
             Load,
             SaveConfig,
             BuildNamedFunctions,
+            DisassembleSelectedFunctions,
+            BuildSourceLinesForSelectedFunctions,
+            LoadSourceFilesForSelectedFunctions,
         };
 
         ProgramFileRevisionDescriptor();
@@ -143,6 +162,7 @@ class ImGuiApp
 
         bool exe_loaded() const;
         bool pdb_loaded() const;
+
         bool named_functions_built() const;
 
         std::string evaluate_exe_filename() const;
@@ -178,6 +198,10 @@ class ImGuiApp
         std::chrono::time_point<std::chrono::system_clock> m_pdbSaveConfigTimepoint = InvalidTimePoint;
 
         NamedFunctions m_namedFunctions;
+
+        // Stores named functions that have been async processed already. Links to NamedFunctions.
+        ProcessedState m_processedNamedFunctions;
+
         FileContentStorage m_fileContentStrorage;
 
         bool m_namedFunctionsBuilt = false;
@@ -196,6 +220,7 @@ class ImGuiApp
                 BuildCompilandBundles,
                 BuildSourceFileBundles,
                 BuildSingleBundle,
+                BuildComparisonRecordsForSelectedFunctions,
             };
 
             using ImGuiBundlesSelectionArray = std::array<ImGuiSelectionBasicStorage, size_t(MatchBundleType::Count)>;
@@ -223,8 +248,10 @@ class ImGuiApp
             void update_selected_bundles();
             void update_active_functions(); // Requires updated selected bundles.
 
-            span<const IndexT> get_active_function_indices() const;
+            span<const IndexT> get_active_named_function_indices() const;
             const NamedFunction &get_filtered_named_function(int index) const;
+
+            void update_selected_named_functions();
 
             // Selected file index in list box. Is not reset on rebuild.
             // Does not necessarily link to current loaded file.
@@ -260,8 +287,14 @@ class ImGuiApp
             TriState m_sourceFileBundlesBuilt = TriState::False;
             bool m_singleBundleBuilt = false;
 
+            // Bundles that are visible and selected in the ui.
             std::vector<const NamedFunctionBundle *> m_selectedBundles;
-            std::vector<IndexT> m_activeFunctionIndices;
+
+            // Named function indices that have been assembled from multiple bundles. Links to NamedFunctions.
+            std::vector<IndexT> m_activeNamedFunctionIndices;
+
+            // Functions that are visible and selected in the ui. Links to NamedFunctions.
+            std::vector<IndexT> m_selectedNamedFunctionIndices;
         };
 
         ProgramComparisonDescriptor();
@@ -276,6 +309,11 @@ class ImGuiApp
         bool matched_functions_built() const;
         bool bundles_ready() const;
 
+        // Call relevant File::update_selected_functions before this one.
+        void update_selected_matched_functions();
+
+        span<const IndexT> get_matched_named_function_indices_for_processing(IndexT side);
+
         const ProgramComparisonId m_id = InvalidId;
 
         bool m_has_open_window = true;
@@ -285,7 +323,18 @@ class ImGuiApp
 
         MatchedFunctions m_matchedFunctions;
 
+        // Stores matched functions that have been async processed already. Links to MatchedFunctions.
+        ProcessedState m_processedMatchedFunctions;
+
+        // Matched Functions that are visible and selected in the ui. Links to MatchedFunctions.
+        std::vector<IndexT> m_selectedMatchedFunctionIndices;
+
     private:
+        static std::vector<IndexT> build_named_function_indices(
+            const MatchedFunctions &matchedFunctions,
+            span<const IndexT> matchedFunctionIndices,
+            IndexT side);
+
         static ProgramFileId s_id;
     };
 
@@ -325,26 +374,60 @@ private:
         ProgramComparisonDescriptor *comparisonDescriptor,
         size_t bundle_file_idx);
 
+    static WorkQueueCommandPtr create_disassemble_selected_functions_command(
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor,
+        span<const IndexT> namedFunctionIndices);
+
+    static WorkQueueCommandPtr create_build_source_lines_for_selected_functions_command(
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor,
+        span<const IndexT> namedFunctionIndices);
+
+    static WorkQueueCommandPtr create_load_source_files_for_selected_functions_command(
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor,
+        span<const IndexT> namedFunctionIndices);
+
+    static WorkQueueCommandPtr create_process_selected_functions_command(
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor,
+        span<const IndexT> namedFunctionIndices);
+
+    static WorkQueueCommandPtr create_build_comparison_records_for_selected_functions_command(
+        ProgramComparisonDescriptor *comparisonDescriptor,
+        span<const IndexT> matchedFunctionIndices);
+
     ProgramFileDescriptor *get_program_file_descriptor(size_t program_file_idx);
 
     void load_async(ProgramFileDescriptor *descriptor);
 
     void save_config_async(ProgramFileDescriptor *descriptor);
 
-    void load_and_compare_async(
+    void load_and_init_comparison_async(
         ProgramFileDescriptorPair fileDescriptorPair,
         ProgramComparisonDescriptor *comparisonDescriptor);
-    void compare_async(ProgramComparisonDescriptor *comparisonDescriptor);
+    void init_comparison_async(ProgramComparisonDescriptor *comparisonDescriptor);
     void build_named_functions_async(ProgramComparisonDescriptor *comparisonDescriptor);
     void build_matched_functions_async(ProgramComparisonDescriptor *comparisonDescriptor);
     void build_bundled_functions_async(ProgramComparisonDescriptor *comparisonDescriptor);
+
+    void process_named_functions_async(
+        ProgramFileRevisionDescriptorPtr &revisionDescriptor,
+        span<const IndexT> namedFunctionIndices);
+
+    void process_named_and_matched_functions_async(
+        ProgramComparisonDescriptor *comparisonDescriptor,
+        span<const IndexT> matchedFunctionIndices);
+
+    void process_matched_functions_async(
+        ProgramComparisonDescriptor *comparisonDescriptor,
+        span<const IndexT> matchedFunctionIndices);
 
     void add_file();
     void remove_file(size_t idx);
     void remove_all_files();
 
-    void add_asm_comparison();
-    void remove_closed_asm_comparisons();
+    void add_program_comparison();
+    void update_closed_program_comparisons();
+
+    void on_functions_interaction(ProgramComparisonDescriptor &descriptor, ProgramComparisonDescriptor::File &file);
 
     static std::string create_section_string(uint32_t section_index, const ExeSections *sections);
     static std::string create_time_string(std::chrono::time_point<std::chrono::system_clock> time_point);
