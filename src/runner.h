@@ -39,13 +39,11 @@ public:
     static NamedFunctionBundle build_single_bundle(const BuildSingleBundleOptions &o);
 
     static void disassemble_matched_functions(const DisassembleMatchedFunctionsOptions &o);
-    static void disassemble_bundled_functions(const DisassembleBundledFunctionsOptions &o);
     static void disassemble_selected_functions(const DisassembleSelectedFunctionsOptions &o);
     // Can be used to disassemble a single function too.
     static void disassemble_functions(const DisassembleFunctionsOptions &o);
 
     static void build_source_lines_for_matched_functions(const BuildSourceLinesForMatchedFunctionsOptions &o);
-    static void build_source_lines_for_bundled_functions(const BuildSourceLinesForBundledFunctionsOptions &o);
     static void build_source_lines_for_selected_functions(const BuildSourceLinesForSelectedFunctionsOptions &o);
     // Can be used to build source lines of a single function too.
     static void build_source_lines_for_functions(const BuildSourceLinesForFunctionsOptions &o);
@@ -53,14 +51,11 @@ public:
     // Note: requires a prior call to build_source_lines_for_functions!
     static bool load_source_files_for_matched_functions(const LoadSourceFilesForMatchedFunctionsOptions &o);
     // Note: requires a prior call to build_source_lines_for_functions!
-    static bool load_source_files_for_bundled_functions(const LoadSourceFilesForBundledFunctionsOptions &o);
-    // Note: requires a prior call to build_source_lines_for_functions!
     static bool load_source_files_for_selected_functions(const LoadSourceFilesForSelectedFunctionsOptions &o);
     // Note: requires a prior call to build_source_lines_for_functions!
     static bool load_source_files_for_functions(const LoadSourceFilesForFunctionsOptions &o);
 
     static void build_comparison_records_for_matched_functions(const BuildComparisonRecordsForMatchedFunctionsOptions &o);
-    static void build_comparison_records_for_bundled_functions(const BuildComparisonRecordsForBundledFunctionsOptions &o);
     static void build_comparison_records_for_selected_functions(const BuildComparisonRecordsForSelectedFunctionsOptions &o);
 
     static bool process_asm_output(const AsmOutputOptions &o);
@@ -137,12 +132,6 @@ private:
         ConstExecutablePair executable_pair,
         AsmFormat format);
 
-    static void disassemble_bundled_functions(
-        NamedFunctions &named_functions,
-        NamedFunctionBundle &bundle,
-        const Executable &executable,
-        AsmFormat format);
-
     // Can be used to disassemble a complete bundle with two calls.
     static void disassemble_selected_functions(
         NamedFunctions &named_functions,
@@ -159,11 +148,6 @@ private:
         NamedFunctionsPair named_functions_pair,
         const MatchedFunctions &matched_functions,
         ConstPdbReaderPair pdb_reader_pair);
-
-    static void build_source_lines_for_bundled_functions(
-        NamedFunctions &named_functions,
-        NamedFunctionBundle &bundle,
-        const PdbReader &pdb_reader);
 
     // Can be used to build source lines of a complete bundle with two calls.
     static void build_source_lines_for_selected_functions(
@@ -184,12 +168,6 @@ private:
         const MatchedFunctions &matched_functions);
 
     // Note: requires a prior call to build_source_lines_for_functions!
-    static bool load_source_files_for_bundled_functions(
-        FileContentStorage &storage,
-        NamedFunctions &named_functions,
-        NamedFunctionBundle &bundle);
-
-    // Note: requires a prior call to build_source_lines_for_functions!
     static bool load_source_files_for_selected_functions(
         FileContentStorage &storage,
         NamedFunctions &named_functions,
@@ -206,12 +184,6 @@ private:
     static void build_comparison_records_for_matched_functions(
         MatchedFunctions &matched_functions,
         ConstNamedFunctionsPair named_functions_pair,
-        uint32_t lookahead_limit);
-
-    static void build_comparison_records_for_bundled_functions(
-        MatchedFunctions &matched_functions,
-        ConstNamedFunctionsPair named_functions_pair,
-        NamedFunctionBundle &bundle,
         uint32_t lookahead_limit);
 
     static void build_comparison_records_for_selected_functions(

@@ -133,11 +133,6 @@ void Runner::disassemble_matched_functions(const DisassembleMatchedFunctionsOpti
     disassemble_matched_functions(o.named_functions_pair, o.matched_functions, o.executable_pair, o.format);
 }
 
-void Runner::disassemble_bundled_functions(const DisassembleBundledFunctionsOptions &o)
-{
-    disassemble_bundled_functions(o.named_functions, o.bundle, o.executable, o.format);
-}
-
 void Runner::disassemble_selected_functions(const DisassembleSelectedFunctionsOptions &o)
 {
     disassemble_selected_functions(o.named_functions, o.named_function_indices, o.executable, o.format);
@@ -151,11 +146,6 @@ void Runner::disassemble_functions(const DisassembleFunctionsOptions &o)
 void Runner::build_source_lines_for_matched_functions(const BuildSourceLinesForMatchedFunctionsOptions &o)
 {
     build_source_lines_for_matched_functions(o.named_functions_pair, o.matched_functions, o.pdb_reader_pair);
-}
-
-void Runner::build_source_lines_for_bundled_functions(const BuildSourceLinesForBundledFunctionsOptions &o)
-{
-    build_source_lines_for_bundled_functions(o.named_functions, o.bundle, o.pdb_reader);
 }
 
 void Runner::build_source_lines_for_selected_functions(const BuildSourceLinesForSelectedFunctionsOptions &o)
@@ -173,11 +163,6 @@ bool Runner::load_source_files_for_matched_functions(const LoadSourceFilesForMat
     return load_source_files_for_matched_functions(o.storage, o.named_functions_pair, o.matched_functions);
 }
 
-bool Runner::load_source_files_for_bundled_functions(const LoadSourceFilesForBundledFunctionsOptions &o)
-{
-    return load_source_files_for_bundled_functions(o.storage, o.named_functions, o.bundle);
-}
-
 bool Runner::load_source_files_for_selected_functions(const LoadSourceFilesForSelectedFunctionsOptions &o)
 {
     return load_source_files_for_selected_functions(o.storage, o.named_functions, o.named_function_indices);
@@ -191,11 +176,6 @@ bool Runner::load_source_files_for_functions(const LoadSourceFilesForFunctionsOp
 void Runner::build_comparison_records_for_matched_functions(const BuildComparisonRecordsForMatchedFunctionsOptions &o)
 {
     build_comparison_records_for_matched_functions(o.matched_functions, o.named_functions_pair, o.lookahead_limit);
-}
-
-void Runner::build_comparison_records_for_bundled_functions(const BuildComparisonRecordsForBundledFunctionsOptions &o)
-{
-    build_comparison_records_for_bundled_functions(o.matched_functions, o.named_functions_pair, o.bundle, o.lookahead_limit);
 }
 
 void Runner::build_comparison_records_for_selected_functions(const BuildComparisonRecordsForSelectedFunctionsOptions &o)
@@ -668,15 +648,6 @@ void Runner::disassemble_matched_functions(
     }
 }
 
-void Runner::disassemble_bundled_functions(
-    NamedFunctions &named_functions,
-    NamedFunctionBundle &bundle,
-    const Executable &executable,
-    AsmFormat format)
-{
-    disassemble_selected_functions(named_functions, span<const IndexT>{bundle.allNamedFunctionIndices}, executable, format);
-}
-
 void Runner::disassemble_selected_functions(
     NamedFunctions &named_functions,
     span<const IndexT> named_function_indices,
@@ -747,17 +718,6 @@ void Runner::build_source_lines_for_matched_functions(
     }
 }
 
-void Runner::build_source_lines_for_bundled_functions(
-    NamedFunctions &named_functions,
-    NamedFunctionBundle &bundle,
-    const PdbReader &pdb_reader)
-{
-    build_source_lines_for_selected_functions(
-        named_functions,
-        span<const IndexT>{bundle.allNamedFunctionIndices},
-        pdb_reader);
-}
-
 void Runner::build_source_lines_for_selected_functions(
     NamedFunctions &named_functions,
     span<const IndexT> named_function_indices,
@@ -809,17 +769,6 @@ bool Runner::load_source_files_for_matched_functions(
     return success;
 }
 
-bool Runner::load_source_files_for_bundled_functions(
-    FileContentStorage &storage,
-    NamedFunctions &named_functions,
-    NamedFunctionBundle &bundle)
-{
-    return load_source_files_for_selected_functions(
-        storage,
-        named_functions,
-        span<const IndexT>{bundle.allNamedFunctionIndices});
-}
-
 bool Runner::load_source_files_for_selected_functions(
     FileContentStorage &storage,
     NamedFunctions &named_functions,
@@ -864,19 +813,6 @@ void Runner::build_comparison_records_for_matched_functions(
     {
         build_comparison_record(matched, named_functions_pair, lookahead_limit);
     }
-}
-
-void Runner::build_comparison_records_for_bundled_functions(
-    MatchedFunctions &matched_functions,
-    ConstNamedFunctionsPair named_functions_pair,
-    NamedFunctionBundle &bundle,
-    uint32_t lookahead_limit)
-{
-    build_comparison_records_for_selected_functions(
-        matched_functions,
-        named_functions_pair,
-        span<const IndexT>{bundle.matchedFunctionIndices},
-        lookahead_limit);
 }
 
 void Runner::build_comparison_records_for_selected_functions(

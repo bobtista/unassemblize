@@ -105,14 +105,6 @@ struct AsyncDisassembleMatchedFunctionsCommand : public WorkQueueCommand
     DisassembleMatchedFunctionsOptions options;
 };
 
-struct AsyncDisassembleBundledFunctionsCommand : public WorkQueueCommand
-{
-    AsyncDisassembleBundledFunctionsCommand(DisassembleBundledFunctionsOptions &&o);
-    virtual ~AsyncDisassembleBundledFunctionsCommand() override = default;
-
-    DisassembleBundledFunctionsOptions options;
-};
-
 struct AsyncDisassembleSelectedFunctionsCommand : public WorkQueueCommand
 {
     AsyncDisassembleSelectedFunctionsCommand(DisassembleSelectedFunctionsOptions &&o);
@@ -135,14 +127,6 @@ struct AsyncBuildSourceLinesForMatchedFunctionsCommand : public WorkQueueCommand
     virtual ~AsyncBuildSourceLinesForMatchedFunctionsCommand() override = default;
 
     BuildSourceLinesForMatchedFunctionsOptions options;
-};
-
-struct AsyncBuildSourceLinesForBundledFunctionsCommand : public WorkQueueCommand
-{
-    AsyncBuildSourceLinesForBundledFunctionsCommand(BuildSourceLinesForBundledFunctionsOptions &&o);
-    virtual ~AsyncBuildSourceLinesForBundledFunctionsCommand() override = default;
-
-    BuildSourceLinesForBundledFunctionsOptions options;
 };
 
 struct AsyncBuildSourceLinesForSelectedFunctionsCommand : public WorkQueueCommand
@@ -169,14 +153,6 @@ struct AsyncLoadSourceFilesForMatchedFunctionsCommand : public WorkQueueCommand
     LoadSourceFilesForMatchedFunctionsOptions options;
 };
 
-struct AsyncLoadSourceFilesForBundledFunctionsCommand : public WorkQueueCommand
-{
-    AsyncLoadSourceFilesForBundledFunctionsCommand(LoadSourceFilesForBundledFunctionsOptions &&o);
-    virtual ~AsyncLoadSourceFilesForBundledFunctionsCommand() override = default;
-
-    LoadSourceFilesForBundledFunctionsOptions options;
-};
-
 struct AsyncLoadSourceFilesForSelectedFunctionsCommand : public WorkQueueCommand
 {
     AsyncLoadSourceFilesForSelectedFunctionsCommand(LoadSourceFilesForSelectedFunctionsOptions &&o);
@@ -199,14 +175,6 @@ struct AsyncBuildComparisonRecordsForMatchedFunctionsCommand : public WorkQueueC
     virtual ~AsyncBuildComparisonRecordsForMatchedFunctionsCommand() override = default;
 
     BuildComparisonRecordsForMatchedFunctionsOptions options;
-};
-
-struct AsyncBuildComparisonRecordsForBundledFunctionsCommand : public WorkQueueCommand
-{
-    AsyncBuildComparisonRecordsForBundledFunctionsCommand(BuildComparisonRecordsForBundledFunctionsOptions &&o);
-    virtual ~AsyncBuildComparisonRecordsForBundledFunctionsCommand() override = default;
-
-    BuildComparisonRecordsForBundledFunctionsOptions options;
 };
 
 struct AsyncBuildComparisonRecordsForSelectedFunctionsCommand : public WorkQueueCommand
@@ -310,11 +278,6 @@ struct AsyncDisassembleMatchedFunctionsResult : public WorkQueueResult
     virtual ~AsyncDisassembleMatchedFunctionsResult() override = default;
 };
 
-struct AsyncDisassembleBundledFunctionsResult : public WorkQueueResult
-{
-    virtual ~AsyncDisassembleBundledFunctionsResult() override = default;
-};
-
 struct AsyncDisassembleSelectedFunctionsResult : public WorkQueueResult
 {
     virtual ~AsyncDisassembleSelectedFunctionsResult() override = default;
@@ -330,11 +293,6 @@ struct AsyncBuildSourceLinesForMatchedFunctionsResult : public WorkQueueResult
     virtual ~AsyncBuildSourceLinesForMatchedFunctionsResult() override = default;
 };
 
-struct AsyncBuildSourceLinesForBundledFunctionsResult : public WorkQueueResult
-{
-    virtual ~AsyncBuildSourceLinesForBundledFunctionsResult() override = default;
-};
-
 struct AsyncBuildSourceLinesForSelectedFunctionsResult : public WorkQueueResult
 {
     virtual ~AsyncBuildSourceLinesForSelectedFunctionsResult() override = default;
@@ -348,13 +306,6 @@ struct AsyncBuildSourceLinesForFunctionsResult : public WorkQueueResult
 struct AsyncLoadSourceFilesForMatchedFunctionsResult : public WorkQueueResult
 {
     virtual ~AsyncLoadSourceFilesForMatchedFunctionsResult() override = default;
-
-    bool success = false;
-};
-
-struct AsyncLoadSourceFilesForBundledFunctionsResult : public WorkQueueResult
-{
-    virtual ~AsyncLoadSourceFilesForBundledFunctionsResult() override = default;
 
     bool success = false;
 };
@@ -376,11 +327,6 @@ struct AsyncLoadSourceFilesForFunctionsResult : public WorkQueueResult
 struct AsyncBuildComparisonRecordsForMatchedFunctionsResult : public WorkQueueResult
 {
     virtual ~AsyncBuildComparisonRecordsForMatchedFunctionsResult() override = default;
-};
-
-struct AsyncBuildComparisonRecordsForBundledFunctionsResult : public WorkQueueResult
-{
-    virtual ~AsyncBuildComparisonRecordsForBundledFunctionsResult() override = default;
 };
 
 struct AsyncBuildComparisonRecordsForSelectedFunctionsResult : public WorkQueueResult
