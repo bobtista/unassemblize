@@ -21,7 +21,7 @@
 #include <iostream>
 #include <stdio.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 #include "imguiclient/imguiwin32.h"
 #include <Windows.h>
 #else
@@ -30,7 +30,7 @@
 
 void CreateConsole()
 {
-#ifdef WIN32
+#ifdef _WIN32
     if (::AllocConsole() == FALSE)
     {
         return;
@@ -337,7 +337,7 @@ int main(int argc, char **argv)
     {
 #if defined(_WIN32)
         // Windows GUI implementation
-        unassemblize::gui::ImGuiGLFW gui;
+        unassemblize::gui::ImGuiWin32 gui;
 #elif defined(__APPLE__) || defined(__linux__)
         // macOS and Linux GUI implementation using GLFW
         unassemblize::gui::ImGuiGLFW gui;

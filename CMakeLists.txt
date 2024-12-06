@@ -204,6 +204,11 @@ if(WINDOWS)
         imgui_win32
         ${DIASDK_LIBRARIES}
     )
+
+    target_include_directories(unassemblize PRIVATE
+        wincompat
+        ${DIASDK_INCLUDE_DIRS}
+    )
 elseif(APPLE OR UNIX)
     target_sources(unassemblize PRIVATE
         src/imguiclient/imguiglfw.cpp
