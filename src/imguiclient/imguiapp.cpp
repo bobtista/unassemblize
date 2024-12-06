@@ -20,6 +20,7 @@
 #include <filesystem>
 #include <fmt/core.h>
 #include <misc/cpp/imgui_stdlib.h>
+#include <unordered_set>
 
 namespace unassemblize::gui
 {
@@ -511,19 +512,38 @@ void ImGuiApp::ProgramComparisonDescriptor::File::update_selected_bundles()
     std::vector<const NamedFunctionBundle *> selectedBundles;
     selectedBundles.reserve(selection.Size);
 
-    void *it = nullptr;
-    ImGuiID id;
-    while (selection.GetNextSelectedItem(&it, &id))
+    if (m_bundlesFilter.filtered.size() == activeBundles.size())
     {
-        auto CompareBundleId = [id](const NamedFunctionBundle *bundle) { return bundle->id == id; };
+        // Fast route. The filter contains all elements.
+        void *it = nullptr;
+        ImGuiID id;
+        while (selection.GetNextSelectedItem(&it, &id))
+        {
+            assert(IndexT(id) < activeBundles.size());
+            const NamedFunctionBundle *bundle = &activeBundles[IndexT(id)];
+            selectedBundles.push_back(bundle);
+        }
+    }
+    else
+    {
+        // Slow route. The filter does not contain all elements.
+        // Uses lookup set. Is much faster than linear search over elements.
+        const std::unordered_set<const NamedFunctionBundle *> filteredSet(
+            m_bundlesFilter.filtered.begin(),
+            m_bundlesFilter.filtered.end());
 
-        // #TODO: This is expensive. Optimize.
-        if (!util::has_value_if(m_bundlesFilter.filtered, CompareBundleId))
-            continue;
+        void *it = nullptr;
+        ImGuiID id;
+        while (selection.GetNextSelectedItem(&it, &id))
+        {
+            assert(IndexT(id) < activeBundles.size());
+            const NamedFunctionBundle *bundle = &activeBundles[IndexT(id)];
 
-        assert(IndexT(id) < activeBundles.size());
+            if (filteredSet.count(bundle) == 0)
+                continue;
 
-        selectedBundles.push_back(&activeBundles[IndexT(id)]);
+            selectedBundles.push_back(bundle);
+        }
     }
 
     m_selectedBundles = std::move(selectedBundles);
@@ -535,6 +555,9 @@ void ImGuiApp::ProgramComparisonDescriptor::File::update_active_functions()
 
     if (m_selectedBundles.size() > 1)
     {
+#ifndef RELEASE
+        std::unordered_set<IndexT> activeAllNamedFunctionsSet;
+#endif
         {
             size_t activeAllNamedFunctionsCount = 0;
 
@@ -543,13 +566,19 @@ void ImGuiApp::ProgramComparisonDescriptor::File::update_active_functions()
                 activeAllNamedFunctionsCount += bundle->allNamedFunctionIndices.size();
             }
             activeAllNamedFunctions.reserve(activeAllNamedFunctionsCount);
+#ifndef RELEASE
+            activeAllNamedFunctionsSet.reserve(activeAllNamedFunctionsCount);
+#endif
         }
 
         for (const NamedFunctionBundle *bundle : m_selectedBundles)
         {
             for (IndexT index : bundle->allNamedFunctionIndices)
             {
-                assert(!util::has_value(activeAllNamedFunctions, index));
+#ifndef RELEASE
+                assert(activeAllNamedFunctionsSet.count(index) == 0);
+                activeAllNamedFunctionsSet.emplace(index);
+#endif
                 activeAllNamedFunctions.push_back(index);
             }
         }
@@ -591,15 +620,35 @@ void ImGuiApp::ProgramComparisonDescriptor::File::update_selected_named_function
     // Reservation size typically matches selection size, but could be larger.
     selectedAllNamedFunctionIndices.reserve(m_imguiFunctionsSelection.Size);
 
-    void *it = nullptr;
-    ImGuiID id;
-    while (m_imguiFunctionsSelection.GetNextSelectedItem(&it, &id))
-    {
-        // #TODO: This is expensive. Optimize.
-        if (!util::has_value(m_functionIndicesFilter.filtered, IndexT(id)))
-            continue;
+    const span<const IndexT> activeNamedFunctionIndices = get_active_named_function_indices();
 
-        selectedAllNamedFunctionIndices.push_back(IndexT(id));
+    if (m_functionIndicesFilter.filtered.size() == activeNamedFunctionIndices.size())
+    {
+        // Fast route. The filter contains all elements.
+        void *it = nullptr;
+        ImGuiID id;
+        while (m_imguiFunctionsSelection.GetNextSelectedItem(&it, &id))
+        {
+            selectedAllNamedFunctionIndices.push_back(IndexT(id));
+        }
+    }
+    else
+    {
+        // Slow route. The filter does not contain all elements.
+        // Uses lookup set. Is much faster than linear search over elements.
+        const std::unordered_set<IndexT> filteredSet(
+            m_functionIndicesFilter.filtered.begin(),
+            m_functionIndicesFilter.filtered.end());
+
+        void *it = nullptr;
+        ImGuiID id;
+        while (m_imguiFunctionsSelection.GetNextSelectedItem(&it, &id))
+        {
+            if (filteredSet.count(IndexT(id)) == 0)
+                continue;
+
+            selectedAllNamedFunctionIndices.push_back(IndexT(id));
+        }
     }
 
     m_selectedNamedFunctionIndices = std::move(selectedAllNamedFunctionIndices);
@@ -699,18 +748,20 @@ void ImGuiApp::ProgramComparisonDescriptor::update_selected_matched_functions()
         }
     }
 
-    // #TODO: Performance: Perhaps a map would be more efficient here.
-    const span<const IndexT> priorSelectedMatchedFunctionIndices{selectedMatchedFunctionIndices};
+    // Uses lookup set. Is much faster than linear search over elements.
+    const std::unordered_set<IndexT> priorSelectedMatchedFunctionIndicesSet(
+        selectedMatchedFunctionIndices.begin(),
+        selectedMatchedFunctionIndices.end());
 
     for (IndexT functionIndex : m_files[lessIdx].m_selectedNamedFunctionIndices)
     {
         const NamedFunctionMatchInfo &matchInfo = m_files[lessIdx].m_namedFunctionsMatchInfos[functionIndex];
         if (matchInfo.is_matched())
         {
-            if (!util::has_value(priorSelectedMatchedFunctionIndices, matchInfo.matched_index))
-            {
-                selectedMatchedFunctionIndices.push_back(matchInfo.matched_index);
-            }
+            if (priorSelectedMatchedFunctionIndicesSet.count(matchInfo.matched_index) != 0)
+                continue;
+
+            selectedMatchedFunctionIndices.push_back(matchInfo.matched_index);
         }
     }
 
@@ -2862,7 +2913,7 @@ void ImGuiApp::ComparisonManagerBody(ProgramComparisonDescriptor &descriptor)
                             "Select Function(s) - Count: %d/%d, Selected: %d/%d",
                             file.m_functionIndicesFilter.filtered.size(),
                             int(functionIndices.size()),
-                            0, // TODO: value
+                            int(file.m_selectedNamedFunctionIndices.size()),
                             file.m_imguiFunctionsSelection.Size);
                     }
 

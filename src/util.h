@@ -81,18 +81,23 @@ void free_container(T &container)
     T().swap(container);
 }
 
+// Use this for small containers or rare uses only.
+// Use hash maps for longer and reoccurring lookups.
 template<typename Container, typename Value>
 bool has_value(const Container &container, const Value &value)
 {
     return std::find(container.begin(), container.end(), value) != container.end();
 }
 
+// Use this for small containers or rare uses only.
+// Use hash maps for longer and reoccurring lookups.
 template<typename Container, typename UnaryPred>
 bool has_value_if(const Container &container, UnaryPred pred)
 {
     return std::find_if(container.begin(), container.end(), pred) != container.end();
 }
 
+// Use this for small containers or rare uses only.
 template<typename Container, typename Value>
 bool push_back_unique(Container &container, const Value &value)
 {
