@@ -126,16 +126,6 @@ AsyncDisassembleMatchedFunctionsCommand::AsyncDisassembleMatchedFunctionsCommand
     };
 }
 
-AsyncDisassembleBundledFunctionsCommand::AsyncDisassembleBundledFunctionsCommand(DisassembleBundledFunctionsOptions &&o) :
-    options(std::move(o))
-{
-    WorkQueueCommand::work = [this]() {
-        auto result = std::make_unique<AsyncDisassembleBundledFunctionsResult>();
-        Runner::disassemble_bundled_functions(options);
-        return result;
-    };
-}
-
 AsyncDisassembleSelectedFunctionsCommand::AsyncDisassembleSelectedFunctionsCommand(DisassembleSelectedFunctionsOptions &&o) :
     options(std::move(o))
 {
@@ -162,17 +152,6 @@ AsyncBuildSourceLinesForMatchedFunctionsCommand::AsyncBuildSourceLinesForMatched
     WorkQueueCommand::work = [this]() {
         auto result = std::make_unique<AsyncBuildSourceLinesForMatchedFunctionsResult>();
         Runner::build_source_lines_for_matched_functions(options);
-        return result;
-    };
-}
-
-AsyncBuildSourceLinesForBundledFunctionsCommand::AsyncBuildSourceLinesForBundledFunctionsCommand(
-    BuildSourceLinesForBundledFunctionsOptions &&o) :
-    options(std::move(o))
-{
-    WorkQueueCommand::work = [this]() {
-        auto result = std::make_unique<AsyncBuildSourceLinesForBundledFunctionsResult>();
-        Runner::build_source_lines_for_bundled_functions(options);
         return result;
     };
 }
@@ -209,17 +188,6 @@ AsyncLoadSourceFilesForMatchedFunctionsCommand::AsyncLoadSourceFilesForMatchedFu
     };
 }
 
-AsyncLoadSourceFilesForBundledFunctionsCommand::AsyncLoadSourceFilesForBundledFunctionsCommand(
-    LoadSourceFilesForBundledFunctionsOptions &&o) :
-    options(std::move(o))
-{
-    WorkQueueCommand::work = [this]() {
-        auto result = std::make_unique<AsyncLoadSourceFilesForBundledFunctionsResult>();
-        result->success = Runner::load_source_files_for_bundled_functions(options);
-        return result;
-    };
-}
-
 AsyncLoadSourceFilesForSelectedFunctionsCommand::AsyncLoadSourceFilesForSelectedFunctionsCommand(
     LoadSourceFilesForSelectedFunctionsOptions &&o) :
     options(std::move(o))
@@ -248,17 +216,6 @@ AsyncBuildComparisonRecordsForMatchedFunctionsCommand::AsyncBuildComparisonRecor
     WorkQueueCommand::work = [this]() {
         auto result = std::make_unique<AsyncBuildComparisonRecordsForMatchedFunctionsResult>();
         Runner::build_comparison_records_for_matched_functions(options);
-        return result;
-    };
-}
-
-AsyncBuildComparisonRecordsForBundledFunctionsCommand::AsyncBuildComparisonRecordsForBundledFunctionsCommand(
-    BuildComparisonRecordsForBundledFunctionsOptions &&o) :
-    options(std::move(o))
-{
-    WorkQueueCommand::work = [this]() {
-        auto result = std::make_unique<AsyncBuildComparisonRecordsForBundledFunctionsResult>();
-        Runner::build_comparison_records_for_bundled_functions(options);
         return result;
     };
 }
